@@ -3,4 +3,4 @@ def greet(name: str = "OOTP") -> None:
 
 
 if __name__ == "__main__":
-    greet("Robert")
+    greet("Robert2")
