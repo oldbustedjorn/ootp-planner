@@ -1,16 +1,19 @@
 {
   // Use your venv Python
   "python.defaultInterpreterPath": ".venv\\Scripts\\python.exe",
-
   // Format on save with Black
   "editor.formatOnSave": true,
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter"
   },
-
-  // Ruff: fast linter; fix what it safely can on save
+  // Ruff: linting only, Black handles formatting
+  "ruff.enable": true,
   "ruff.lint.enable": true,
-  "ruff.lint.run": "onType",
-  "ruff.format.enable": false, // we let Black handle formatting
-  "ruff.fixAll": true
+  "ruff.lint.select": [
+    "ALL"
+  ],
+  "ruff.format.enable": false,
+  "ruff.fixAll": true,
+  // Pylance type checking
+  "python.analysis.typeCheckingMode": "standard"
 }
