@@ -1,0 +1,21 @@
+[paths]
+online_data_dir = "E:/Out of the Park Developments/OOTP Baseball 26/data/online_data"
+hitters_csv = "E:/Out of the Park Developments/OOTP Baseball 26/data/online_data/collection_-_manage_cards_collection_-_manage_cards_gpt_batters_2.csv"
+pitchers_csv = "E:/Out of the Park Developments/OOTP Baseball 26/data/online_data/collection_-_manage_cards_collection_-_manage_cards_gpt_pitchers_2.csv"
+output_dir = "outputs"
+
+[defaults]
+profile = "both"
+
+[hitters]
+defense_scale = 0.70
+vs_rhp_weight = 0.70
+vs_lhp_weight = 0.30
+
+[pitchers]
+starter_min_stamina = 60
+starter_min_good_pitches = 3
+starter_stamina_gate_penalty = 1000000
+starter_pitch_gate_penalty = 250000
+vs_rhb_weight = 0.70
+vs_lhb_weight = 0.30
