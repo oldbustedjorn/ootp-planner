@@ -1,8 +1,7 @@
 from __future__ import annotations
-from ootp_opt.domain.rating import add_hitter_and_position_scores, HitterRoleWeights
 
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Any
 
 import pandas as pd
 
@@ -13,31 +12,49 @@ from ootp_opt.domain.rating import (
     rate_pitchers_basic,
     add_pitcher_role_scores,
     PitcherRoleWeights,
+    add_hitter_and_position_scores,
+    HitterRoleWeights,
 )
-
 from ootp_opt.ingest.pt_hitters import load_pt_cards_csv
 from ootp_opt.ingest.pt_pitchers import load_pt_pitchers_csv
-
 
 Profile = Literal["hitters", "pitchers"]
 
 
-def rate_cards_service(input_path: Path, profile: Profile = "hitters") -> pd.DataFrame:
-    """End-to-end: ingest → rate → sort."""
+def rate_cards_service(
+    input_path: Path,
+    profile: Profile = "hitters",
+    config: dict[str, Any] | None = None,
+) -> pd.DataFrame:
+    config = config or {}
 
     if profile == "hitters":
         df = load_pt_cards_csv(input_path)
-        scored = add_hitter_and_position_scores(df, HitterRoleWeights())
-        # Default sort: overall bat (you can switch to a position column anytime)
+
+        hitter_cfg = config.get("hitters", {})
+        hitter_weights = HitterRoleWeights(
+            defense_scale=hitter_cfg.get("defense_scale", 0.70),
+            vs_rhp_weight=hitter_cfg.get("vs_rhp_weight", 0.70),
+            vs_lhp_weight=hitter_cfg.get("vs_lhp_weight", 0.30),
+        )
+
+        scored = add_hitter_and_position_scores(df, hitter_weights)
         return scored.sort_values("hitter_score_overall", ascending=False)
 
     elif profile == "pitchers":
         df = load_pt_pitchers_csv(input_path)
 
-        # Add starter / reliever role scores
-        scored = add_pitcher_role_scores(df, PitcherRoleWeights())
+        pitcher_cfg = config.get("pitchers", {})
+        pitcher_weights = PitcherRoleWeights(
+            starter_min_stamina=pitcher_cfg.get("starter_min_stamina", 60),
+            starter_min_good_pitches=pitcher_cfg.get("starter_min_good_pitches", 3),
+            starter_stamina_gate_penalty=pitcher_cfg.get("starter_stamina_gate_penalty", 1_000_000),
+            starter_pitch_gate_penalty=pitcher_cfg.get("starter_pitch_gate_penalty", 250_000),
+            vs_rhb_weight=pitcher_cfg.get("vs_rhb_weight", 0.70),
+            vs_lhb_weight=pitcher_cfg.get("vs_lhb_weight", 0.30),
+        )
 
-        # Default sort: starter overall (easiest for rotation building)
+        scored = add_pitcher_role_scores(df, pitcher_weights)
         return scored.sort_values("starter_score_overall", ascending=False)
 
     else:
