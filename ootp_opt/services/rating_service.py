@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal, Any
 
+from ootp_opt.services.shortlist_service import generate_hitter_shortlists
+
 import pandas as pd
 
 from ootp_opt.domain.rating import (
@@ -39,6 +41,11 @@ def rate_cards_service(
         )
 
         scored = add_hitter_and_position_scores(df, hitter_weights)
+        shortlists = generate_hitter_shortlists(scored)
+
+        shortlist_path = Path(config.get("paths", {}).get("output_dir", "outputs")) / "shortlists_hitters.csv"
+        shortlists.to_csv(shortlist_path, index=False)
+
         return scored.sort_values("hitter_score_overall", ascending=False)
 
     elif profile == "pitchers":
