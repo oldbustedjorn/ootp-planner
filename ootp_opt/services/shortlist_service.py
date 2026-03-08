@@ -5,20 +5,21 @@ import pandas as pd
 POSITIONS = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"]
 
 
-def _eligible_positions(row: pd.Series) -> str:
-    """Return a comma-separated list of playable positions."""
-    eligible: list[str] = []
+def _playable_positions_with_ratings(row: pd.Series) -> str:
+    """Return a comma-separated list like SS(103),2B(118),3B(87)."""
+    playable: list[str] = []
 
     for pos in POSITIONS:
         fld_col = f"fld_{pos}"
         if fld_col in row and pd.notna(row[fld_col]):
             try:
-                if float(row[fld_col]) >= 1:
-                    eligible.append(pos)
+                rating = float(row[fld_col])
+                if rating >= 1:
+                    playable.append(f"{pos}({int(rating)})")
             except (TypeError, ValueError):
                 pass
 
-    return ",".join(eligible)
+    return ",".join(playable)
 
 
 def generate_hitter_shortlists(df: pd.DataFrame, top_n: int = 15) -> pd.DataFrame:
@@ -41,7 +42,7 @@ def generate_hitter_shortlists(df: pd.DataFrame, top_n: int = 15) -> pd.DataFram
                     "position": pos,
                     "rank": rank,
                     "name": r["name"],
-                    "eligible_positions": _eligible_positions(r),
+                    "playable_positions": _playable_positions_with_ratings(r),
                     "score": r[col],
                     "hitter_score_overall": r["hitter_score_overall"],
                     "score_vs_lhp": r.get(f"score_{pos}_vs_lhp", ""),
@@ -63,7 +64,7 @@ def generate_hitter_shortlists(df: pd.DataFrame, top_n: int = 15) -> pd.DataFram
                 "position": "vs_lhp",
                 "rank": rank,
                 "name": r["name"],
-                "eligible_positions": _eligible_positions(r),
+                "playable_positions": _playable_positions_with_ratings(r),
                 "score": r["hitter_score_vs_lhp"],
                 "hitter_score_overall": r["hitter_score_overall"],
                 "score_vs_lhp": r["hitter_score_vs_lhp"],
@@ -85,7 +86,7 @@ def generate_hitter_shortlists(df: pd.DataFrame, top_n: int = 15) -> pd.DataFram
                 "position": "vs_rhp",
                 "rank": rank,
                 "name": r["name"],
-                "eligible_positions": _eligible_positions(r),
+                "playable_positions": _playable_positions_with_ratings(r),
                 "score": r["hitter_score_vs_rhp"],
                 "hitter_score_overall": r["hitter_score_overall"],
                 "score_vs_lhp": r["hitter_score_vs_lhp"],
