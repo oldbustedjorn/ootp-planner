@@ -192,7 +192,7 @@ def add_pitcher_role_scores(
 
 @dataclass(frozen=True)
 class HitterRoleWeights:
-    # Pure hitting weights
+    # batting weights
     contact: float = 1.00
     power: float = 1.20
     eye: float = 0.85
@@ -200,37 +200,32 @@ class HitterRoleWeights:
     babip: float = 0.35
     avoid_k: float = 0.40
 
-    # Defense component weights (generic)
-    fld_pos: float = 1.00  # the position rating itself (fld_SS, fld_CF, etc.)
-
-    # Catcher component weights
+    # defense component weights
+    fld_pos: float = 1.00
     c_framing: float = 1.20
     c_blocking: float = 0.90
     c_arm: float = 0.70
-
-    # Infield component weights
     if_range: float = 1.10
     if_error: float = 0.60
     if_arm: float = 0.70
     turn_dp: float = 0.60
-
-    # Outfield component weights
     of_range: float = 1.10
     of_error: float = 0.55
     of_arm: float = 0.65
 
-    # Eligibility threshold: if fld_POS < this, treat as unplayable
+    # global settings
     min_pos_rating: float = 1.0
-
-    # Global multiplier applied to all defense contributions (lower = offense matters more)
     defense_scale: float = 0.70
-
-    # Overall weighting: you face more RHP than LHP
     vs_rhp_weight: float = 0.70
     vs_lhp_weight: float = 0.30
 
-    # Position-specific offense/defense blend (offense_weight, defense_weight)
-    # Narrower spread + less defense impact than the first draft.
+    # pinch run weights
+    pr_speed: float = 1.00
+    pr_baserunning: float = 0.80
+    pr_stealing_ability: float = 0.70
+    pr_stealing_aggressiveness: float = 0.40
+
+    # position-specific offense/defense blend
     pos_blend: dict[str, tuple[float, float]] = field(
         default_factory=lambda: {
             "C": (0.90, 1.10),
@@ -321,10 +316,10 @@ def add_hitter_and_position_scores(
 
     # Pinch running role score
     scored["pinch_run_score"] = (
-        scored["speed"] * 1.0
-        + scored["baserunning"] * 0.8
-        + scored["stealing_ability"] * 0.7
-        + scored["stealing_aggressiveness"] * 0.4
+    scored["speed"] * weights.pr_speed
+    + scored["baserunning"] * weights.pr_baserunning
+    + scored["stealing_ability"] * weights.pr_stealing_ability
+    + scored["stealing_aggressiveness"] * weights.pr_stealing_aggressiveness
 )
 
     # --- Defense helper scores ---

@@ -11,11 +11,65 @@ profile = "both"
 defense_scale = 0.70
 vs_rhp_weight = 0.70
 vs_lhp_weight = 0.30
+min_pos_rating = 1.0
+
+# batting weights
+contact = 1.00
+power = 1.20
+eye = 0.85
+gap_power = 0.55
+babip = 0.35
+avoid_k = 0.40
+
+# pinch-running weights
+pr_speed = 1.00
+pr_baserunning = 0.80
+pr_stealing_ability = 0.70
+pr_stealing_aggressiveness = 0.40
+
+# defensive component weights
+fld_pos = 1.00
+c_framing = 1.20
+c_blocking = 0.90
+c_arm = 0.70
+if_range = 1.10
+if_error = 0.60
+if_arm = 0.70
+turn_dp = 0.60
+of_range = 1.10
+of_error = 0.55
+of_arm = 0.65
+
+# position blends: offense, defense
+[position_blends]
+C = [0.90, 1.10]
+SS = [0.92, 1.05]
+CF = [0.93, 1.03]
+2B = [0.94, 1.00]
+3B = [0.95, 0.98]
+RF = [0.96, 0.95]
+LF = [0.97, 0.92]
+1B = [0.98, 0.80]
 
 [pitchers]
+vs_rhb_weight = 0.70
+vs_lhb_weight = 0.30
+
+# base pitching weights
+stuff = 1.30
+movement = 1.10
+control = 1.00
+pbabip = 0.30
+hr_rate = 0.40
+
+# starter modifiers
+stamina = 0.35
+pitch_count = 8.0
+pitch_threshold = 60.0
 starter_min_stamina = 60
 starter_min_good_pitches = 3
 starter_stamina_gate_penalty = 1000000
 starter_pitch_gate_penalty = 250000
-vs_rhb_weight = 0.70
-vs_lhb_weight = 0.30
+
+# reliever modifier
+reliever_mult = 1.05
