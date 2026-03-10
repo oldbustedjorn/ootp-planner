@@ -314,6 +314,18 @@ def add_hitter_and_position_scores(
     scored["hitter_score_vs_rhp"] * weights.vs_rhp_weight
     + scored["hitter_score_vs_lhp"] * weights.vs_lhp_weight
     )
+    # Clear aliases so batting is easy to read in outputs
+    scored["batting_score_vs_lhp"] = scored["hitter_score_vs_lhp"]
+    scored["batting_score_vs_rhp"] = scored["hitter_score_vs_rhp"]
+    scored["batting_score_overall"] = scored["hitter_score_overall"]
+
+    # Pinch running role score
+    scored["pinch_run_score"] = (
+        scored["speed"] * 1.0
+        + scored["baserunning"] * 0.8
+        + scored["stealing_ability"] * 0.7
+        + scored["stealing_aggressiveness"] * 0.4
+)
 
     # --- Defense helper scores ---
     # Ensure defense fields exist (if missing, treat as 0)
