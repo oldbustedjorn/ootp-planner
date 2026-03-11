@@ -77,24 +77,22 @@ def rate_pitchers_basic(df: pd.DataFrame, weights: PitcherRatingWeights = Pitche
 
 @dataclass(frozen=True)
 class PitcherRoleWeights:
-    # Base components (apply to both SP/RP)
     stuff: float = 1.30
     movement: float = 1.10
     control: float = 1.00
     pbabip: float = 0.30
     hr_rate: float = 0.40
 
-    # Starter-only modifiers
     stamina: float = 0.35
-    pitch_count: float = 8.0        # points per "good" pitch
-    pitch_threshold: float = 60.0   # pitch rating counted as "good"
+    pitch_count: float = 8.0
+    pitch_threshold: float = 60.0
+
+    reliever_mult: float = 1.05
+
     starter_min_stamina: float = 60.0
-    starter_stamina_gate_penalty: float = 1_000_000.0  # effectively "not a starter"
+    starter_stamina_gate_penalty: float = 1_000_000.0
     starter_min_good_pitches: int = 3
     starter_pitch_gate_penalty: float = 250_000.0
-
-    # Reliever-only modifier
-    reliever_mult: float = 1.05
 
     vs_rhb_weight: float = 0.70
     vs_lhb_weight: float = 0.30
