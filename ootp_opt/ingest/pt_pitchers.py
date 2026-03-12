@@ -119,11 +119,11 @@ def load_pt_pitchers_csv(path: Path) -> pd.DataFrame:
             f"OOTP26 pitchers export missing expected columns: {missing}\n"
             f"Columns found: {list(df_raw.columns)}"
         )
-        if "HRR" not in df_raw.columns and "HRA" not in df_raw.columns:
-            raise ValueError(
-                "Pitchers export is missing both HRR and HRA columns.\n"
-                f"Columns found: {list(df_raw.columns)}"
-            )
+    if "HRR" not in df_raw.columns and "HRA" not in df_raw.columns:
+        raise ValueError(
+            "Pitchers export is missing both HRR and HRA columns.\n"
+            f"Columns found: {list(df_raw.columns)}"
+        )
         
     df = df_raw.rename(columns=OOTP26_PITCHER_RENAME)
     df = _rename_duplicate_p_columns(df)
