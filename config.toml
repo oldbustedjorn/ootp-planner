@@ -1,7 +1,7 @@
 [paths]
-online_data_dir = "E:/Out of the Park Developments/OOTP Baseball 26/data/online_data"
-hitters_csv = "E:/Out of the Park Developments/OOTP Baseball 26/data/online_data/collection_-_manage_cards_collection_-_manage_cards_gpt_batters_2.csv"
-pitchers_csv = "E:/Out of the Park Developments/OOTP Baseball 26/data/online_data/collection_-_manage_cards_collection_-_manage_cards_gpt_pitchers_2.csv"
+online_data_dir = "E:/Out of the Park Developments/OOTP Baseball 27/data/online_data"
+hitters_csv = "E:/Out of the Park Developments/OOTP Baseball 27/data/online_data/collection_-_manage_cards_collection_-_manage_cards_gpt_batters.csv"
+pitchers_csv = "E:/Out of the Park Developments/OOTP Baseball 27/data/online_data/collection_-_manage_cards_collection_-_manage_cards_gpt_pitchers.csv"
 output_dir = "outputs"
 
 [defaults]
