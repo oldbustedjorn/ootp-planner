@@ -118,16 +118,28 @@ def _coerce_yes_no_to_bool(series: pd.Series) -> pd.Series:
 
 
 def _rename_fielding_position_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Rename duplicate position columns into explicit current vs potential names."""
+    """Rename fielding position columns into explicit current vs potential names.
+
+    Supports both:
+      - OOTP 26 style duplicate columns that pandas mangles to .1
+        e.g. P, C, 1B ... and P.1, C.1, 1B.1 ...
+      - OOTP 27 style explicit suffixes
+        e.g. P, C, 1B ... and P_1, C_1, 1B_1 ...
+    """
     rename_map: Dict[str, str] = {}
 
     for pos in POSITION_COLS:
         cur = pos
-        pot = f"{pos}.1"  # pandas mangles duplicates with ".1"
+        pot_dot = f"{pos}.1"   # old pandas-mangled duplicate style
+        pot_us = f"{pos}_1"    # new OOTP 27 explicit style
+
         if cur in df.columns:
             rename_map[cur] = f"fld_{pos}"
-        if pot in df.columns:
-            rename_map[pot] = f"pot_{pos}"
+
+        if pot_dot in df.columns:
+            rename_map[pot_dot] = f"pot_{pos}"
+        elif pot_us in df.columns:
+            rename_map[pot_us] = f"pot_{pos}"
 
     return df.rename(columns=rename_map)
 
