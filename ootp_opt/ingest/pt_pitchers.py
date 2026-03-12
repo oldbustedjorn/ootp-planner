@@ -18,7 +18,6 @@ OOTP26_PITCHER_REQUIRED = [
     "MOV",
     "CON",
     "PBABIP",
-    "HRR",
 ]
 
 OOTP26_PITCHER_RENAME: Dict[str, str] = {
@@ -35,20 +34,23 @@ OOTP26_PITCHER_RENAME: Dict[str, str] = {
     "CON": "control",
     "PBABIP": "pbabip",
     "HRR": "hr_rate",
+    "HRA": "hr_rate",
 
-    # Splits vs LHB (LHP in UI)
+    # Splits vs LHB
     "STU vL": "stuff_vs_lhb",
     "MOV vL": "movement_vs_lhb",
     "CON vL": "control_vs_lhb",
     "PBABIP vL": "pbabip_vs_lhb",
     "HRR vL": "hr_rate_vs_lhb",
+    "HRA vL": "hr_rate_vs_lhb",
 
-    # Splits vs RHB (RHP in UI)
+    # Splits vs RHB
     "STU vR": "stuff_vs_rhb",
     "MOV vR": "movement_vs_rhb",
     "CON vR": "control_vs_rhb",
     "PBABIP vR": "pbabip_vs_rhb",
     "HRR vR": "hr_rate_vs_rhb",
+    "HRA vR": "hr_rate_vs_rhb",
 
     # Pitch arsenal
     "FB": "pitch_fb",
@@ -88,15 +90,22 @@ OOTP26_PITCHER_RENAME: Dict[str, str] = {
 
 
 def _rename_duplicate_p_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Your export includes two columns named 'P' (fielding at P, potential at P).
+    """Rename pitcher fielding columns into explicit current vs potential names.
 
-    pandas mangles duplicates as 'P' and 'P.1'. Rename to explicit names.
+    Supports both:
+      - OOTP 26 style duplicate columns that pandas mangles to P / P.1
+      - OOTP 27 style explicit suffixes P / P_1
     """
     rename_map: Dict[str, str] = {}
+
     if "P" in df.columns:
         rename_map["P"] = "fld_P"
+
     if "P.1" in df.columns:
         rename_map["P.1"] = "pot_P"
+    elif "P_1" in df.columns:
+        rename_map["P_1"] = "pot_P"
+
     return df.rename(columns=rename_map)
 
 
@@ -110,7 +119,12 @@ def load_pt_pitchers_csv(path: Path) -> pd.DataFrame:
             f"OOTP26 pitchers export missing expected columns: {missing}\n"
             f"Columns found: {list(df_raw.columns)}"
         )
-
+        if "HRR" not in df_raw.columns and "HRA" not in df_raw.columns:
+            raise ValueError(
+                "Pitchers export is missing both HRR and HRA columns.\n"
+                f"Columns found: {list(df_raw.columns)}"
+            )
+        
     df = df_raw.rename(columns=OOTP26_PITCHER_RENAME)
     df = _rename_duplicate_p_columns(df)
 
