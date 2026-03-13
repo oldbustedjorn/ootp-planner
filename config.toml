@@ -14,12 +14,12 @@ vs_lhp_weight = 0.30
 min_pos_rating = 1.0
 
 # batting weights
-contact = 1.00
-power = 1.20
-eye = 0.85
-gap_power = 0.55
-babip = 0.35
-avoid_k = 0.40
+contact = 0.00
+power = 1.10
+eye = 1.00
+gap_power = 0.50
+babip = 1.25
+avoid_k = 0.85
 
 # pinch-running weights
 pr_speed = 1.00
@@ -56,11 +56,11 @@ vs_rhb_weight = 0.70
 vs_lhb_weight = 0.30
 
 # base pitching weights
-stuff = 1.30
-movement = 1.10
-control = 1.00
-pbabip = 0.30
-hr_rate = 0.40
+stuff = 1.00
+movement = 0.00
+control = 0.80
+pbabip = 1.30
+hr_rate = 1.20
 
 # starter modifiers
 stamina = 0.35
