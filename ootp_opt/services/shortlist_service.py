@@ -69,7 +69,6 @@ def generate_hitter_shortlists(df: pd.DataFrame, top_n: int = 15) -> pd.DataFram
                     "playable_positions": _playable_positions_with_ratings(r),
                     "best_positions_by_score": _best_positions_by_score(r),
                     "score": r[col],
-                    "hitter_score_overall": r["hitter_score_overall"],
                     "batting_score_overall": r.get("batting_score_overall", ""),
                     "batting_score_vs_lhp": r.get("batting_score_vs_lhp", ""),
                     "batting_score_vs_rhp": r.get("batting_score_vs_rhp", ""),

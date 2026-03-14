@@ -83,7 +83,7 @@ def rate_cards_service(
         )
 
         scored = add_hitter_and_position_scores(df, hitter_weights)
-        scored = scored.sort_values("hitter_score_overall", ascending=False)
+        scored = scored.sort_values("batting_score_overall", ascending=False)
 
         # Also write hitter shortlists during the default rating flow
         output_dir = Path(config.get("paths", {}).get("output_dir", "outputs"))
@@ -99,24 +99,29 @@ def rate_cards_service(
         pitcher_cfg = config.get("pitchers", {})
 
         pitcher_weights = PitcherRoleWeights(
-            stuff=pitcher_cfg.get("stuff", 1.30),
-            movement=pitcher_cfg.get("movement", 1.10),
-            control=pitcher_cfg.get("control", 1.00),
-            pbabip=pitcher_cfg.get("pbabip", 0.30),
-            hr_rate=pitcher_cfg.get("hr_rate", 0.40),
+            vs_rhb_weight=pitcher_cfg.get("vs_rhb_weight", 0.70),
+            vs_lhb_weight=pitcher_cfg.get("vs_lhb_weight", 0.30),
 
-            stamina=pitcher_cfg.get("stamina", 0.35),
+            sp_stuff=pitcher_cfg.get("sp_stuff", 1.00),
+            sp_movement=pitcher_cfg.get("sp_movement", 0.00),
+            sp_pbabip=pitcher_cfg.get("sp_pbabip", 1.30),
+            sp_hr_rate=pitcher_cfg.get("sp_hr_rate", 1.20),
+            sp_control=pitcher_cfg.get("sp_control", 0.80),
+
+            rp_stuff=pitcher_cfg.get("rp_stuff", 1.30),
+            rp_movement=pitcher_cfg.get("rp_movement", 0.00),
+            rp_pbabip=pitcher_cfg.get("rp_pbabip", 1.10),
+            rp_hr_rate=pitcher_cfg.get("rp_hr_rate", 1.00),
+            rp_control=pitcher_cfg.get("rp_control", 0.80),
+
+            stamina=pitcher_cfg.get("stamina", 0.00),
             pitch_count=pitcher_cfg.get("pitch_count", 8.0),
             pitch_threshold=pitcher_cfg.get("pitch_threshold", 60.0),
-            reliever_mult=pitcher_cfg.get("reliever_mult", 1.05),
 
             starter_min_stamina=pitcher_cfg.get("starter_min_stamina", 60),
             starter_min_good_pitches=pitcher_cfg.get("starter_min_good_pitches", 3),
             starter_stamina_gate_penalty=pitcher_cfg.get("starter_stamina_gate_penalty", 1_000_000),
             starter_pitch_gate_penalty=pitcher_cfg.get("starter_pitch_gate_penalty", 250_000),
-
-            vs_rhb_weight=pitcher_cfg.get("vs_rhb_weight", 0.70),
-            vs_lhb_weight=pitcher_cfg.get("vs_lhb_weight", 0.30),
         )
 
         scored = add_pitcher_role_scores(df, pitcher_weights)

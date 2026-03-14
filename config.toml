@@ -55,15 +55,8 @@ LF = [0.97, 0.92]
 vs_rhb_weight = 0.70
 vs_lhb_weight = 0.30
 
-# base pitching weights
-stuff = 1.00
-movement = 0.00
-control = 0.80
-pbabip = 1.30
-hr_rate = 1.20
-
-# starter modifiers
-stamina = 0.35
+# starter gating / role settings
+stamina = 0.00
 pitch_count = 8.0
 pitch_threshold = 60.0
 starter_min_stamina = 60
@@ -71,5 +64,16 @@ starter_min_good_pitches = 3
 starter_stamina_gate_penalty = 1000000
 starter_pitch_gate_penalty = 250000
 
-# reliever modifier
-reliever_mult = 1.05
+# starter weights
+sp_stuff = 1.00
+sp_pbabip = 1.30
+sp_hr_rate = 1.20
+sp_control = 0.80
+sp_movement = 0.00
+
+# reliever weights
+rp_stuff = 1.30
+rp_pbabip = 1.10
+rp_hr_rate = 1.00
+rp_control = 0.80
+rp_movement = 0.00

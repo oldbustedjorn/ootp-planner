@@ -77,25 +77,33 @@ def rate_pitchers_basic(df: pd.DataFrame, weights: PitcherRatingWeights = Pitche
 
 @dataclass(frozen=True)
 class PitcherRoleWeights:
-    stuff: float = 1.30
-    movement: float = 1.10
-    control: float = 1.00
-    pbabip: float = 0.30
-    hr_rate: float = 0.40
+    # overall split weighting
+    vs_rhb_weight: float = 0.70
+    vs_lhb_weight: float = 0.30
 
-    stamina: float = 0.35
+    # starter base weights
+    sp_stuff: float = 1.00
+    sp_movement: float = 0.00
+    sp_pbabip: float = 1.30
+    sp_hr_rate: float = 1.20
+    sp_control: float = 0.80
+
+    # reliever base weights
+    rp_stuff: float = 1.30
+    rp_movement: float = 0.00
+    rp_pbabip: float = 1.10
+    rp_hr_rate: float = 1.00
+    rp_control: float = 0.80
+
+    # starter-only modifiers
+    stamina: float = 0.00
     pitch_count: float = 8.0
     pitch_threshold: float = 60.0
-
-    reliever_mult: float = 1.05
 
     starter_min_stamina: float = 60.0
     starter_stamina_gate_penalty: float = 1_000_000.0
     starter_min_good_pitches: int = 3
     starter_pitch_gate_penalty: float = 250_000.0
-
-    vs_rhb_weight: float = 0.70
-    vs_lhb_weight: float = 0.30
 
 
 def add_pitcher_role_scores(
@@ -127,20 +135,36 @@ def add_pitcher_role_scores(
     for c in pitch_cols:
         scored[c] = pd.to_numeric(scored[c], errors="coerce").fillna(0)
 
-    # Base vs LHB/RHB
-    base_vs_lhb = (
-        scored["stuff_vs_lhb"] * weights.stuff
-        + scored["movement_vs_lhb"] * weights.movement
-        + scored["control_vs_lhb"] * weights.control
-        + scored["pbabip_vs_lhb"] * weights.pbabip
-        + scored["hr_rate_vs_lhb"] * weights.hr_rate
+    # Starter base scores
+    sp_base_vs_lhb = (
+        scored["stuff_vs_lhb"] * weights.sp_stuff
+        + scored["movement_vs_lhb"] * weights.sp_movement
+        + scored["control_vs_lhb"] * weights.sp_control
+        + scored["pbabip_vs_lhb"] * weights.sp_pbabip
+        + scored["hr_rate_vs_lhb"] * weights.sp_hr_rate
     )
-    base_vs_rhb = (
-        scored["stuff_vs_rhb"] * weights.stuff
-        + scored["movement_vs_rhb"] * weights.movement
-        + scored["control_vs_rhb"] * weights.control
-        + scored["pbabip_vs_rhb"] * weights.pbabip
-        + scored["hr_rate_vs_rhb"] * weights.hr_rate
+    sp_base_vs_rhb = (
+        scored["stuff_vs_rhb"] * weights.sp_stuff
+        + scored["movement_vs_rhb"] * weights.sp_movement
+        + scored["control_vs_rhb"] * weights.sp_control
+        + scored["pbabip_vs_rhb"] * weights.sp_pbabip
+        + scored["hr_rate_vs_rhb"] * weights.sp_hr_rate
+    )
+
+    # Reliever base scores
+    rp_base_vs_lhb = (
+        scored["stuff_vs_lhb"] * weights.rp_stuff
+        + scored["movement_vs_lhb"] * weights.rp_movement
+        + scored["control_vs_lhb"] * weights.rp_control
+        + scored["pbabip_vs_lhb"] * weights.rp_pbabip
+        + scored["hr_rate_vs_lhb"] * weights.rp_hr_rate
+    )
+    rp_base_vs_rhb = (
+        scored["stuff_vs_rhb"] * weights.rp_stuff
+        + scored["movement_vs_rhb"] * weights.rp_movement
+        + scored["control_vs_rhb"] * weights.rp_control
+        + scored["pbabip_vs_rhb"] * weights.rp_pbabip
+        + scored["hr_rate_vs_rhb"] * weights.rp_hr_rate
     )
 
     # Starter bonuses
@@ -158,11 +182,11 @@ def add_pitcher_role_scores(
     scored["starter_pitch_count_good"] = good_pitch_count
     pitch_count_bonus = scored["starter_pitch_count_good"] * weights.pitch_count
 
-    scored["starter_score_vs_lhb"] = base_vs_lhb + stamina_bonus + pitch_count_bonus
-    scored["starter_score_vs_rhb"] = base_vs_rhb + stamina_bonus + pitch_count_bonus
+    scored["starter_score_vs_lhb"] = sp_base_vs_lhb + stamina_bonus + pitch_count_bonus
+    scored["starter_score_vs_rhb"] = sp_base_vs_rhb + stamina_bonus + pitch_count_bonus
     scored["starter_score_overall"] = (
-    scored["starter_score_vs_rhb"] * weights.vs_rhb_weight
-    + scored["starter_score_vs_lhb"] * weights.vs_lhb_weight
+        scored["starter_score_vs_rhb"] * weights.vs_rhb_weight
+        + scored["starter_score_vs_lhb"] * weights.vs_lhb_weight
     )
     # --- Starter gating rules ---
     low_stam = scored["stamina"] < weights.starter_min_stamina
@@ -177,14 +201,16 @@ def add_pitcher_role_scores(
     scored.loc[~low_stam & low_pitch, "starter_score_vs_rhb"] -= weights.starter_pitch_gate_penalty
 
     # Recompute overall after penalties
-    scored["starter_score_overall"] = (scored["starter_score_vs_lhb"] + scored["starter_score_vs_rhb"]) / 2
-
+    scored["starter_score_overall"] = (
+        scored["starter_score_vs_rhb"] * weights.vs_rhb_weight
+        + scored["starter_score_vs_lhb"] * weights.vs_lhb_weight
+    )
     # Reliever scores
-    scored["reliever_score_vs_lhb"] = base_vs_lhb * weights.reliever_mult
-    scored["reliever_score_vs_rhb"] = base_vs_rhb * weights.reliever_mult
+    scored["reliever_score_vs_lhb"] = rp_base_vs_lhb
+    scored["reliever_score_vs_rhb"] = rp_base_vs_rhb
     scored["reliever_score_overall"] = (
-    scored["reliever_score_vs_rhb"] * weights.vs_rhb_weight
-    + scored["reliever_score_vs_lhb"] * weights.vs_lhb_weight
+        scored["reliever_score_vs_rhb"] * weights.vs_rhb_weight
+        + scored["reliever_score_vs_lhb"] * weights.vs_lhb_weight
     )
     return scored
 
