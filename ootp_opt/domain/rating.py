@@ -381,7 +381,7 @@ def add_hitter_and_position_scores(
                 + scored["of_error"] * weights.of_error
                 + scored["of_arm"] * weights.of_arm
             )
-        return fld + comp
+        return scored[f"fld_{pos}"] * weights.fld_pos
 
     # --- Position scores (overall + splits) ---
     positions = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"]
