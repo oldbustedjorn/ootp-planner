@@ -168,6 +168,22 @@ Includes:
 
 ## Current Modeling Direction
 
+Recent Modeling Decisions
+
+Defensive Scoring
+-  Switched to using fld_POS (e.g., fld_SS, fld_1B) as the primary defensive input
+-  Removed additive use of component ratings (range, arm, etc.) to avoid double-counting
+-  Future direction may include small component-based adjustments, but not full recomposition
+
+Platoon Handling
+-  Current shortlist platoon rows use batting-only splits (batting_score_vs_lhp/rhp)
+-  These are useful for:
+   -  bench bats
+   -  DH evaluation
+-  Future direction:
+   -  use position-specific split scores (score_POS_vs_lhp/rhp)
+   -  enable true roster-level platoon decisions (offense + defense)
+
 ### Hitters
 Current focus:
 - pure batting score
