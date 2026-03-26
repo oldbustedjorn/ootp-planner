@@ -1,5 +1,5 @@
 {
-  "python.defaultInterpreterPath": ".venv\\Scripts\\python.exe",
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
   "python.terminal.activateEnvironment": true,
   "editor.formatOnSave": true,
   "[python]": {
@@ -15,5 +15,7 @@
   ],
   "ruff.format.enable": false,
   "ruff.fixAll": true,
-  "python.analysis.typeCheckingMode": "standard"
+  "python.analysis.typeCheckingMode": "standard",
+  "gitlens.gitkraken.cli.integration.enabled": false,
+  "gitlens.gitkraken.cli.insiders.enabled": false
 }
