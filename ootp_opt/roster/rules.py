@@ -98,6 +98,22 @@ def build_ruleset(profile_name: str, profile_cfg: dict[str, Any]) -> Ruleset:
             f"Roster profile '{profile_name}' is missing bench_role_requirements for: {missing_roles}"
         )
 
+    # --- basic validation (v1) ---
+
+    if not lineup_fill_order:
+        raise ValueError(f"Roster profile '{profile_name}' has no lineup_fill_order.")
+
+    if not bench_roles:
+        raise ValueError(f"Roster profile '{profile_name}' has no bench_roles.")
+
+    missing_roles = [
+        role for role in bench_roles if role not in bench_role_requirements
+    ]
+    if missing_roles:
+        raise ValueError(
+            f"Roster profile '{profile_name}' is missing bench_role_requirements for: {missing_roles}"
+        )
+
     return Ruleset(
         name=profile_name,
         mode=mode,
