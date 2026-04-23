@@ -116,11 +116,11 @@ RF = 65
 required_positions = ["C"]
 
 [roster_profiles.standard_pt.bench_role_requirements.IF]
-required_positions_any = ["SS", "2B"]
+required_positions = ["SS", "2B"]
 preferred_positions = ["SS", "2B", "3B", "1B"]
 
 [roster_profiles.standard_pt.bench_role_requirements.OF]
-required_positions_any = ["CF"]
+required_positions = ["CF","LF","RF"]
 preferred_positions = ["CF", "LF", "RF"]
 
 [roster_profiles.standard_pt.bench_role_requirements.UTIL]
