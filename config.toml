@@ -79,30 +79,50 @@ rp_control = 0.80
 rp_movement = 0.00
 
 [roster]
-default_profile = "standard_pt"
+# Base roster shape used when no explicit base profile is requested.
+default_base_profile = "standard_pt"
 
-[roster_profiles.standard_pt]
+# Generic tournament/settings defaults.
+# Empty strings, zeros, empty lists, and empty tables mean "not restricted".
+# These are meant to be overridden later by CLI/GUI inputs or a small test harness.
+[roster_build_defaults]
+tier_min = ""
+tier_max = ""
+card_value_min = 0
+card_value_max = 0
+variant_limit = 0
+live_mode = "all" # all, live, non_live
+card_year_min = 0
+card_year_max = 0
+simulation_year = 0
+point_cap_total = 0
+
+[roster_build_defaults.tier_slots]
+# Example future shape:
+# perfect = 2
+# diamond = 3
+# gold = 4
+# silver = 5
+# bronze = 6
+
+# Standard unrestricted Perfect Team roster shape.
+[roster_base_profiles.standard_pt]
 mode = "standard_pt"
 hitter_count = 13
 pitcher_count = 13
 dh_enabled = true
 platoons_allowed = false
-
 lineup_fill_order = ["C", "SS", "CF", "2B", "3B", "LF", "RF", "1B", "DH"]
-
 rotation_size = 5
 primary_rp_count = 6
 specialist_lhp_count = 1
 long_man_count = 1
 
 # v1 bench-building approach:
-# 1 backup C
-# 1 backup IF
-# 1 backup OF
-# 1 utility / gap-filler
+# 1 backup C, 1 backup IF, 1 backup OF, 1 utility / gap-filler
 bench_roles = ["C", "IF", "OF", "UTIL"]
 
-[roster_profiles.standard_pt.min_defense_by_position]
+[roster_base_profiles.standard_pt.min_defense_by_position]
 C = 80
 1B = 40
 2B = 60
@@ -112,17 +132,57 @@ LF = 65
 CF = 85
 RF = 65
 
-[roster_profiles.standard_pt.bench_role_requirements.C]
+[roster_base_profiles.standard_pt.bench_role_requirements.C]
 required_positions = ["C"]
 
-[roster_profiles.standard_pt.bench_role_requirements.IF]
+[roster_base_profiles.standard_pt.bench_role_requirements.IF]
 required_positions = ["SS", "2B"]
 preferred_positions = ["SS", "2B", "3B", "1B"]
 
-[roster_profiles.standard_pt.bench_role_requirements.OF]
-required_positions = ["CF","LF","RF"]
+[roster_base_profiles.standard_pt.bench_role_requirements.OF]
+required_positions = ["CF", "LF", "RF"]
 preferred_positions = ["CF", "LF", "RF"]
 
-[roster_profiles.standard_pt.bench_role_requirements.UTIL]
+[roster_base_profiles.standard_pt.bench_role_requirements.UTIL]
+required_positions_any = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"]
+preferred_positions = ["C", "SS", "CF", "2B", "3B", "LF", "RF", "1B"]
+
+# Playoff / open-tournament style roster shape.
+# Uses a 4-man rotation and an extra bench slot.
+[roster_base_profiles.playoff_pt]
+mode = "playoff_pt"
+hitter_count = 14
+pitcher_count = 12
+dh_enabled = true
+platoons_allowed = false
+lineup_fill_order = ["C", "SS", "CF", "2B", "3B", "LF", "RF", "1B", "DH"]
+rotation_size = 4
+primary_rp_count = 6
+specialist_lhp_count = 1
+long_man_count = 1
+bench_roles = ["C", "IF", "OF", "UTIL", "UTIL"]
+
+[roster_base_profiles.playoff_pt.min_defense_by_position]
+C = 80
+1B = 40
+2B = 60
+3B = 60
+SS = 85
+LF = 65
+CF = 85
+RF = 65
+
+[roster_base_profiles.playoff_pt.bench_role_requirements.C]
+required_positions = ["C"]
+
+[roster_base_profiles.playoff_pt.bench_role_requirements.IF]
+required_positions = ["SS", "2B"]
+preferred_positions = ["SS", "2B", "3B", "1B"]
+
+[roster_base_profiles.playoff_pt.bench_role_requirements.OF]
+required_positions = ["CF", "LF", "RF"]
+preferred_positions = ["CF", "LF", "RF"]
+
+[roster_base_profiles.playoff_pt.bench_role_requirements.UTIL]
 required_positions_any = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"]
 preferred_positions = ["C", "SS", "CF", "2B", "3B", "LF", "RF", "1B"]
