@@ -83,6 +83,7 @@ OOTP26_HITTER_RENAME: Dict[str, str] = {
     "CTM": "pt_card_team",
     "CFR": "pt_card_franchise",
     "CYear": "pt_year",
+    "CVAL": "card_value",
     "CEra": "pt_era",
     "CType": "pt_type",
     "ST": "pt_subtype",
@@ -130,8 +131,8 @@ def _rename_fielding_position_columns(df: pd.DataFrame) -> pd.DataFrame:
 
     for pos in POSITION_COLS:
         cur = pos
-        pot_dot = f"{pos}.1"   # old pandas-mangled duplicate style
-        pot_us = f"{pos}_1"    # new OOTP 27 explicit style
+        pot_dot = f"{pos}.1"  # old pandas-mangled duplicate style
+        pot_us = f"{pos}_1"  # new OOTP 27 explicit style
 
         if cur in df.columns:
             rename_map[cur] = f"fld_{pos}"

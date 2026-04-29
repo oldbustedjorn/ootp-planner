@@ -27,7 +27,6 @@ OOTP26_PITCHER_RENAME: Dict[str, str] = {
     "Last Name": "last_name",
     "B": "bats",
     "T": "throws",
-
     # Core pitching ratings
     "STU": "stuff",
     "MOV": "movement",
@@ -35,7 +34,6 @@ OOTP26_PITCHER_RENAME: Dict[str, str] = {
     "PBABIP": "pbabip",
     "HRR": "hr_rate",
     "HRA": "hr_rate",
-
     # Splits vs LHB
     "STU vL": "stuff_vs_lhb",
     "MOV vL": "movement_vs_lhb",
@@ -43,7 +41,6 @@ OOTP26_PITCHER_RENAME: Dict[str, str] = {
     "PBABIP vL": "pbabip_vs_lhb",
     "HRR vL": "hr_rate_vs_lhb",
     "HRA vL": "hr_rate_vs_lhb",
-
     # Splits vs RHB
     "STU vR": "stuff_vs_rhb",
     "MOV vR": "movement_vs_rhb",
@@ -51,7 +48,6 @@ OOTP26_PITCHER_RENAME: Dict[str, str] = {
     "PBABIP vR": "pbabip_vs_rhb",
     "HRR vR": "hr_rate_vs_rhb",
     "HRA vR": "hr_rate_vs_rhb",
-
     # Pitch arsenal
     "FB": "pitch_fb",
     "CH": "pitch_ch",
@@ -65,21 +61,20 @@ OOTP26_PITCHER_RENAME: Dict[str, str] = {
     "SC": "pitch_sc",
     "KC": "pitch_kc",
     "KN": "pitch_kn",
-
     # Pitching profile
-    "PIT": "pitches",     # "Pitches" in UI
-    "G/F": "gb_fb",       # Ground/Fly
+    "PIT": "pitches",  # "Pitches" in UI
+    "G/F": "gb_fb",  # Ground/Fly
     "VELO": "velocity",
     "Slot": "arm_slot",
-    "PT": "type",         # "Type" in UI (pitcher type)
+    "PT": "type",  # "Type" in UI (pitcher type)
     "STM": "stamina",
     "HLD": "hold",
-
     # PT metadata
     "ACT": "pt_on_active",
     "CTM": "pt_card_team",
     "CFR": "pt_card_franchise",
     "CYear": "pt_year",
+    "CVAL": "card_value",
     "CEra": "pt_era",
     "CType": "pt_type",
     "ST": "pt_subtype",
@@ -124,7 +119,7 @@ def load_pt_pitchers_csv(path: Path) -> pd.DataFrame:
             "Pitchers export is missing both HRR and HRA columns.\n"
             f"Columns found: {list(df_raw.columns)}"
         )
-        
+
     df = df_raw.rename(columns=OOTP26_PITCHER_RENAME)
     df = _rename_duplicate_p_columns(df)
 
@@ -132,16 +127,42 @@ def load_pt_pitchers_csv(path: Path) -> pd.DataFrame:
 
     # Coerce numeric columns we know we’ll use
     numeric_cols: List[str] = [
-        "stuff", "movement", "control", "pbabip", "hr_rate",
-        "stuff_vs_lhb", "movement_vs_lhb", "control_vs_lhb", "pbabip_vs_lhb", "hr_rate_vs_lhb",
-        "stuff_vs_rhb", "movement_vs_rhb", "control_vs_rhb", "pbabip_vs_rhb", "hr_rate_vs_rhb",
+        "stuff",
+        "movement",
+        "control",
+        "pbabip",
+        "hr_rate",
+        "stuff_vs_lhb",
+        "movement_vs_lhb",
+        "control_vs_lhb",
+        "pbabip_vs_lhb",
+        "hr_rate_vs_lhb",
+        "stuff_vs_rhb",
+        "movement_vs_rhb",
+        "control_vs_rhb",
+        "pbabip_vs_rhb",
+        "hr_rate_vs_rhb",
         # Arsenal
-        "pitch_fb", "pitch_ch", "pitch_cb", "pitch_sl", "pitch_si", "pitch_sp",
-        "pitch_ct", "pitch_fo", "pitch_cc", "pitch_sc", "pitch_kc", "pitch_kn",
+        "pitch_fb",
+        "pitch_ch",
+        "pitch_cb",
+        "pitch_sl",
+        "pitch_si",
+        "pitch_sp",
+        "pitch_ct",
+        "pitch_fo",
+        "pitch_cc",
+        "pitch_sc",
+        "pitch_kc",
+        "pitch_kn",
         # Profile
-        "pitches", "velocity", "stamina", "hold",
+        "pitches",
+        "velocity",
+        "stamina",
+        "hold",
         # Fielding
-        "fld_P", "pot_P",
+        "fld_P",
+        "pot_P",
         # PT year
         "pt_year",
     ]

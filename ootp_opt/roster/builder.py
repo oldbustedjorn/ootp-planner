@@ -232,8 +232,18 @@ def build_hitter_bench(
         candidates = remaining.loc[eligible_mask].copy()
 
         if candidates.empty:
+            top_candidates = remaining.copy()
+            if role_name == "C" and "fld_C" in top_candidates.columns:
+                top_candidates = top_candidates.sort_values("fld_C", ascending=False)
+                detail = top_candidates[
+                    ["name", "fld_C", "batting_score_overall"]
+                ].head(10)
+            else:
+                detail = top_candidates[["name", "batting_score_overall"]].head(10)
+
             raise ValueError(
-                f"No eligible bench candidate found for role '{role_name}'"
+                f"No eligible bench candidate found for role '{role_name}'.\n"
+                f"Top remaining candidates:\n{detail.to_string(index=False)}"
             )
 
         all_positions = set(ruleset.min_defense_by_position.keys())
