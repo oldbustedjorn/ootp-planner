@@ -1,12 +1,20 @@
 from ootp_opt.config import load_config
-from ootp_opt.roster.rules import load_roster_profile
+from ootp_opt.roster.rules import build_ruleset_from_base_profile
 from ootp_opt.roster.eligibility import filter_eligible_hitters
 from ootp_opt.services.rating_service import rate_cards_service
 from ootp_opt.roster.builder import build_hitter_roster, get_player_covered_positions
 
-
 cfg = load_config("config.toml")
-ruleset = load_roster_profile(cfg, "standard_pt")
+
+ruleset = build_ruleset_from_base_profile(
+    cfg,
+    "playoff_pt",
+    overrides={
+        "tier_max": "diamond",
+        "live_mode": "non_live",
+        "card_value_max": 89,
+    },
+)
 
 hitters_df = rate_cards_service(
     input_path=cfg["paths"]["hitters_csv"],
@@ -15,6 +23,13 @@ hitters_df = rate_cards_service(
 )
 
 eligible_hitters = filter_eligible_hitters(hitters_df, ruleset)
+
+print("\n=== HITTER ELIGIBILITY SUMMARY ===")
+print(f"Hitters: {len(hitters_df)} -> {len(eligible_hitters)}")
+
+if eligible_hitters.empty:
+    raise ValueError("No eligible hitters after applying filters.")
+
 hitter_roster = build_hitter_roster(eligible_hitters, ruleset)
 
 print("\n=== STARTERS ===")
