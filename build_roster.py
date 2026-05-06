@@ -16,6 +16,13 @@ from ootp_opt.roster.eligibility import (
 from ootp_opt.roster.rules import build_ruleset_from_base_profile
 from ootp_opt.services.rating_service import rate_cards_service
 
+from ootp_opt.roster.lineup import (
+    build_lineup_depth_rows,
+    build_pinch_hitters,
+    build_pinch_runners,
+    format_lineup_depth_rows,
+)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build an OOTP roster from a ruleset.")
@@ -121,6 +128,29 @@ def main() -> None:
         print(
             f"{row['name']:<25}  bat={row['batting_score_overall']:.2f}  covers={covered}"
         )
+
+    print("\n=== LINEUP VS RHP / DEPTH ===")
+    rhp_rows = build_lineup_depth_rows(hitter_roster, ruleset, split="vs_rhp")
+    print(format_lineup_depth_rows(rhp_rows))
+
+    print("\n=== LINEUP VS LHP / DEPTH ===")
+    lhp_rows = build_lineup_depth_rows(hitter_roster, ruleset, split="vs_lhp")
+    print(format_lineup_depth_rows(lhp_rows))
+
+    print("\n=== PINCH HITTERS VS RHP ===")
+    pinch_hitters_rhp = build_pinch_hitters(hitter_roster.bench_players, split="vs_rhp")
+    for idx, (_, row) in enumerate(pinch_hitters_rhp.iterrows(), start=1):
+        print(f"{idx}. {row['name']:<25} {row['batting_score_vs_rhp']:.2f}")
+
+    print("\n=== PINCH HITTERS VS LHP ===")
+    pinch_hitters_lhp = build_pinch_hitters(hitter_roster.bench_players, split="vs_lhp")
+    for idx, (_, row) in enumerate(pinch_hitters_lhp.iterrows(), start=1):
+        print(f"{idx}. {row['name']:<25} {row['batting_score_vs_lhp']:.2f}")
+
+    print("\n=== PINCH RUNNERS ===")
+    pinch_runners = build_pinch_runners(hitter_roster.bench_players)
+    for idx, (_, row) in enumerate(pinch_runners.iterrows(), start=1):
+        print(f"{idx}. {row['name']:<25} {row['pinch_run_score']:.2f}")
 
     print("\n=== ROTATION ===")
     print(
