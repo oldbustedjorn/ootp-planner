@@ -23,6 +23,8 @@ from ootp_opt.roster.lineup import (
     format_lineup_depth_rows,
 )
 
+from ootp_opt.roster.html_export import export_roster_html
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build an OOTP roster from a ruleset.")
@@ -44,6 +46,8 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--card-year-min", type=int, default=None)
     parser.add_argument("--card-year-max", type=int, default=None)
+
+    parser.add_argument("--html-output", default=None)
 
     return parser.parse_args()
 
@@ -114,6 +118,25 @@ def main() -> None:
 
     hitter_roster = build_hitter_roster(eligible_hitters, ruleset)
     pitcher_roster = build_pitcher_roster(eligible_pitchers, ruleset)
+
+    eligibility_summary = {
+        "Hitters": f"{len(hitters_df)} -> {len(eligible_hitters)}",
+        "Pitchers": f"{len(pitchers_df)} -> {len(eligible_pitchers)}",
+    }
+
+    html_output = args.html_output
+    if html_output is None:
+        html_output = f"outputs/roster_build_{ruleset.name}.html"
+
+    export_roster_html(
+        path=html_output,
+        ruleset=ruleset,
+        hitter_roster=hitter_roster,
+        pitcher_roster=pitcher_roster,
+        eligibility_summary=eligibility_summary,
+    )
+
+    print(f"\nHTML roster written to: {html_output}")
 
     print("\n=== STARTERS ===")
     for position, row in hitter_roster.starters_by_position.items():
