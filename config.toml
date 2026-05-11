@@ -2,6 +2,7 @@
 online_data_dir = "E:/Out of the Park Developments/OOTP Baseball 27/data/online_data"
 hitters_csv = "E:/Out of the Park Developments/OOTP Baseball 27/data/online_data/collection_-_manage_cards_collection_-_manage_cards_gpt_batters.csv"
 pitchers_csv = "E:/Out of the Park Developments/OOTP Baseball 27/data/online_data/collection_-_manage_cards_collection_-_manage_cards_gpt_pitchers.csv"
+store_csv = "E:/Out of the Park Developments/OOTP Baseball 27/data/online_data/pt_card_list.csv"
 output_dir = "outputs"
 
 [defaults]
