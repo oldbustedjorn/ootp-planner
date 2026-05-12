@@ -218,6 +218,7 @@ def optimize_hitter_starter_assignments(
 def build_hitter_bench(
     df_remaining: pd.DataFrame,
     ruleset: Ruleset,
+    debug: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     remaining = df_remaining.copy()
     selected_rows = []
@@ -272,12 +273,15 @@ def build_hitter_bench(
         covered_by_bench |= selected_covered_positions
         remaining = remaining.drop(index=selected.index).copy()
 
-        print(f"\nRole: {role_name}")
-        print(f"Uncovered before pick: {sorted(uncovered_positions)}")
-        print(f"Selected: {selected_player['name']}")
-        print(f"Covers: {sorted(selected_covered_positions)}")
-        print(f"Covered by bench so far: {sorted(covered_by_bench)}")
-        print(f"Still uncovered after pick: {sorted(all_positions - covered_by_bench)}")
+        if debug:
+            print(f"\nRole: {role_name}")
+            print(f"Uncovered before pick: {sorted(uncovered_positions)}")
+            print(f"Selected: {selected_player['name']}")
+            print(f"Covers: {sorted(selected_covered_positions)}")
+            print(f"Covered by bench so far: {sorted(covered_by_bench)}")
+            print(
+                f"Still uncovered after pick: {sorted(all_positions - covered_by_bench)}"
+            )
 
     bench_players = pd.concat(selected_rows, ignore_index=False).copy()
     if "_bench_score" in bench_players.columns:
@@ -286,11 +290,19 @@ def build_hitter_bench(
     return bench_players, remaining
 
 
-def build_hitter_roster(df: pd.DataFrame, ruleset: Ruleset) -> HitterRoster:
+def build_hitter_roster(
+    df: pd.DataFrame,
+    ruleset: Ruleset,
+    debug: bool = False,
+) -> HitterRoster:
     greedy_starters, remaining = build_hitter_starters(df, ruleset)
     starters_by_position = optimize_hitter_starter_assignments(greedy_starters, ruleset)
 
-    bench_players, remaining = build_hitter_bench(remaining, ruleset)
+    bench_players, remaining = build_hitter_bench(
+        remaining,
+        ruleset,
+        debug=debug,
+    )
 
     return HitterRoster(
         starters_by_position=starters_by_position,

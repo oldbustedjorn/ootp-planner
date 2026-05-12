@@ -3,6 +3,7 @@ from ootp_opt.config import load_config
 from ootp_opt.ingest.pt_hitters import load_pt_cards_csv
 from ootp_opt.ingest.pt_pitchers import load_pt_pitchers_csv
 from ootp_opt.ingest.pt_store import load_pt_store_hitters_pitchers
+from ootp_opt.roster.upgrade_html_export import export_upgrade_html
 
 from ootp_opt.services.rating_service import (
     rate_hitters_df,
@@ -78,3 +79,12 @@ print(hitter_upgrades.head(25).to_string(index=False))
 
 print("\n=== TOP PITCHER UPGRADES ===")
 print(pitcher_upgrades.head(25).to_string(index=False))
+
+export_upgrade_html(
+    path="outputs/upgrade_finder.html",
+    hitter_upgrades=hitter_upgrades,
+    pitcher_upgrades=pitcher_upgrades,
+    title="OOTP Upgrade Finder",
+)
+
+print("\nHTML upgrade report written to: outputs/upgrade_finder.html")
