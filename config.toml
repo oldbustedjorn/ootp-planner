@@ -73,18 +73,20 @@ starter_min_good_pitches = 3
 starter_stamina_gate_penalty = 1000000
 starter_pitch_gate_penalty = 250000
 
+use_nonlinear_transforms = true
+
 # starter weights
-sp_stuff = 1.00
-sp_pbabip = 1.30
-sp_hr_rate = 1.20
-sp_control = 0.80
+sp_stuff = 1.05
+sp_pbabip = 1.00
+sp_hr_rate = 1.45
+sp_control = 1.10
 sp_movement = 0.00
 
 # reliever weights
-rp_stuff = 1.30
-rp_pbabip = 1.10
-rp_hr_rate = 1.00
-rp_control = 0.80
+rp_stuff = 1.35
+rp_pbabip = 0.85
+rp_hr_rate = 1.25
+rp_control = 0.90
 rp_movement = 0.00
 
 [roster]

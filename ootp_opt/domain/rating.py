@@ -12,6 +12,13 @@ from ootp_opt.domain.hitter_transforms import (
     power_value,
 )
 
+from ootp_opt.domain.pitcher_transforms import (
+    control_value,
+    hr_rate_value,
+    pbabip_value,
+    stuff_value,
+)
+
 
 @dataclass(frozen=True)
 class RatingWeights:
@@ -93,6 +100,9 @@ def rate_pitchers_basic(
 
 @dataclass(frozen=True)
 class PitcherRoleWeights:
+
+    use_nonlinear_transforms: bool = False
+
     # overall split weighting
     vs_rhb_weight: float = 0.70
     vs_lhb_weight: float = 0.30
@@ -120,6 +130,37 @@ class PitcherRoleWeights:
     starter_stamina_gate_penalty: float = 1_000_000.0
     starter_min_good_pitches: int = 3
     starter_pitch_gate_penalty: float = 250_000.0
+
+
+def score_pitcher_components(
+    stuff: pd.Series,
+    movement: pd.Series,
+    control: pd.Series,
+    pbabip: pd.Series,
+    hr_rate: pd.Series,
+    stuff_weight: float,
+    movement_weight: float,
+    control_weight: float,
+    pbabip_weight: float,
+    hr_rate_weight: float,
+    use_nonlinear_transforms: bool,
+) -> pd.Series:
+    if use_nonlinear_transforms:
+        return (
+            stuff.apply(stuff_value) * stuff_weight
+            + movement * movement_weight
+            + control.apply(control_value) * control_weight
+            + pbabip.apply(pbabip_value) * pbabip_weight
+            + hr_rate.apply(hr_rate_value) * hr_rate_weight
+        )
+
+    return (
+        stuff * stuff_weight
+        + movement * movement_weight
+        + control * control_weight
+        + pbabip * pbabip_weight
+        + hr_rate * hr_rate_weight
+    )
 
 
 def add_pitcher_role_scores(
@@ -171,36 +212,62 @@ def add_pitcher_role_scores(
     for c in pitch_cols:
         scored[c] = pd.to_numeric(scored[c], errors="coerce").fillna(0)
 
-    # Starter base scores
-    sp_base_vs_lhb = (
-        scored["stuff_vs_lhb"] * weights.sp_stuff
-        + scored["movement_vs_lhb"] * weights.sp_movement
-        + scored["control_vs_lhb"] * weights.sp_control
-        + scored["pbabip_vs_lhb"] * weights.sp_pbabip
-        + scored["hr_rate_vs_lhb"] * weights.sp_hr_rate
+        # Starter base scores
+    sp_base_vs_lhb = score_pitcher_components(
+        stuff=scored["stuff_vs_lhb"],
+        movement=scored["movement_vs_lhb"],
+        control=scored["control_vs_lhb"],
+        pbabip=scored["pbabip_vs_lhb"],
+        hr_rate=scored["hr_rate_vs_lhb"],
+        stuff_weight=weights.sp_stuff,
+        movement_weight=weights.sp_movement,
+        control_weight=weights.sp_control,
+        pbabip_weight=weights.sp_pbabip,
+        hr_rate_weight=weights.sp_hr_rate,
+        use_nonlinear_transforms=weights.use_nonlinear_transforms,
     )
-    sp_base_vs_rhb = (
-        scored["stuff_vs_rhb"] * weights.sp_stuff
-        + scored["movement_vs_rhb"] * weights.sp_movement
-        + scored["control_vs_rhb"] * weights.sp_control
-        + scored["pbabip_vs_rhb"] * weights.sp_pbabip
-        + scored["hr_rate_vs_rhb"] * weights.sp_hr_rate
+
+    sp_base_vs_rhb = score_pitcher_components(
+        stuff=scored["stuff_vs_rhb"],
+        movement=scored["movement_vs_rhb"],
+        control=scored["control_vs_rhb"],
+        pbabip=scored["pbabip_vs_rhb"],
+        hr_rate=scored["hr_rate_vs_rhb"],
+        stuff_weight=weights.sp_stuff,
+        movement_weight=weights.sp_movement,
+        control_weight=weights.sp_control,
+        pbabip_weight=weights.sp_pbabip,
+        hr_rate_weight=weights.sp_hr_rate,
+        use_nonlinear_transforms=weights.use_nonlinear_transforms,
     )
 
     # Reliever base scores
-    rp_base_vs_lhb = (
-        scored["stuff_vs_lhb"] * weights.rp_stuff
-        + scored["movement_vs_lhb"] * weights.rp_movement
-        + scored["control_vs_lhb"] * weights.rp_control
-        + scored["pbabip_vs_lhb"] * weights.rp_pbabip
-        + scored["hr_rate_vs_lhb"] * weights.rp_hr_rate
+    rp_base_vs_lhb = score_pitcher_components(
+        stuff=scored["stuff_vs_lhb"],
+        movement=scored["movement_vs_lhb"],
+        control=scored["control_vs_lhb"],
+        pbabip=scored["pbabip_vs_lhb"],
+        hr_rate=scored["hr_rate_vs_lhb"],
+        stuff_weight=weights.rp_stuff,
+        movement_weight=weights.rp_movement,
+        control_weight=weights.rp_control,
+        pbabip_weight=weights.rp_pbabip,
+        hr_rate_weight=weights.rp_hr_rate,
+        use_nonlinear_transforms=weights.use_nonlinear_transforms,
     )
-    rp_base_vs_rhb = (
-        scored["stuff_vs_rhb"] * weights.rp_stuff
-        + scored["movement_vs_rhb"] * weights.rp_movement
-        + scored["control_vs_rhb"] * weights.rp_control
-        + scored["pbabip_vs_rhb"] * weights.rp_pbabip
-        + scored["hr_rate_vs_rhb"] * weights.rp_hr_rate
+
+    rp_base_vs_rhb = score_pitcher_components(
+        stuff=scored["stuff_vs_rhb"],
+        movement=scored["movement_vs_rhb"],
+        control=scored["control_vs_rhb"],
+        pbabip=scored["pbabip_vs_rhb"],
+        hr_rate=scored["hr_rate_vs_rhb"],
+        stuff_weight=weights.rp_stuff,
+        movement_weight=weights.rp_movement,
+        control_weight=weights.rp_control,
+        pbabip_weight=weights.rp_pbabip,
+        hr_rate_weight=weights.rp_hr_rate,
+        use_nonlinear_transforms=weights.use_nonlinear_transforms,
     )
 
     # Starter bonuses

@@ -82,6 +82,7 @@ def build_pitcher_weights(config: dict[str, Any] | None = None) -> PitcherRoleWe
     pitcher_cfg = config.get("pitchers", {})
 
     return PitcherRoleWeights(
+        use_nonlinear_transforms=pitcher_cfg.get("use_nonlinear_transforms", False),
         vs_rhb_weight=pitcher_cfg.get("vs_rhb_weight", 0.70),
         vs_lhb_weight=pitcher_cfg.get("vs_lhb_weight", 0.30),
         sp_stuff=pitcher_cfg.get("sp_stuff", 1.00),
