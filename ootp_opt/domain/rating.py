@@ -4,6 +4,14 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
+from ootp_opt.domain.hitter_transforms import (
+    avoid_k_value,
+    babip_value,
+    eye_value,
+    gap_value,
+    power_value,
+)
+
 
 @dataclass(frozen=True)
 class RatingWeights:
@@ -11,9 +19,11 @@ class RatingWeights:
 
     MVP: keep it simple. Later this becomes presets/eras + PT vs franchise split.
     """
+
     contact: float = 1.0
     power: float = 1.2
     eye: float = 0.8
+
 
 @dataclass(frozen=True)
 class PitcherRatingWeights:
@@ -24,7 +34,9 @@ class PitcherRatingWeights:
     hr_rate: float = 0.35
 
 
-def rate_hitters_basic(df: pd.DataFrame, weights: RatingWeights = RatingWeights()) -> pd.DataFrame:
+def rate_hitters_basic(
+    df: pd.DataFrame, weights: RatingWeights = RatingWeights()
+) -> pd.DataFrame:
     """Compute a simple overall score from normalized columns.
 
     Expects normalized columns:
@@ -55,7 +67,10 @@ def rate_hitters_basic(df: pd.DataFrame, weights: RatingWeights = RatingWeights(
 
     return scored
 
-def rate_pitchers_basic(df: pd.DataFrame, weights: PitcherRatingWeights = PitcherRatingWeights()) -> pd.DataFrame:
+
+def rate_pitchers_basic(
+    df: pd.DataFrame, weights: PitcherRatingWeights = PitcherRatingWeights()
+) -> pd.DataFrame:
     """Simple pitcher score from normalized columns."""
     required = ["name", "stuff", "movement", "control", "pbabip", "hr_rate"]
     missing = [c for c in required if c not in df.columns]
@@ -74,6 +89,7 @@ def rate_pitchers_basic(df: pd.DataFrame, weights: PitcherRatingWeights = Pitche
         + scored["hr_rate"] * weights.hr_rate
     )
     return scored
+
 
 @dataclass(frozen=True)
 class PitcherRoleWeights:
@@ -113,13 +129,23 @@ def add_pitcher_role_scores(
     """Add starter/reliever role scores (overall + vs LHB/RHB)."""
 
     required = [
-        "stuff_vs_lhb", "movement_vs_lhb", "control_vs_lhb", "pbabip_vs_lhb", "hr_rate_vs_lhb",
-        "stuff_vs_rhb", "movement_vs_rhb", "control_vs_rhb", "pbabip_vs_rhb", "hr_rate_vs_rhb",
+        "stuff_vs_lhb",
+        "movement_vs_lhb",
+        "control_vs_lhb",
+        "pbabip_vs_lhb",
+        "hr_rate_vs_lhb",
+        "stuff_vs_rhb",
+        "movement_vs_rhb",
+        "control_vs_rhb",
+        "pbabip_vs_rhb",
+        "hr_rate_vs_rhb",
         "stamina",
     ]
     missing = [c for c in required if c not in df.columns]
     if missing:
-        raise ValueError(f"add_pitcher_role_scores() missing required columns: {missing}")
+        raise ValueError(
+            f"add_pitcher_role_scores() missing required columns: {missing}"
+        )
 
     scored = df.copy()
 
@@ -128,8 +154,18 @@ def add_pitcher_role_scores(
         scored[c] = pd.to_numeric(scored[c], errors="coerce").fillna(0)
 
     pitch_cols = [
-        "pitch_fb", "pitch_ch", "pitch_cb", "pitch_sl", "pitch_si", "pitch_sp",
-        "pitch_ct", "pitch_fo", "pitch_cc", "pitch_sc", "pitch_kc", "pitch_kn",
+        "pitch_fb",
+        "pitch_ch",
+        "pitch_cb",
+        "pitch_sl",
+        "pitch_si",
+        "pitch_sp",
+        "pitch_ct",
+        "pitch_fo",
+        "pitch_cc",
+        "pitch_sc",
+        "pitch_kc",
+        "pitch_kn",
     ]
     pitch_cols = [c for c in pitch_cols if c in scored.columns]
     for c in pitch_cols:
@@ -175,7 +211,9 @@ def add_pitcher_role_scores(
     else:
         # fallback if you ever export without per-pitch ratings
         if "pitches" in scored.columns:
-            good_pitch_count = pd.to_numeric(scored["pitches"], errors="coerce").fillna(0)
+            good_pitch_count = pd.to_numeric(scored["pitches"], errors="coerce").fillna(
+                0
+            )
         else:
             good_pitch_count = 0
 
@@ -197,8 +235,12 @@ def add_pitcher_role_scores(
     scored.loc[low_stam, "starter_score_vs_rhb"] -= weights.starter_stamina_gate_penalty
 
     # If stamina is OK but pitch depth is too low, penalize starter suitability
-    scored.loc[~low_stam & low_pitch, "starter_score_vs_lhb"] -= weights.starter_pitch_gate_penalty
-    scored.loc[~low_stam & low_pitch, "starter_score_vs_rhb"] -= weights.starter_pitch_gate_penalty
+    scored.loc[
+        ~low_stam & low_pitch, "starter_score_vs_lhb"
+    ] -= weights.starter_pitch_gate_penalty
+    scored.loc[
+        ~low_stam & low_pitch, "starter_score_vs_rhb"
+    ] -= weights.starter_pitch_gate_penalty
 
     # Recompute overall after penalties
     scored["starter_score_overall"] = (
@@ -214,6 +256,7 @@ def add_pitcher_role_scores(
     )
     return scored
 
+
 @dataclass(frozen=True)
 class HitterRoleWeights:
     # batting weights
@@ -223,6 +266,20 @@ class HitterRoleWeights:
     gap_power: float = 0.55
     babip: float = 0.35
     avoid_k: float = 0.40
+
+    # small offensive baserunning bonus
+    off_speed: float = 0.06
+    off_baserunning: float = 0.10
+    off_stealing_ability: float = 0.03
+    off_stealing_aggressiveness: float = 0.01
+
+    # pinch run weights
+    pr_speed: float = 1.00
+    pr_baserunning: float = 0.80
+    pr_stealing_ability: float = 0.70
+    pr_stealing_aggressiveness: float = 0.40
+
+    use_nonlinear_transforms: bool = False
 
     # defense component weights
     fld_pos: float = 1.00
@@ -243,12 +300,6 @@ class HitterRoleWeights:
     vs_rhp_weight: float = 0.70
     vs_lhp_weight: float = 0.30
 
-    # pinch run weights
-    pr_speed: float = 1.00
-    pr_baserunning: float = 0.80
-    pr_stealing_ability: float = 0.70
-    pr_stealing_aggressiveness: float = 0.40
-
     # position-specific offense/defense blend
     pos_blend: dict[str, tuple[float, float]] = field(
         default_factory=lambda: {
@@ -267,6 +318,34 @@ class HitterRoleWeights:
 def _num(df: pd.DataFrame, col: str) -> pd.Series:
     """Return numeric series (coerce + fill 0)."""
     return pd.to_numeric(df[col], errors="coerce").fillna(0)
+
+
+def score_hitter_batting_components(
+    contact: pd.Series,
+    power: pd.Series,
+    eye: pd.Series,
+    gap_power: pd.Series,
+    babip: pd.Series,
+    avoid_k: pd.Series,
+    weights: HitterRoleWeights,
+) -> pd.Series:
+    if weights.use_nonlinear_transforms:
+        return (
+            power.apply(power_value) * weights.power
+            + eye.apply(eye_value) * weights.eye
+            + avoid_k.apply(avoid_k_value) * weights.avoid_k
+            + gap_power.apply(gap_value) * weights.gap_power
+            + babip.apply(babip_value) * weights.babip
+        )
+
+    return (
+        contact * weights.contact
+        + power * weights.power
+        + eye * weights.eye
+        + gap_power * weights.gap_power
+        + babip * weights.babip
+        + avoid_k * weights.avoid_k
+    )
 
 
 def add_hitter_and_position_scores(
@@ -293,13 +372,34 @@ def add_hitter_and_position_scores(
     """
     required = [
         "name",
-        "contact", "power", "eye", "gap_power", "babip", "avoid_k",
-        "contact_vs_lhp", "power_vs_lhp", "eye_vs_lhp", "gap_vs_lhp", "babip_vs_lhp", "avoid_k_vs_lhp",
-        "contact_vs_rhp", "power_vs_rhp", "eye_vs_rhp", "gap_vs_rhp", "babip_vs_rhp", "avoid_k_vs_rhp",
+        "contact",
+        "power",
+        "eye",
+        "gap_power",
+        "babip",
+        "avoid_k",
+        "contact_vs_lhp",
+        "power_vs_lhp",
+        "eye_vs_lhp",
+        "gap_vs_lhp",
+        "babip_vs_lhp",
+        "avoid_k_vs_lhp",
+        "contact_vs_rhp",
+        "power_vs_rhp",
+        "eye_vs_rhp",
+        "gap_vs_rhp",
+        "babip_vs_rhp",
+        "avoid_k_vs_rhp",
+        "speed",
+        "baserunning",
+        "stealing_ability",
+        "stealing_aggressiveness",
     ]
     missing = [c for c in required if c not in df.columns]
     if missing:
-        raise ValueError(f"add_hitter_and_position_scores() missing required columns: {missing}")
+        raise ValueError(
+            f"add_hitter_and_position_scores() missing required columns: {missing}"
+        )
 
     scored = df.copy()
 
@@ -309,29 +409,40 @@ def add_hitter_and_position_scores(
         if c != "name":
             scored[c] = _num(scored, c)
 
-    def hitter_score(prefix: str) -> pd.Series:
-        # prefix is "" for overall, "_vs_lhp", "_vs_rhp"
-        c = "contact" + prefix
-        p = "power" + prefix
-        e = "eye" + prefix
-        g = ("gap_power" if prefix == "" else "gap" + prefix)
-        b = ("babip" if prefix == "" else "babip" + prefix)
-        k = ("avoid_k" if prefix == "" else "avoid_k" + prefix)
+        def hitter_score(prefix: str) -> pd.Series:
+            # prefix is "" for overall, "_vs_lhp", "_vs_rhp"
+            c = "contact" + prefix
+            p = "power" + prefix
+            e = "eye" + prefix
+            g = "gap_power" if prefix == "" else "gap" + prefix
+            b = "babip" if prefix == "" else "babip" + prefix
+            k = "avoid_k" if prefix == "" else "avoid_k" + prefix
 
-        return (
-            scored[c] * weights.contact
-            + scored[p] * weights.power
-            + scored[e] * weights.eye
-            + scored[g] * weights.gap_power
-            + scored[b] * weights.babip
-            + scored[k] * weights.avoid_k
+            return score_hitter_batting_components(
+                contact=scored[c],
+                power=scored[p],
+                eye=scored[e],
+                gap_power=scored[g],
+                babip=scored[b],
+                avoid_k=scored[k],
+                weights=weights,
+            )
+
+        scored["hitter_score_vs_lhp"] = hitter_score("_vs_lhp")
+        scored["hitter_score_vs_rhp"] = hitter_score("_vs_rhp")
+        scored["offensive_baserunning_bonus"] = (
+            scored["speed"] * weights.off_speed
+            + scored["baserunning"] * weights.off_baserunning
+            + scored["stealing_ability"] * weights.off_stealing_ability
+            + scored["stealing_aggressiveness"] * weights.off_stealing_aggressiveness
         )
 
-    scored["hitter_score_vs_lhp"] = hitter_score("_vs_lhp")
-    scored["hitter_score_vs_rhp"] = hitter_score("_vs_rhp")
+    scored["hitter_score_vs_lhp"] += scored["offensive_baserunning_bonus"]
+    scored["hitter_score_vs_rhp"] += scored["offensive_baserunning_bonus"]
+
     scored["hitter_score_overall"] = (
-    scored["hitter_score_vs_rhp"] * weights.vs_rhp_weight
-    + scored["hitter_score_vs_lhp"] * weights.vs_lhp_weight
+        scored["hitter_score_vs_rhp"] * weights.vs_rhp_weight
+        + scored["hitter_score_vs_lhp"] * weights.vs_lhp_weight
     )
     # Clear aliases so batting is easy to read in outputs
     scored["batting_score_vs_lhp"] = scored["hitter_score_vs_lhp"]
@@ -340,19 +451,33 @@ def add_hitter_and_position_scores(
 
     # Pinch running role score
     scored["pinch_run_score"] = (
-    scored["speed"] * weights.pr_speed
-    + scored["baserunning"] * weights.pr_baserunning
-    + scored["stealing_ability"] * weights.pr_stealing_ability
-    + scored["stealing_aggressiveness"] * weights.pr_stealing_aggressiveness
-)
+        scored["speed"] * weights.pr_speed
+        + scored["baserunning"] * weights.pr_baserunning
+        + scored["stealing_ability"] * weights.pr_stealing_ability
+        + scored["stealing_aggressiveness"] * weights.pr_stealing_aggressiveness
+    )
 
     # --- Defense helper scores ---
     # Ensure defense fields exist (if missing, treat as 0)
     for col in [
-        "c_framing", "c_blocking", "c_arm",
-        "if_range", "if_error", "if_arm", "turn_dp",
-        "of_range", "of_error", "of_arm",
-        "fld_C", "fld_1B", "fld_2B", "fld_3B", "fld_SS", "fld_LF", "fld_CF", "fld_RF",
+        "c_framing",
+        "c_blocking",
+        "c_arm",
+        "if_range",
+        "if_error",
+        "if_arm",
+        "turn_dp",
+        "of_range",
+        "of_error",
+        "of_arm",
+        "fld_C",
+        "fld_1B",
+        "fld_2B",
+        "fld_3B",
+        "fld_SS",
+        "fld_LF",
+        "fld_CF",
+        "fld_RF",
     ]:
         if col in scored.columns:
             scored[col] = _num(scored, col)
@@ -393,8 +518,12 @@ def add_hitter_and_position_scores(
         pos_ok = scored[f"fld_{pos}"] >= weights.min_pos_rating
         def_term = weights.defense_scale * def_score
 
-        scored[f"score_{pos}_vs_lhp"] = off_w * scored["hitter_score_vs_lhp"] + def_w * def_term
-        scored[f"score_{pos}_vs_rhp"] = off_w * scored["hitter_score_vs_rhp"] + def_w * def_term
+        scored[f"score_{pos}_vs_lhp"] = (
+            off_w * scored["hitter_score_vs_lhp"] + def_w * def_term
+        )
+        scored[f"score_{pos}_vs_rhp"] = (
+            off_w * scored["hitter_score_vs_rhp"] + def_w * def_term
+        )
         scored[f"score_{pos}_overall"] = (
             scored[f"score_{pos}_vs_rhp"] * weights.vs_rhp_weight
             + scored[f"score_{pos}_vs_lhp"] * weights.vs_lhp_weight

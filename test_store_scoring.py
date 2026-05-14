@@ -25,6 +25,14 @@ hitter_cols = [
     "score_C_overall",
     "score_SS_overall",
     "score_CF_overall",
+    "offensive_baserunning_bonus",
+    "power",
+    "eye",
+    "avoid_k",
+    "babip",
+    "gap_power",
+    "speed",
+    "baserunning",
 ]
 print(scored_hitters[hitter_cols].head(10).to_string(index=False))
 
