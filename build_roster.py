@@ -13,7 +13,11 @@ from ootp_opt.roster.eligibility import (
     filter_eligible_hitters,
     filter_eligible_pitchers,
 )
-from ootp_opt.roster.rules import build_ruleset_from_base_profile
+from ootp_opt.roster.rules import (
+    build_ruleset_from_base_profile,
+    build_ruleset_from_tournament_preset,
+)
+
 from ootp_opt.services.rating_service import rate_cards_service
 
 from ootp_opt.roster.lineup import (
@@ -31,6 +35,7 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--config", default="config.toml")
     parser.add_argument("--base-profile", default=None)
+    parser.add_argument("--preset", default=None)
 
     parser.add_argument("--tier-min", default=None)
     parser.add_argument("--tier-max", default=None)
@@ -42,6 +47,13 @@ def parse_args() -> argparse.Namespace:
         "--live-mode",
         choices=["all", "live", "non_live"],
         default=None,
+    )
+
+    parser.add_argument(
+        "--dh-enabled",
+        choices=["true", "false"],
+        default=None,
+        help="Override DH setting for the roster build.",
     )
 
     parser.add_argument("--card-year-min", type=int, default=None)
@@ -68,7 +80,43 @@ def build_overrides(args: argparse.Namespace) -> dict[str, Any]:
         if value is not None:
             overrides[field] = value
 
+    if args.dh_enabled is not None:
+        overrides["dh_enabled"] = args.dh_enabled.lower() == "true"
+
     return overrides
+
+
+def build_output_name(ruleset, overrides: dict[str, Any]) -> str:
+    parts = [ruleset.name]
+
+    if "dh_enabled" in overrides:
+        parts.append("dh" if ruleset.dh_enabled else "no_dh")
+
+    if ruleset.tier_min:
+        parts.append(f"tier_min_{ruleset.tier_min}")
+
+    if ruleset.tier_max:
+        parts.append(f"tier_max_{ruleset.tier_max}")
+
+    if ruleset.card_value_min is not None:
+        parts.append(f"cv_min_{ruleset.card_value_min}")
+
+    if ruleset.card_value_max is not None:
+        parts.append(f"cv_max_{ruleset.card_value_max}")
+
+    if ruleset.live_mode != "all":
+        parts.append(ruleset.live_mode)
+
+    if ruleset.card_year_min is not None:
+        parts.append(f"year_min_{ruleset.card_year_min}")
+
+    if ruleset.card_year_max is not None:
+        parts.append(f"year_max_{ruleset.card_year_max}")
+
+    safe_name = "_".join(parts)
+    safe_name = safe_name.replace(" ", "_").replace("/", "_")
+
+    return f"outputs/roster_build_{safe_name}.html"
 
 
 def main() -> None:
@@ -76,11 +124,18 @@ def main() -> None:
     cfg = load_config(args.config)
     overrides = build_overrides(args)
 
-    ruleset = build_ruleset_from_base_profile(
-        cfg,
-        base_profile_name=args.base_profile,
-        overrides=overrides,
-    )
+    if args.preset:
+        ruleset = build_ruleset_from_tournament_preset(
+            cfg,
+            preset_name=args.preset,
+            overrides=overrides,
+        )
+    else:
+        ruleset = build_ruleset_from_base_profile(
+            cfg,
+            base_profile_name=args.base_profile,
+            overrides=overrides,
+        )
 
     print("\n=== BUILD RULESET ===")
     print(f"Base profile: {ruleset.name}")
@@ -126,7 +181,7 @@ def main() -> None:
 
     html_output = args.html_output
     if html_output is None:
-        html_output = f"outputs/roster_build_{ruleset.name}.html"
+        html_output = build_output_name(ruleset, overrides)
 
     export_roster_html(
         path=html_output,

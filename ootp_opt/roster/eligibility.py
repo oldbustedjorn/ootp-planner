@@ -4,7 +4,6 @@ import pandas as pd
 
 from ootp_opt.roster.rules import Ruleset
 
-
 TIER_ORDER = {
     "iron": 0,
     "bronze": 1,

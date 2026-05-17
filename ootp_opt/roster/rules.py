@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from dataclasses import replace
+
 
 @dataclass(frozen=True)
 class BenchRoleRequirement:
@@ -88,6 +90,62 @@ def build_ruleset_from_base_profile(
     return build_ruleset(resolved_name, merged_cfg)
 
 
+TOURNAMENT_PRESET_RULESET_KEYS = {
+    "dh_enabled",
+    "platoons_allowed",
+    "tier_min",
+    "tier_max",
+    "card_value_min",
+    "card_value_max",
+    "live_mode",
+    "card_year_min",
+    "card_year_max",
+}
+
+
+def build_ruleset_from_tournament_preset(
+    cfg: dict,
+    preset_name: str,
+    overrides: dict | None = None,
+) -> Ruleset:
+    presets = cfg.get("tournament_presets", {})
+
+    if preset_name not in presets:
+        available = ", ".join(sorted(presets.keys())) or "(none)"
+        raise ValueError(
+            f"Tournament preset '{preset_name}' not found under "
+            f"[tournament_presets]. Available presets: {available}"
+        )
+
+    preset_cfg = presets[preset_name]
+    base_profile_name = preset_cfg.get("base_profile")
+
+    if not base_profile_name:
+        raise ValueError(
+            f"Tournament preset '{preset_name}' is missing required key "
+            f"'base_profile'."
+        )
+
+    preset_overrides = {
+        key: preset_cfg[key]
+        for key in TOURNAMENT_PRESET_RULESET_KEYS
+        if key in preset_cfg
+    }
+
+    final_overrides = {
+        **preset_overrides,
+        **(overrides or {}),
+    }
+
+    ruleset = build_ruleset_from_base_profile(
+        cfg,
+        base_profile_name=base_profile_name,
+        overrides=final_overrides,
+    )
+
+    return replace(ruleset, name=preset_name)
+
+
 # Backward-compatible wrapper for older test scripts/call sites.
 def load_roster_profile(
     config: dict[str, Any], profile_name: str | None = None
@@ -110,6 +168,17 @@ def build_ruleset(profile_name: str, profile_cfg: dict[str, Any]) -> Ruleset:
     long_man_count = int(profile_cfg.get("long_man_count", 1))
 
     bench_roles = [str(role) for role in profile_cfg.get("bench_roles", [])]
+
+    # Normalize roster shape for no-DH builds.
+    # If DH is disabled, remove DH from the starter fill order and convert
+    # the freed hitter slot into an extra UTIL bench role.
+    if not dh_enabled:
+        lineup_fill_order = [pos for pos in lineup_fill_order if pos != "DH"]
+
+    expected_bench_count = hitter_count - len(lineup_fill_order)
+
+    while len(bench_roles) < expected_bench_count:
+        bench_roles.append("UTIL")
 
     min_defense_raw = profile_cfg.get("min_defense_by_position", {})
     min_defense_by_position = {

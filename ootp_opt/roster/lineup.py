@@ -119,8 +119,10 @@ def build_lineup_order(
 
     players = [(position, player) for position, player in starters_by_position.items()]
 
-    if len(players) != 9:
-        raise ValueError(f"Expected 9 starters for lineup order, got {len(players)}.")
+    if len(players) not in {8, 9}:
+        raise ValueError(
+            f"Expected 8 or 9 starters for lineup order, got {len(players)}."
+        )
 
     ranked = sorted(
         players,
@@ -130,17 +132,29 @@ def build_lineup_order(
 
     # Simple modern-ish lineup heuristic:
     # best bats concentrated near 2/3/4, weakest at 8/9.
-    lineup = [
-        ranked[2],  # leadoff: strong bat, preserves top 2 for run production
-        ranked[0],  # best bat
-        ranked[1],  # second-best bat
-        ranked[3],  # cleanup-ish
-        ranked[4],
-        ranked[5],
-        ranked[6],
-        ranked[8],  # weakest
-        ranked[7],  # second weakest / "second leadoff"
-    ]
+    if len(ranked) == 9:
+        lineup = [
+            ranked[2],  # leadoff
+            ranked[0],  # best bat
+            ranked[1],  # second-best bat
+            ranked[3],
+            ranked[4],
+            ranked[5],
+            ranked[6],
+            ranked[8],  # weakest
+            ranked[7],  # second weakest
+        ]
+    else:
+        lineup = [
+            ranked[2],  # leadoff
+            ranked[0],  # best bat
+            ranked[1],  # second-best bat
+            ranked[3],
+            ranked[4],
+            ranked[5],
+            ranked[7],  # weakest
+            ranked[6],  # second weakest
+        ]
 
     if smooth_handedness:
         lineup = smooth_lineup_handedness(lineup, score_col=score_col)
