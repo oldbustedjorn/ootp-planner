@@ -24,6 +24,7 @@ def export_roster_html(
     hitter_roster: HitterRoster,
     pitcher_roster: PitcherRoster,
     eligibility_summary: dict[str, Any] | None = None,
+    change_statuses: dict[str, str] | None = None,
 ) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -33,6 +34,7 @@ def export_roster_html(
         hitter_roster=hitter_roster,
         pitcher_roster=pitcher_roster,
         eligibility_summary=eligibility_summary or {},
+        change_statuses=change_statuses or {},
     )
 
     path.write_text(html, encoding="utf-8")
@@ -43,6 +45,7 @@ def build_roster_html(
     hitter_roster: HitterRoster,
     pitcher_roster: PitcherRoster,
     eligibility_summary: dict[str, Any],
+    change_statuses: dict[str, str],
 ) -> str:
     return f"""<!doctype html>
 <html>
@@ -57,6 +60,7 @@ def build_roster_html(
   <h1>OOTP Roster Build: {escape(ruleset.name)}</h1>
 
   {render_build_summary(ruleset, eligibility_summary)}
+  {render_roster_checklist(hitter_roster, pitcher_roster, change_statuses)}
 
   <section class="screen two-col">
     {render_rotation(pitcher_roster)}
@@ -226,6 +230,119 @@ def render_lineup_panel(
   </table>
 </div>
 """
+
+
+def render_roster_checklist(
+    hitter_roster: HitterRoster,
+    pitcher_roster: PitcherRoster,
+    change_statuses: dict[str, str],
+) -> str:
+    rows = []
+
+    for position, row in hitter_roster.starters_by_position.items():
+        role = f"Starter {position}"
+        rows.append(
+            render_checklist_row(
+                row,
+                role=role,
+                status=change_statuses.get(role, ""),
+            )
+        )
+
+    for idx, (_, row) in enumerate(hitter_roster.bench_players.iterrows(), start=1):
+        role = f"Bench {idx}"
+        rows.append(
+            render_checklist_row(
+                row,
+                role=role,
+                status=change_statuses.get(role, ""),
+            )
+        )
+
+    for idx, (_, row) in enumerate(pitcher_roster.rotation.iterrows(), start=1):
+        role = f"SP{idx}"
+        rows.append(
+            render_checklist_row(
+                row,
+                role=role,
+                status=change_statuses.get(role, ""),
+            )
+        )
+
+    for idx, (_, row) in enumerate(pitcher_roster.bullpen.iterrows(), start=1):
+        role = f"RP{idx}"
+        rows.append(
+            render_checklist_row(
+                row,
+                role=role,
+                status=change_statuses.get(role, ""),
+            )
+        )
+
+    for idx, (_, row) in enumerate(pitcher_roster.lefty_specialist.iterrows(), start=1):
+        role = f"LHP Specialist {idx}"
+        rows.append(
+            render_checklist_row(
+                row,
+                role=role,
+                status=change_statuses.get(role, ""),
+            )
+        )
+
+    for idx, (_, row) in enumerate(pitcher_roster.long_man.iterrows(), start=1):
+        role = f"Long Man {idx}"
+        rows.append(
+            render_checklist_row(
+                row,
+                role=role,
+                status=change_statuses.get(role, ""),
+            )
+        )
+
+    return f"""
+<section class="screen">
+  <div class="panel">
+    <div class="panel-title">Roster Checklist</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Done</th>
+          <th>Role</th>
+          <th>Player</th>
+          <th>Value</th>
+          <th>Tier</th>
+          <th>Year</th>
+          <th>Type</th>
+        </tr>
+      </thead>
+      <tbody>{''.join(rows)}</tbody>
+    </table>
+  </div>
+</section>
+"""
+
+
+def render_checklist_row(
+    row: pd.Series,
+    role: str,
+    status: str = "",
+) -> str:
+    status_label = status.upper() if status else ""
+    css_class = f"checklist-{status}" if status else ""
+
+    return (
+        f"<tr class='{escape(css_class)}'>"
+        f"<td>{escape(status_label)}</td>"
+        f"<td><input type='checkbox'></td>"
+        f"<td>{escape(role)}</td>"
+        f"<td>{escape(str(row.get('name', '')))}</td>"
+        f"<td>{escape(str(row.get('card_value', '')))}</td>"
+        f"<td>{escape(str(row.get('pt_tier', '')))}</td>"
+        f"<td>{escape(str(row.get('pt_year', '')))}</td>"
+        f"<td>{escape(str(row.get('pt_type', '')))}</td>"
+        "</tr>"
+    )
 
 
 def render_depth_chart_panel(
@@ -419,6 +536,22 @@ tbody tr:nth-child(even) {
 
 .side table td:first-child {
   width: 32px;
+}
+
+.checklist-new {
+  background: rgba(38, 125, 65, 0.35) !important;
+}
+
+.checklist-changed {
+  background: rgba(200, 145, 30, 0.38) !important;
+}
+
+.checklist-unchanged {
+  opacity: 0.72;
+}
+
+input[type="checkbox"] {
+  transform: scale(1.15);
 }
 
 @media print {

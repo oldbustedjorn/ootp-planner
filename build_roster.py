@@ -27,6 +27,14 @@ from ootp_opt.roster.lineup import (
     format_lineup_depth_rows,
 )
 
+from ootp_opt.roster.roster_snapshot import (
+    build_roster_snapshot,
+    compare_snapshots,
+    load_snapshot,
+    snapshot_path_for_html,
+    write_snapshot,
+)
+
 from ootp_opt.roster.html_export import export_roster_html
 
 
@@ -183,15 +191,32 @@ def main() -> None:
     if html_output is None:
         html_output = build_output_name(ruleset, overrides)
 
+    snapshot_path = snapshot_path_for_html(html_output)
+    old_snapshot = load_snapshot(snapshot_path)
+
+    new_snapshot = build_roster_snapshot(
+        hitter_roster=hitter_roster,
+        pitcher_roster=pitcher_roster,
+    )
+
+    change_statuses = compare_snapshots(
+        old_snapshot=old_snapshot,
+        new_snapshot=new_snapshot,
+    )
+
     export_roster_html(
         path=html_output,
         ruleset=ruleset,
         hitter_roster=hitter_roster,
         pitcher_roster=pitcher_roster,
         eligibility_summary=eligibility_summary,
+        change_statuses=change_statuses,
     )
 
+    write_snapshot(snapshot_path, new_snapshot)
+
     print(f"\nHTML roster written to: {html_output}")
+    print(f"Roster snapshot written to: {snapshot_path}")
 
     print("\n=== STARTERS ===")
     for position, row in hitter_roster.starters_by_position.items():
