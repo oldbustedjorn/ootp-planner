@@ -3,9 +3,39 @@ from __future__ import annotations
 import pandas as pd
 from itertools import permutations
 
-from ootp_opt.roster.models import PitcherRoster
 from ootp_opt.roster.models import HitterRoster, PitcherRoster
 from ootp_opt.roster.rules import Ruleset
+
+
+def player_unique_key(row) -> str:
+    return str(row.get("name", "")).strip().lower()
+
+
+def has_duplicate_players(rows) -> bool:
+    keys = [player_unique_key(row) for row in rows]
+    return len(keys) != len(set(keys))
+
+
+def selected_player_keys(df: pd.DataFrame) -> set[str]:
+    if df.empty:
+        return set()
+
+    return {str(name).strip().lower() for name in df["name"].dropna()}
+
+
+def remove_players_by_name(
+    df: pd.DataFrame,
+    used_player_names: set[str],
+) -> pd.DataFrame:
+    if not used_player_names:
+        return df.copy()
+
+    return df.loc[
+        ~df.apply(
+            lambda row: player_unique_key(row) in used_player_names,
+            axis=1,
+        )
+    ].copy()
 
 
 def select_top_n(
@@ -120,30 +150,39 @@ def score_bench_candidate(
 
 def build_pitcher_roster(df: pd.DataFrame, ruleset: Ruleset) -> PitcherRoster:
     remaining = df.copy()
+    used_player_names: set[str] = set()
 
     rotation, remaining = select_top_n(
-        remaining,
+        remove_players_by_name(remaining, used_player_names),
         score_col="starter_score_overall",
         n=ruleset.rotation_size,
     )
+    used_player_names |= selected_player_keys(rotation)
+    remaining = remove_players_by_name(remaining, used_player_names)
 
     bullpen, remaining = select_top_n(
-        remaining,
+        remove_players_by_name(remaining, used_player_names),
         score_col="reliever_score_overall",
         n=ruleset.primary_rp_count,
     )
+    used_player_names |= selected_player_keys(bullpen)
+    remaining = remove_players_by_name(remaining, used_player_names)
 
     lefty_specialist, remaining = select_top_n(
-        remaining,
+        remove_players_by_name(remaining, used_player_names),
         score_col="reliever_score_vs_lhb",
         n=ruleset.specialist_lhp_count,
     )
+    used_player_names |= selected_player_keys(lefty_specialist)
+    remaining = remove_players_by_name(remaining, used_player_names)
 
     long_man, remaining = select_top_n(
-        remaining,
+        remove_players_by_name(remaining, used_player_names),
         score_col="starter_score_overall",
         n=ruleset.long_man_count,
     )
+    used_player_names |= selected_player_keys(long_man)
+    remaining = remove_players_by_name(remaining, used_player_names)
 
     return PitcherRoster(
         rotation=rotation,
@@ -160,6 +199,7 @@ def build_hitter_starters(
 ) -> tuple[dict[str, pd.Series], pd.DataFrame]:
     remaining = df.copy()
     starters_by_position: dict[str, pd.Series] = {}
+    used_player_names: set[str] = set()
 
     for position in ruleset.lineup_fill_order:
         score_col = get_hitter_score_column(position)
@@ -167,7 +207,9 @@ def build_hitter_starters(
         if score_col not in remaining.columns:
             raise ValueError(f"Missing required hitter score column: {score_col}")
 
-        selected = remaining.sort_values(score_col, ascending=False).head(1)
+        candidates = remove_players_by_name(remaining, used_player_names)
+
+        selected = candidates.sort_values(score_col, ascending=False).head(1)
 
         if selected.empty:
             raise ValueError(f"No available hitter found for position {position}")
@@ -175,7 +217,12 @@ def build_hitter_starters(
         selected_row = selected.iloc[0]
         starters_by_position[position] = selected_row
 
+        used_player_names.add(player_unique_key(selected_row))
+
+        # Remove the selected card by index first, then remove any other cards
+        # with the same player name.
         remaining = remaining.drop(index=selected.index).copy()
+        remaining = remove_players_by_name(remaining, used_player_names)
 
     return starters_by_position, remaining
 
@@ -218,12 +265,14 @@ def optimize_hitter_starter_assignments(
 def build_hitter_bench(
     df_remaining: pd.DataFrame,
     ruleset: Ruleset,
+    used_player_names: set[str] | None = None,
     debug: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     remaining = df_remaining.copy()
     selected_rows = []
 
     covered_by_bench: set[str] = set()
+    used_player_names = set(used_player_names or set())
 
     for role_name in ruleset.bench_roles:
         eligible_mask = remaining.apply(
@@ -231,6 +280,7 @@ def build_hitter_bench(
             axis=1,
         )
         candidates = remaining.loc[eligible_mask].copy()
+        candidates = remove_players_by_name(candidates, used_player_names)
 
         if candidates.empty:
             top_candidates = remaining.copy()
@@ -266,12 +316,14 @@ def build_hitter_bench(
         selected_rows.append(selected)
 
         selected_player = selected.iloc[0]
+        used_player_names.add(player_unique_key(selected_player))
         selected_covered_positions = get_player_covered_positions(
             selected_player, ruleset
         )
 
         covered_by_bench |= selected_covered_positions
         remaining = remaining.drop(index=selected.index).copy()
+        remaining = remove_players_by_name(remaining, used_player_names)
 
         if debug:
             print(f"\nRole: {role_name}")
@@ -298,9 +350,14 @@ def build_hitter_roster(
     greedy_starters, remaining = build_hitter_starters(df, ruleset)
     starters_by_position = optimize_hitter_starter_assignments(greedy_starters, ruleset)
 
+    used_player_names = {
+        player_unique_key(row) for row in starters_by_position.values()
+    }
+
     bench_players, remaining = build_hitter_bench(
         remaining,
         ruleset,
+        used_player_names=used_player_names,
         debug=debug,
     )
 
@@ -309,3 +366,42 @@ def build_hitter_roster(
         bench_players=bench_players,
         unused_players=remaining,
     )
+
+
+def validate_no_duplicate_players(
+    hitter_roster: HitterRoster,
+    pitcher_roster: PitcherRoster,
+) -> None:
+    selected: list[tuple[str, pd.Series]] = []
+
+    for position, row in hitter_roster.starters_by_position.items():
+        selected.append((f"Starter {position}", row))
+
+    for idx, (_, row) in enumerate(hitter_roster.bench_players.iterrows(), start=1):
+        selected.append((f"Bench {idx}", row))
+
+    for idx, (_, row) in enumerate(pitcher_roster.rotation.iterrows(), start=1):
+        selected.append((f"SP{idx}", row))
+
+    for idx, (_, row) in enumerate(pitcher_roster.bullpen.iterrows(), start=1):
+        selected.append((f"RP{idx}", row))
+
+    for idx, (_, row) in enumerate(pitcher_roster.lefty_specialist.iterrows(), start=1):
+        selected.append((f"LHP Specialist {idx}", row))
+
+    for idx, (_, row) in enumerate(pitcher_roster.long_man.iterrows(), start=1):
+        selected.append((f"Long Man {idx}", row))
+
+    seen: dict[str, str] = {}
+
+    for role, row in selected:
+        key = player_unique_key(row)
+        name = str(row.get("name", ""))
+
+        if key in seen:
+            raise ValueError(
+                f"Duplicate player selected: {name} appears in both "
+                f"{seen[key]} and {role}."
+            )
+
+        seen[key] = role

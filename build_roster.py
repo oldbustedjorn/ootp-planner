@@ -8,6 +8,7 @@ from ootp_opt.roster.builder import (
     build_hitter_roster,
     build_pitcher_roster,
     get_player_covered_positions,
+    validate_no_duplicate_players,
 )
 from ootp_opt.roster.eligibility import (
     filter_eligible_hitters,
@@ -181,6 +182,8 @@ def main() -> None:
 
     hitter_roster = build_hitter_roster(eligible_hitters, ruleset)
     pitcher_roster = build_pitcher_roster(eligible_pitchers, ruleset)
+
+    validate_no_duplicate_players(hitter_roster, pitcher_roster)
 
     eligibility_summary = {
         "Hitters": f"{len(hitters_df)} -> {len(eligible_hitters)}",
