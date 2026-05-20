@@ -100,6 +100,7 @@ TOURNAMENT_PRESET_RULESET_KEYS = {
     "live_mode",
     "card_year_min",
     "card_year_max",
+    "point_cap_total",
 }
 
 

@@ -103,6 +103,10 @@ def render_build_summary(
             "Card year min/max",
             f"{ruleset.card_year_min or '-'} / {ruleset.card_year_max or '-'}",
         ),
+        (
+            "Point cap",
+            "-" if ruleset.point_cap_total is None else str(ruleset.point_cap_total),
+        ),
     ]
 
     if eligibility_summary:

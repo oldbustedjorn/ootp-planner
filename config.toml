@@ -257,3 +257,45 @@ dh_enabled = true
 base_profile = "playoff_pt"
 tier_max = "diamond"
 dh_enabled = true
+
+[tournament_presets.bronze_cap]
+base_profile = "playoff_pt"
+tier_max = "bronze"
+point_cap_total = 1331
+dh_enabled = true
+
+[tournament_presets.gold_floor_cap]
+base_profile = "playoff_pt"
+tier_min = "gold"
+point_cap_total = 2242
+dh_enabled = true
+
+[tournament_presets.high_iron_floor_gold_ceiling]
+base_profile = "playoff_pt"
+tier_max = "gold"
+card_value_min = 50
+point_cap_total = 1767
+dh_enabled = true
+
+[tournament_presets.sporers_sandlot]
+base_profile = "playoff_pt"
+tier_min = "bronze"
+tier_max = "gold"
+point_cap_total = 1858
+dh_enabled = true
+
+[tournament_presets.cwhit_cap_challenge]
+base_profile = "playoff_pt"
+card_value_min = 50
+card_value_max = 84
+card_year_min = 1930
+card_year_max = 1989
+point_cap_total = 1699
+dh_enabled = false
+
+[tournament_presets.nightmare_cap]
+base_profile = "playoff_pt"
+card_value_min = 50
+card_value_max = 74
+point_cap_total = 1559
+dh_enabled = false

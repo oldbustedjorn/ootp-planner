@@ -36,6 +36,8 @@ from ootp_opt.roster.roster_snapshot import (
     write_snapshot,
 )
 
+from ootp_opt.roster.cap_report import print_cap_report
+
 from ootp_opt.roster.html_export import export_roster_html
 
 
@@ -68,6 +70,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--card-year-min", type=int, default=None)
     parser.add_argument("--card-year-max", type=int, default=None)
 
+    parser.add_argument(
+        "--point-cap-total",
+        type=int,
+        default=None,
+        help="Override total roster card-value cap.",
+    )
+
     parser.add_argument("--html-output", default=None)
 
     return parser.parse_args()
@@ -84,6 +93,7 @@ def build_overrides(args: argparse.Namespace) -> dict[str, Any]:
         "live_mode",
         "card_year_min",
         "card_year_max",
+        "point_cap_total",
     ]:
         value = getattr(args, field)
         if value is not None:
@@ -184,6 +194,12 @@ def main() -> None:
     pitcher_roster = build_pitcher_roster(eligible_pitchers, ruleset)
 
     validate_no_duplicate_players(hitter_roster, pitcher_roster)
+
+    print_cap_report(
+        hitter_roster=hitter_roster,
+        pitcher_roster=pitcher_roster,
+        point_cap_total=ruleset.point_cap_total,
+    )
 
     eligibility_summary = {
         "Hitters": f"{len(hitters_df)} -> {len(eligible_hitters)}",
