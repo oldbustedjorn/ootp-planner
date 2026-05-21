@@ -79,6 +79,12 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--html-output", default=None)
 
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Print extra diagnostic output.",
+    )
+
     return parser.parse_args()
 
 
@@ -177,12 +183,45 @@ def main() -> None:
         config=cfg,
     )
 
+    if args.debug:
+        print("\n=== INPUT FILES ===")
+        print(f"Hitters CSV:  {cfg['paths']['hitters_csv']}")
+        print(f"Pitchers CSV: {cfg['paths']['pitchers_csv']}")
+
+        print("\n=== RAW DATA CHECK ===")
+        print(f"Hitters rows:  {len(hitters_df)}")
+        print(f"Pitchers rows: {len(pitchers_df)}")
+
+        if "position" in hitters_df.columns:
+            print("\nHitter position counts:")
+            print(
+                hitters_df["position"].value_counts(dropna=False).head(12).to_string()
+            )
+
+        if "position" in pitchers_df.columns:
+            print("\nPitcher position counts:")
+            print(
+                pitchers_df["position"].value_counts(dropna=False).head(12).to_string()
+            )
+
+        if "stamina" in pitchers_df.columns:
+            print("\nPitcher stamina sanity:")
+            print(pitchers_df["stamina"].describe().to_string())
+
+        print("\nHitter sample:")
+        print(hitters_df[["name"]].head(5).to_string(index=False))
+
+        print("\nPitcher sample:")
+        print(pitchers_df[["name"]].head(5).to_string(index=False))
+
     eligible_hitters = filter_eligible_hitters(hitters_df, ruleset)
     eligible_pitchers = filter_eligible_pitchers(pitchers_df, ruleset)
 
     print("\n=== ELIGIBILITY SUMMARY ===")
-    print(f"Hitters:  {len(hitters_df)} -> {len(eligible_hitters)}")
-    print(f"Pitchers: {len(pitchers_df)} -> {len(eligible_pitchers)}")
+    print(f"Hitters scored:   {len(hitters_df)}")
+    print(f"Hitters eligible: {len(eligible_hitters)}")
+    print(f"Pitchers scored:   {len(pitchers_df)}")
+    print(f"Pitchers eligible: {len(eligible_pitchers)}")
 
     if eligible_hitters.empty:
         raise ValueError("No eligible hitters after applying filters.")
@@ -202,8 +241,10 @@ def main() -> None:
     )
 
     eligibility_summary = {
-        "Hitters": f"{len(hitters_df)} -> {len(eligible_hitters)}",
-        "Pitchers": f"{len(pitchers_df)} -> {len(eligible_pitchers)}",
+        "Hitters scored": str(len(hitters_df)),
+        "Hitters eligible": str(len(eligible_hitters)),
+        "Pitchers scored": str(len(pitchers_df)),
+        "Pitchers eligible": str(len(eligible_pitchers)),
     }
 
     html_output = args.html_output
