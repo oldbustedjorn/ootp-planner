@@ -36,6 +36,11 @@ from ootp_opt.roster.roster_snapshot import (
     write_snapshot,
 )
 
+from ootp_opt.roster.cap_repair import (
+    print_cap_repair_result,
+    repair_roster_to_cap,
+)
+
 from ootp_opt.roster.cap_report import print_cap_report
 
 from ootp_opt.roster.html_export import export_roster_html
@@ -75,6 +80,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=None,
         help="Override total roster card-value cap.",
+    )
+
+    parser.add_argument(
+        "--repair-cap",
+        action="store_true",
+        help="Attempt greedy slot-for-slot repair if roster is over point cap.",
     )
 
     parser.add_argument("--html-output", default=None)
@@ -239,6 +250,28 @@ def main() -> None:
         pitcher_roster=pitcher_roster,
         point_cap_total=ruleset.point_cap_total,
     )
+
+    if ruleset.point_cap_total is not None:
+        repair_result = repair_roster_to_cap(
+            hitter_roster=hitter_roster,
+            pitcher_roster=pitcher_roster,
+            eligible_hitters=eligible_hitters,
+            eligible_pitchers=eligible_pitchers,
+            ruleset=ruleset,
+        )
+
+        print_cap_repair_result(repair_result)
+
+        hitter_roster = repair_result.hitter_roster
+        pitcher_roster = repair_result.pitcher_roster
+
+        validate_no_duplicate_players(hitter_roster, pitcher_roster)
+
+        print_cap_report(
+            hitter_roster=hitter_roster,
+            pitcher_roster=pitcher_roster,
+            point_cap_total=ruleset.point_cap_total,
+        )
 
     eligibility_summary = {
         "Hitters scored": str(len(hitters_df)),

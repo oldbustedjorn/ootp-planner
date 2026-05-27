@@ -46,9 +46,38 @@ def select_top_n(
     if score_col not in df.columns:
         raise ValueError(f"Missing required score column: {score_col}")
 
-    selected = df.sort_values(score_col, ascending=False).head(n).copy()
+    selected_rows: list[pd.Series] = []
+    selected_names: set[str] = set()
 
-    remaining = df.drop(index=selected.index).copy()
+    sorted_df = df.sort_values(score_col, ascending=False)
+
+    for _, row in sorted_df.iterrows():
+        key = player_unique_key(row)
+
+        if key in selected_names:
+            continue
+
+        selected_rows.append(row)
+        selected_names.add(key)
+
+        if len(selected_rows) == n:
+            break
+
+    if len(selected_rows) < n:
+        raise ValueError(
+            f"Could not select {n} unique players using score column "
+            f"'{score_col}'. Only found {len(selected_rows)}."
+        )
+
+    selected = pd.DataFrame(selected_rows)
+
+    remaining = df.loc[
+        ~df.apply(
+            lambda row: player_unique_key(row) in selected_names,
+            axis=1,
+        )
+    ].copy()
+
     return selected, remaining
 
 
