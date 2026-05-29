@@ -195,7 +195,7 @@ def build_ruleset(profile_name: str, profile_cfg: dict[str, Any]) -> Ruleset:
     tier_max = none_if_blank(profile_cfg.get("tier_max"))
     card_value_min = none_if_zero(profile_cfg.get("card_value_min"))
     card_value_max = none_if_zero(profile_cfg.get("card_value_max"))
-    variant_limit = none_if_zero(profile_cfg.get("variant_limit"))
+    variant_limit = none_if_missing(profile_cfg.get("variant_limit"))
     live_mode = str(profile_cfg.get("live_mode", "all")).lower()
     card_year_min = none_if_zero(profile_cfg.get("card_year_min"))
     card_year_max = none_if_zero(profile_cfg.get("card_year_max"))
@@ -301,6 +301,12 @@ def parse_bench_role_requirements(
 
 def none_if_zero(value: Any) -> int | None:
     if value in (None, 0, "0", ""):
+        return None
+    return int(value)
+
+
+def none_if_missing(value: Any) -> int | None:
+    if value in (None, ""):
         return None
     return int(value)
 
