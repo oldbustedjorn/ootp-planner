@@ -81,7 +81,14 @@ OOTP26_PITCHER_RENAME: Dict[str, str] = {
     "CTier": "pt_tier",
     "CTitle": "pt_title",
     "SER": "pt_series",
+    "VAR": "is_variant",
 }
+
+
+def _coerce_yes_no_to_bool(series: pd.Series) -> pd.Series:
+    """Convert common yes/no encodings to booleans."""
+    s = series.astype(str).str.strip().str.upper()
+    return s.isin(["Y", "YES", "TRUE", "T", "1"])
 
 
 def _rename_duplicate_p_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -124,6 +131,13 @@ def load_pt_pitchers_csv(path: Path) -> pd.DataFrame:
     df = _rename_duplicate_p_columns(df)
 
     df["name"] = df["first_name"].astype(str) + " " + df["last_name"].astype(str)
+
+    # Normalize OOTP variant flag.
+    # Raw export: VAR = Y/N. Normalized: is_variant = True/False.
+    if "is_variant" in df.columns:
+        df["is_variant"] = _coerce_yes_no_to_bool(df["is_variant"])
+    else:
+        df["is_variant"] = False
 
     # Coerce numeric columns we know we’ll use
     numeric_cols: List[str] = [

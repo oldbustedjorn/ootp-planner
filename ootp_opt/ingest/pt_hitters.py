@@ -5,7 +5,6 @@ from typing import Dict, Iterable, List
 
 import pandas as pd
 
-
 # -----------------------------
 # OOTP 26 – PT Hitters Export Schema
 # -----------------------------
@@ -90,6 +89,7 @@ OOTP26_HITTER_RENAME: Dict[str, str] = {
     "CTier": "pt_tier",
     "CTitle": "pt_title",
     "SER": "pt_series",
+    "VAR": "is_variant",
 }
 
 # Positions appear twice in your export:
@@ -173,6 +173,13 @@ def load_pt_cards_csv(path: Path) -> pd.DataFrame:
 
     # 3) Compute stable full name
     df["name"] = df["first_name"].astype(str) + " " + df["last_name"].astype(str)
+
+    # 3b) Normalize OOTP variant flag.
+    # Raw export: VAR = Y/N. Normalized: is_variant = True/False.
+    if "is_variant" in df.columns:
+        df["is_variant"] = _coerce_yes_no_to_bool(df["is_variant"])
+    else:
+        df["is_variant"] = False
 
     # 4) Normalize trainability flags
     # Keep the raw T2..T9 columns if present, but also add normalized train_* names.

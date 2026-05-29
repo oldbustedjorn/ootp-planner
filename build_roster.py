@@ -45,6 +45,13 @@ from ootp_opt.roster.cap_report import print_cap_report
 
 from ootp_opt.roster.html_export import export_roster_html
 
+from ootp_opt.roster.variant_report import print_variant_report
+
+from ootp_opt.roster.variant_repair import (
+    print_variant_repair_result,
+    repair_roster_to_variant_limit,
+)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build an OOTP roster from a ruleset.")
@@ -88,6 +95,13 @@ def parse_args() -> argparse.Namespace:
         help="Attempt greedy slot-for-slot repair if roster is over point cap.",
     )
 
+    parser.add_argument(
+        "--variant-limit",
+        type=int,
+        default=None,
+        help="Maximum allowed variant cards on the final roster.",
+    )
+
     parser.add_argument("--html-output", default=None)
 
     parser.add_argument(
@@ -111,6 +125,7 @@ def build_overrides(args: argparse.Namespace) -> dict[str, Any]:
         "card_year_min",
         "card_year_max",
         "point_cap_total",
+        "variant_limit",
     ]:
         value = getattr(args, field)
         if value is not None:
@@ -181,6 +196,7 @@ def main() -> None:
     print(f"Card value min/max: {ruleset.card_value_min} / {ruleset.card_value_max}")
     print(f"Live mode: {ruleset.live_mode}")
     print(f"Card year min/max: {ruleset.card_year_min} / {ruleset.card_year_max}")
+    print(f"Variant limit: {ruleset.variant_limit}")
 
     hitters_df = rate_cards_service(
         input_path=cfg["paths"]["hitters_csv"],
@@ -244,6 +260,34 @@ def main() -> None:
     pitcher_roster = build_pitcher_roster(eligible_pitchers, ruleset)
 
     validate_no_duplicate_players(hitter_roster, pitcher_roster)
+
+    print_variant_report(
+        hitter_roster=hitter_roster,
+        pitcher_roster=pitcher_roster,
+        variant_limit=ruleset.variant_limit,
+    )
+
+    if ruleset.variant_limit is not None:
+        variant_result = repair_roster_to_variant_limit(
+            hitter_roster=hitter_roster,
+            pitcher_roster=pitcher_roster,
+            eligible_hitters=eligible_hitters,
+            eligible_pitchers=eligible_pitchers,
+            ruleset=ruleset,
+        )
+
+        print_variant_repair_result(variant_result)
+
+        hitter_roster = variant_result.hitter_roster
+        pitcher_roster = variant_result.pitcher_roster
+
+        validate_no_duplicate_players(hitter_roster, pitcher_roster)
+
+        print_variant_report(
+            hitter_roster=hitter_roster,
+            pitcher_roster=pitcher_roster,
+            variant_limit=ruleset.variant_limit,
+        )
 
     print_cap_report(
         hitter_roster=hitter_roster,

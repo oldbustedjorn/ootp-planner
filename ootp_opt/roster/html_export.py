@@ -104,6 +104,10 @@ def render_build_summary(
             f"{ruleset.card_year_min or '-'} / {ruleset.card_year_max or '-'}",
         ),
         (
+            "Variant limit",
+            "-" if ruleset.variant_limit is None else str(ruleset.variant_limit),
+        ),
+        (
             "Point cap",
             "-" if ruleset.point_cap_total is None else str(ruleset.point_cap_total),
         ),
