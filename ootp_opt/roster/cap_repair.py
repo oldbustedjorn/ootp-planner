@@ -14,6 +14,11 @@ from ootp_opt.roster.cap_report import build_cap_summary, card_value
 from ootp_opt.roster.models import HitterRoster, PitcherRoster
 from ootp_opt.roster.rules import Ruleset
 
+from ootp_opt.roster.variant_report import (
+    build_variant_summary,
+    is_variant_card,
+)
+
 BAD_SCORE = -1_000_000_000.0
 
 
@@ -188,6 +193,8 @@ def find_cap_repair_options(
 ) -> list[CapRepairOption]:
     selected_keys = selected_player_keys(hitter_roster, pitcher_roster)
 
+    variant_count = current_variant_count(hitter_roster, pitcher_roster)
+
     options: list[CapRepairOption] = []
 
     options.extend(
@@ -196,6 +203,7 @@ def find_cap_repair_options(
             eligible_hitters=eligible_hitters,
             selected_keys=selected_keys,
             ruleset=ruleset,
+            variant_count=variant_count,
         )
     )
 
@@ -205,6 +213,7 @@ def find_cap_repair_options(
             eligible_hitters=eligible_hitters,
             selected_keys=selected_keys,
             ruleset=ruleset,
+            variant_count=variant_count,
         )
     )
 
@@ -213,6 +222,8 @@ def find_cap_repair_options(
             pitcher_roster=pitcher_roster,
             eligible_pitchers=eligible_pitchers,
             selected_keys=selected_keys,
+            ruleset=ruleset,
+            variant_count=variant_count,
         )
     )
 
@@ -232,6 +243,7 @@ def find_hitter_starter_repair_options(
     eligible_hitters: pd.DataFrame,
     selected_keys: set[str],
     ruleset: Ruleset,
+    variant_count: int,
 ) -> list[CapRepairOption]:
     options: list[CapRepairOption] = []
 
@@ -251,6 +263,18 @@ def find_hitter_starter_repair_options(
             selected_keys=selected_keys,
             current_key=current_key,
         )
+
+        candidates = candidates.loc[
+            candidates.apply(
+                lambda candidate: replacement_respects_variant_limit(
+                    old_row=old_row,
+                    candidate=candidate,
+                    current_variant_count_value=variant_count,
+                    variant_limit=ruleset.variant_limit,
+                ),
+                axis=1,
+            )
+        ].copy()
 
         if score_col not in candidates.columns:
             continue
@@ -278,6 +302,7 @@ def find_hitter_bench_repair_options(
     eligible_hitters: pd.DataFrame,
     selected_keys: set[str],
     ruleset: Ruleset,
+    variant_count: int,
 ) -> list[CapRepairOption]:
     options: list[CapRepairOption] = []
 
@@ -299,6 +324,18 @@ def find_hitter_bench_repair_options(
             selected_keys=selected_keys,
             current_key=current_key,
         )
+
+        candidates = candidates.loc[
+            candidates.apply(
+                lambda candidate: replacement_respects_variant_limit(
+                    old_row=old_row,
+                    candidate=candidate,
+                    current_variant_count_value=variant_count,
+                    variant_limit=ruleset.variant_limit,
+                ),
+                axis=1,
+            )
+        ].copy()
 
         candidates = candidates.loc[
             candidates.apply(
@@ -331,6 +368,8 @@ def find_pitcher_repair_options(
     pitcher_roster: PitcherRoster,
     eligible_pitchers: pd.DataFrame,
     selected_keys: set[str],
+    ruleset: Ruleset,
+    variant_count: int,
 ) -> list[CapRepairOption]:
     options: list[CapRepairOption] = []
 
@@ -342,6 +381,8 @@ def find_pitcher_repair_options(
             score_col="starter_score_overall",
             eligible_pitchers=eligible_pitchers,
             selected_keys=selected_keys,
+            ruleset=ruleset,
+            variant_count=variant_count,
         )
     )
 
@@ -353,6 +394,8 @@ def find_pitcher_repair_options(
             score_col="reliever_score_overall",
             eligible_pitchers=eligible_pitchers,
             selected_keys=selected_keys,
+            ruleset=ruleset,
+            variant_count=variant_count,
         )
     )
 
@@ -364,6 +407,8 @@ def find_pitcher_repair_options(
             score_col="reliever_score_vs_lhb",
             eligible_pitchers=eligible_pitchers,
             selected_keys=selected_keys,
+            ruleset=ruleset,
+            variant_count=variant_count,
         )
     )
 
@@ -375,6 +420,8 @@ def find_pitcher_repair_options(
             score_col="starter_score_overall",
             eligible_pitchers=eligible_pitchers,
             selected_keys=selected_keys,
+            ruleset=ruleset,
+            variant_count=variant_count,
         )
     )
 
@@ -388,6 +435,8 @@ def find_pitcher_group_repair_options(
     score_col: str,
     eligible_pitchers: pd.DataFrame,
     selected_keys: set[str],
+    ruleset: Ruleset,
+    variant_count: int,
 ) -> list[CapRepairOption]:
     options: list[CapRepairOption] = []
 
@@ -413,6 +462,18 @@ def find_pitcher_group_repair_options(
             selected_keys=selected_keys,
             current_key=current_key,
         )
+
+        candidates = candidates.loc[
+            candidates.apply(
+                lambda candidate: replacement_respects_variant_limit(
+                    old_row=old_row,
+                    candidate=candidate,
+                    current_variant_count_value=variant_count,
+                    variant_limit=ruleset.variant_limit,
+                ),
+                axis=1,
+            )
+        ].copy()
 
         if score_col not in candidates.columns:
             continue
@@ -719,3 +780,37 @@ def print_cap_repair_result(result: CapRepairResult) -> None:
             f"Cap repair incomplete: final total {result.final_roster_total}, "
             f"still over by {result.final_over_cap_by}"
         )
+
+
+def current_variant_count(
+    hitter_roster: HitterRoster,
+    pitcher_roster: PitcherRoster,
+) -> int:
+    return build_variant_summary(
+        hitter_roster=hitter_roster,
+        pitcher_roster=pitcher_roster,
+        variant_limit=None,
+    ).variant_count
+
+
+def replacement_respects_variant_limit(
+    old_row: pd.Series,
+    candidate: pd.Series,
+    current_variant_count_value: int,
+    variant_limit: int | None,
+) -> bool:
+    if variant_limit is None:
+        return True
+
+    old_is_variant = is_variant_card(old_row)
+    new_is_variant = is_variant_card(candidate)
+
+    new_variant_count = current_variant_count_value
+
+    if old_is_variant:
+        new_variant_count -= 1
+
+    if new_is_variant:
+        new_variant_count += 1
+
+    return new_variant_count <= variant_limit

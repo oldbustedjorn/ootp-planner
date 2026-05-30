@@ -317,6 +317,13 @@ def main() -> None:
             point_cap_total=ruleset.point_cap_total,
         )
 
+        if ruleset.variant_limit is not None:
+            print_variant_report(
+                hitter_roster=hitter_roster,
+                pitcher_roster=pitcher_roster,
+                variant_limit=ruleset.variant_limit,
+            )
+
     eligibility_summary = {
         "Hitters scored": str(len(hitters_df)),
         "Hitters eligible": str(len(eligible_hitters)),
