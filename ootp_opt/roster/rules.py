@@ -41,6 +41,8 @@ class Ruleset:
     card_value_max: int | None = None
     variant_limit: int | None = None
     live_mode: str = "all"  # "all", "live", or "non_live"
+    allowed_card_types: list[str] = field(default_factory=list)
+    excluded_card_types: list[str] = field(default_factory=list)
     card_year_min: int | None = None
     card_year_max: int | None = None
     simulation_year: int | None = None
@@ -98,6 +100,8 @@ TOURNAMENT_PRESET_RULESET_KEYS = {
     "card_value_min",
     "card_value_max",
     "live_mode",
+    "allowed_card_types",
+    "excluded_card_types",
     "card_year_min",
     "card_year_max",
     "point_cap_total",
@@ -197,6 +201,8 @@ def build_ruleset(profile_name: str, profile_cfg: dict[str, Any]) -> Ruleset:
     card_value_max = none_if_zero(profile_cfg.get("card_value_max"))
     variant_limit = none_if_missing(profile_cfg.get("variant_limit"))
     live_mode = str(profile_cfg.get("live_mode", "all")).lower()
+    allowed_card_types = normalize_string_list(profile_cfg.get("allowed_card_types"))
+    excluded_card_types = normalize_string_list(profile_cfg.get("excluded_card_types"))
     card_year_min = none_if_zero(profile_cfg.get("card_year_min"))
     card_year_max = none_if_zero(profile_cfg.get("card_year_max"))
     simulation_year = none_if_zero(profile_cfg.get("simulation_year"))
@@ -234,6 +240,8 @@ def build_ruleset(profile_name: str, profile_cfg: dict[str, Any]) -> Ruleset:
         card_value_max=card_value_max,
         variant_limit=variant_limit,
         live_mode=live_mode,
+        allowed_card_types=allowed_card_types,
+        excluded_card_types=excluded_card_types,
         card_year_min=card_year_min,
         card_year_max=card_year_max,
         simulation_year=simulation_year,
@@ -315,6 +323,22 @@ def none_if_blank(value: Any) -> str | None:
     if value in (None, ""):
         return None
     return str(value).lower()
+
+
+def normalize_string_list(value: Any) -> list[str]:
+    if value in (None, ""):
+        return []
+
+    if isinstance(value, str):
+        raw_values = value.split(",")
+    else:
+        raw_values = list(value)
+
+    return [
+        normalized
+        for item in raw_values
+        if (normalized := str(item).strip().lower())
+    ]
 
 
 def deep_copy_dict(value: dict[str, Any]) -> dict[str, Any]:

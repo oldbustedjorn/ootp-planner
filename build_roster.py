@@ -73,6 +73,18 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--card-types",
+        default=None,
+        help="Comma-separated pt_type allow-list, matched case-insensitively.",
+    )
+
+    parser.add_argument(
+        "--exclude-card-types",
+        default=None,
+        help="Comma-separated pt_type block-list, matched case-insensitively.",
+    )
+
+    parser.add_argument(
         "--dh-enabled",
         choices=["true", "false"],
         default=None,
@@ -122,6 +134,8 @@ def build_overrides(args: argparse.Namespace) -> dict[str, Any]:
         "card_value_min",
         "card_value_max",
         "live_mode",
+        "card_types",
+        "exclude_card_types",
         "card_year_min",
         "card_year_max",
         "point_cap_total",
@@ -129,12 +143,21 @@ def build_overrides(args: argparse.Namespace) -> dict[str, Any]:
     ]:
         value = getattr(args, field)
         if value is not None:
-            overrides[field] = value
+            if field == "card_types":
+                overrides["allowed_card_types"] = split_csv_arg(value)
+            elif field == "exclude_card_types":
+                overrides["excluded_card_types"] = split_csv_arg(value)
+            else:
+                overrides[field] = value
 
     if args.dh_enabled is not None:
         overrides["dh_enabled"] = args.dh_enabled.lower() == "true"
 
     return overrides
+
+
+def split_csv_arg(value: str) -> list[str]:
+    return [item.strip() for item in value.split(",") if item.strip()]
 
 
 def build_output_name(ruleset, overrides: dict[str, Any]) -> str:
@@ -157,6 +180,12 @@ def build_output_name(ruleset, overrides: dict[str, Any]) -> str:
 
     if ruleset.live_mode != "all":
         parts.append(ruleset.live_mode)
+
+    if ruleset.allowed_card_types:
+        parts.append("types_" + "_".join(ruleset.allowed_card_types))
+
+    if ruleset.excluded_card_types:
+        parts.append("exclude_types_" + "_".join(ruleset.excluded_card_types))
 
     if ruleset.card_year_min is not None:
         parts.append(f"year_min_{ruleset.card_year_min}")
@@ -195,6 +224,8 @@ def main() -> None:
     print(f"Tier min/max: {ruleset.tier_min} / {ruleset.tier_max}")
     print(f"Card value min/max: {ruleset.card_value_min} / {ruleset.card_value_max}")
     print(f"Live mode: {ruleset.live_mode}")
+    print(f"Allowed card types: {ruleset.allowed_card_types or '-'}")
+    print(f"Excluded card types: {ruleset.excluded_card_types or '-'}")
     print(f"Card year min/max: {ruleset.card_year_min} / {ruleset.card_year_max}")
     print(f"Variant limit: {ruleset.variant_limit}")
 

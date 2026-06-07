@@ -103,6 +103,10 @@ card_value_min = 0
 card_value_max = 0
 variant_limit = 0
 live_mode = "all" # all, live, non_live
+# Card type filters use the normalized CType codes from owned-card exports:
+# 2026Live, AS, FL, HaH, Leg, NeL, RS, Snap, UnH, VET
+allowed_card_types = []
+excluded_card_types = []
 card_year_min = 0
 card_year_max = 0
 simulation_year = 0
@@ -236,6 +240,26 @@ dh_enabled = true
 [tournament_presets.live_only]
 base_profile = "playoff_pt"
 live_mode = "live"
+dh_enabled = true
+
+[tournament_presets.snapshots_only]
+base_profile = "playoff_pt"
+allowed_card_types = ["Snap"]
+dh_enabled = true
+
+[tournament_presets.unsung_heroes_only]
+base_profile = "playoff_pt"
+allowed_card_types = ["UnH"]
+dh_enabled = true
+
+[tournament_presets.hardware_heroes_only]
+base_profile = "playoff_pt"
+allowed_card_types = ["HaH"]
+dh_enabled = true
+
+[tournament_presets.non_live_core_types]
+base_profile = "playoff_pt"
+allowed_card_types = ["AS", "FL", "HaH", "Leg", "NeL", "RS", "Snap", "UnH", "VET"]
 dh_enabled = true
 
 [tournament_presets.pre_1921]

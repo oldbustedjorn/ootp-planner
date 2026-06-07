@@ -100,6 +100,14 @@ def render_build_summary(
         ),
         ("Live mode", ruleset.live_mode),
         (
+            "Allowed card types",
+            ", ".join(ruleset.allowed_card_types) or "-",
+        ),
+        (
+            "Excluded card types",
+            ", ".join(ruleset.excluded_card_types) or "-",
+        ),
+        (
             "Card year min/max",
             f"{ruleset.card_year_min or '-'} / {ruleset.card_year_max or '-'}",
         ),

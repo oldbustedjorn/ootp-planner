@@ -12,4 +12,6 @@ for preset_name in cfg.get("tournament_presets", {}):
     print(f"tier min/max: {ruleset.tier_min} / {ruleset.tier_max}")
     print(f"card value min/max: {ruleset.card_value_min} / {ruleset.card_value_max}")
     print(f"live mode: {ruleset.live_mode}")
+    print(f"allowed card types: {ruleset.allowed_card_types}")
+    print(f"excluded card types: {ruleset.excluded_card_types}")
     print(f"card year min/max: {ruleset.card_year_min} / {ruleset.card_year_max}")

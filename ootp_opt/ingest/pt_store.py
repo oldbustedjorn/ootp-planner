@@ -19,6 +19,20 @@ POSITION_CODE_MAP = {
 }
 
 
+PT_TYPE_CODE_MAP = {
+    1: "2026Live",
+    2: "NeL",
+    3: "RS",
+    4: "Leg",
+    5: "AS",
+    6: "FL",
+    7: "Snap",
+    8: "UnH",
+    9: "HaH",
+    10: "VET",
+}
+
+
 STORE_RENAME = {
     "//Card Title": "card_title",
     "Card Title": "card_title",
@@ -245,41 +259,6 @@ INTEGER_COLS = [
     "last_10_price",
 ]
 
-PT_TYPE_PATTERNS = [
-    ("MLB 2026 Live", "2026Live"),
-    ("Negro League Star", "NeL"),
-    ("All-Time Legend", "Leg"),
-    ("Historical All-Star", "AS"),
-    ("Snapshot", "Snap"),
-    ("Unsung Heroes", "UnH"),
-    ("Veteran Presence", "VET"),
-    ("Rookie Sensation", "RS"),
-    ("Hardware Heroes", "HH"),
-    ("Future Legend", "FL"),
-    ("Hall of Fame", "HOF"),
-    ("Baseball Reference 1", "BR1"),
-    ("Baseball Reference 2", "BR2"),
-    ("Clubhouse - April Fools' Day", "CH_AFD"),
-    ("Clubhouse - World Baseball Classic", "CH_WBC"),
-    ("Happy Easter", "Easter"),
-    ("Limited Edition/42", "LE42"),
-    ("PTWC 2nd Place", "PTWC2"),
-    ("PTWC 4th Place", "PTWC4"),
-    ("Super Utility", "SU"),
-    ("World Baseball Classic", "WBC"),
-    ("3-Home Run Robbery Game", "3HRR"),
-    ("Celebrating GA - Baseball Reference", "GA_BR"),
-    ("HOF 1 - Baseball Reference", "HOF_BR1"),
-    ("Limited Edition/", "LE"),
-    ("National Pretzel Day", "Pretzel"),
-    ("Opening Day HR Streak - Baseball Reference", "ODHR_BR"),
-    ("PTCS 1 - Baseball Reference", "PTCS1_BR"),
-    ("PTWC 1st Place", "PTWC1"),
-    ("PTWC 3rd Place", "PTWC3"),
-    ("St. Patrick's Day Variant Booster", "StPat_VB"),
-]
-
-
 def load_pt_store_csv(path: str | Path) -> pd.DataFrame:
     df_raw = pd.read_csv(path, index_col=False)
     df_raw.columns = [str(col).strip() for col in df_raw.columns]
@@ -324,7 +303,7 @@ def load_pt_store_csv(path: str | Path) -> pd.DataFrame:
     df["has_buy_order"] = get_numeric_series(df, "buy_order_high") > 0
     df["has_sell_order"] = get_numeric_series(df, "sell_order_low") > 0
 
-    normalize_pt_type_from_title(df)
+    normalize_pt_type_from_code(df)
     normalize_store_bats_throws(df)
 
     df["owned_count"] = get_numeric_series(df, "owned_count").astype(int)
@@ -454,28 +433,19 @@ def coerce_integer_columns(df: pd.DataFrame) -> None:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
 
 
-def normalize_pt_type_from_title(df: pd.DataFrame) -> None:
-    title_col = df.get("card_title")
-    if title_col is None:
+def normalize_pt_type_from_code(df: pd.DataFrame) -> None:
+    if "pt_type_raw" not in df.columns:
         df["pt_type"] = "UNKNOWN"
         return
 
-    titles = title_col.astype(str)
+    codes = pd.to_numeric(df["pt_type_raw"], errors="coerce")
+    df["pt_type"] = codes.map(PT_TYPE_CODE_MAP).fillna("UNKNOWN")
 
-    normalized = pd.Series("UNKNOWN", index=df.index)
+    unknown_codes = sorted(codes.loc[df["pt_type"].eq("UNKNOWN")].dropna().unique())
+    if unknown_codes:
+        print("\nWARNING: Unknown PT card type codes found:")
+        for code in unknown_codes[:25]:
+            print(f"  {int(code)}")
 
-    for pattern, short_name in PT_TYPE_PATTERNS:
-        mask = titles.str.contains(pattern, case=False, na=False)
-        normalized.loc[mask] = short_name
-
-    df["pt_type"] = normalized
-
-    unknown_titles = titles.loc[normalized.eq("UNKNOWN")].unique()
-
-    if len(unknown_titles) > 0:
-        print("\nWARNING: Unknown PT card title patterns found:")
-        for title in sorted(unknown_titles[:25]):
-            print(f"  {title}")
-
-        if len(unknown_titles) > 25:
-            print(f"  ... and {len(unknown_titles) - 25} more")
+        if len(unknown_codes) > 25:
+            print(f"  ... and {len(unknown_codes) - 25} more")

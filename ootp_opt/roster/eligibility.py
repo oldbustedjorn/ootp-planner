@@ -28,6 +28,7 @@ def filter_eligible_players(df: pd.DataFrame, ruleset: Ruleset) -> pd.DataFrame:
     filtered = apply_tier_filter(filtered, ruleset)
     filtered = apply_card_value_filter(filtered, ruleset)
     filtered = apply_live_filter(filtered, ruleset)
+    filtered = apply_card_type_filter(filtered, ruleset)
     filtered = apply_card_year_filter(filtered, ruleset)
 
     return filtered.copy()
@@ -95,6 +96,27 @@ def apply_live_filter(df: pd.DataFrame, ruleset: Ruleset) -> pd.DataFrame:
     )
 
 
+def apply_card_type_filter(df: pd.DataFrame, ruleset: Ruleset) -> pd.DataFrame:
+    if not ruleset.allowed_card_types and not ruleset.excluded_card_types:
+        return df
+
+    if "pt_type" not in df.columns:
+        raise ValueError("Cannot apply card type filter: missing column 'pt_type'.")
+
+    card_types = normalize_card_type_series(df["pt_type"])
+    mask = pd.Series(True, index=df.index)
+
+    if ruleset.allowed_card_types:
+        allowed = set(ruleset.allowed_card_types)
+        mask &= card_types.isin(allowed)
+
+    if ruleset.excluded_card_types:
+        excluded = set(ruleset.excluded_card_types)
+        mask &= ~card_types.isin(excluded)
+
+    return df.loc[mask].copy()
+
+
 def apply_card_year_filter(df: pd.DataFrame, ruleset: Ruleset) -> pd.DataFrame:
     if ruleset.card_year_min is None and ruleset.card_year_max is None:
         return df
@@ -112,6 +134,10 @@ def apply_card_year_filter(df: pd.DataFrame, ruleset: Ruleset) -> pd.DataFrame:
         mask &= years <= ruleset.card_year_max
 
     return df.loc[mask].copy()
+
+
+def normalize_card_type_series(series: pd.Series) -> pd.Series:
+    return series.astype(str).str.strip().str.lower()
 
 
 def tier_rank(tier: str) -> int:
