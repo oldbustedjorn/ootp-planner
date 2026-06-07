@@ -207,91 +207,13 @@ preferred_positions = ["C", "SS", "CF", "2B", "3B", "LF", "RF", "1B"]
 # -----------------------------
 # These are named wrappers around a base roster shape plus eligibility filters.
 # Simulation year is intentionally not modeled yet.
-# Variant limits are intentionally ignored for now.
 
-[tournament_presets.iron_weekly]
-base_profile = "playoff_pt"
-tier_max = "iron"
-dh_enabled = true
-
-[tournament_presets.bronze_nonlive_weekly]
-base_profile = "playoff_pt"
-tier_max = "bronze"
-live_mode = "non_live"
-dh_enabled = true
-
-[tournament_presets.silver_weekly]
-base_profile = "playoff_pt"
-tier_max = "silver"
-dh_enabled = true
-
-[tournament_presets.gold_nonlive_weekly]
+[tournament_presets.goldmax_nonlive_1580cap_variantmax10_DH]
 base_profile = "playoff_pt"
 tier_max = "gold"
 live_mode = "non_live"
-dh_enabled = true
-
-[tournament_presets.live_low_diamond]
-base_profile = "playoff_pt"
-card_value_max = 94
-live_mode = "live"
-dh_enabled = true
-
-[tournament_presets.live_only]
-base_profile = "playoff_pt"
-live_mode = "live"
-dh_enabled = true
-
-[tournament_presets.snapshots_only]
-base_profile = "playoff_pt"
-allowed_card_types = ["Snap"]
-dh_enabled = true
-
-[tournament_presets.unsung_heroes_only]
-base_profile = "playoff_pt"
-allowed_card_types = ["UnH"]
-dh_enabled = true
-
-[tournament_presets.hardware_heroes_only]
-base_profile = "playoff_pt"
-allowed_card_types = ["HaH"]
-dh_enabled = true
-
-[tournament_presets.non_live_core_types]
-base_profile = "playoff_pt"
-allowed_card_types = ["AS", "FL", "HaH", "Leg", "NeL", "RS", "Snap", "UnH", "VET"]
-dh_enabled = true
-
-[tournament_presets.pre_1921]
-base_profile = "playoff_pt"
-card_year_max = 1920
-dh_enabled = false
-
-[tournament_presets.post_1950]
-base_profile = "playoff_pt"
-card_year_min = 1950
-dh_enabled = true
-
-[tournament_presets.low_value_49]
-base_profile = "playoff_pt"
-card_value_max = 49
-dh_enabled = true
-
-[tournament_presets.diamond_weekly]
-base_profile = "playoff_pt"
-tier_max = "diamond"
-dh_enabled = true
-
-[tournament_presets.bronze_cap]
-base_profile = "playoff_pt"
-tier_max = "bronze"
-point_cap_total = 1331
-dh_enabled = true
-
-[tournament_presets.gold_floor_cap]
-base_profile = "playoff_pt"
-tier_min = "gold"
-point_cap_total = 2242
+point_cap_total = 1580
+variant_limit = 10
 dh_enabled = true
 
 [tournament_presets.high_iron_floor_gold_ceiling]
