@@ -552,27 +552,6 @@ def add_hitter_and_position_scores(
             scored[col] = 0
 
     def defense_score_for_pos(pos: str) -> pd.Series:
-        fld = scored[f"fld_{pos}"] * weights.fld_pos
-
-        if pos == "C":
-            comp = (
-                scored["c_framing"] * weights.c_framing
-                + scored["c_blocking"] * weights.c_blocking
-                + scored["c_arm"] * weights.c_arm
-            )
-        elif pos in {"1B", "2B", "3B", "SS"}:
-            comp = (
-                scored["if_range"] * weights.if_range
-                + scored["if_error"] * weights.if_error
-                + scored["if_arm"] * weights.if_arm
-                + scored["turn_dp"] * weights.turn_dp
-            )
-        else:  # LF/CF/RF
-            comp = (
-                scored["of_range"] * weights.of_range
-                + scored["of_error"] * weights.of_error
-                + scored["of_arm"] * weights.of_arm
-            )
         return scored[f"fld_{pos}"] * weights.fld_pos
 
     # --- Position scores (overall + splits) ---

@@ -1,298 +1,242 @@
-# OOTP Planner — Project Context
+# OOTP Planner Project Context
 
 ## Purpose
-OOTP Planner is a modular Python tool for OOTP Perfect Team and, later, regular game modes.
 
-The current focus is:
-- ingesting OOTP CSV exports
-- normalizing ratings and metadata
-- scoring hitters and pitchers
-- generating shortlist-style outputs to help with lineup/staff decisions
+OOTP Planner is a Python tool for OOTP Perfect Team roster planning.
 
-Future goals include:
-- lineup / bench / staff optimization
-- store upgrade analysis
-- tournament and perfect draft support
-- a GUI or better front-end presentation layer
+It ingests local OOTP exports, normalizes card metadata and ratings, scores hitters and pitchers, builds roster candidates from configurable rules, repairs common tournament constraints, and writes human-readable reports.
 
----
+The project is intentionally still heuristic. It is not a full optimizer yet.
 
 ## Current Status
-The project is working well enough to:
-- load hitter and pitcher exports
-- score players
-- generate ratings outputs
-- generate hitter shortlists
-- support both OOTP 26 and OOTP 27 export differences
+
+Current working capabilities:
+
+- load owned-card hitter and pitcher CSV exports
+- load store card-list CSV exports
+- normalize OOTP 26/27 export differences
+- normalize variant status from `VAR` into boolean `is_variant`
+- normalize owned-card `CType` into `pt_type`
+- normalize store `Card Type` numeric codes into the same `pt_type` codes
+- score hitters and pitchers from config-driven weights
+- generate ratings and shortlist CSV outputs
+- build deterministic rosters from base profiles and tournament presets
+- prevent duplicate-player selections by normalized player name
+- produce lineup, depth chart, pinch hitter, pinch runner, rotation, bullpen, specialist, and long-man outputs
+- export roster HTML reports
+- write roster snapshots and mark changed/new roster slots in later HTML reports
+- analyze store upgrades
 
 Recent milestone:
-- Successfully used the scripts to help build a first lineup in the launched game.
 
----
+- tournament preset support now covers card type filtering, variant limits, point caps, and rollover tier slot rules
+- greedy repair exists for variant limits, tier slots, and point caps
+- tier slot repair and swap diagnostics appear in HTML output
 
-## High-Level Architecture
-The intended structure is:
+## Current Workflow
 
-UI → Services → Domain → Adapters
+Use the project venv:
 
-### UI
-- CLI now
-- GUI later
+```powershell
+.\.venv\Scripts\python.exe ...
+```
 
-### Services
-- orchestrate loading, scoring, and exporting
-- should stay thin
+Run ratings/shortlists:
 
-### Domain
-- scoring formulas
-- role scores
-- later roster evaluation and optimization logic
+```powershell
+.\.venv\Scripts\python.exe -m ootp_opt.cli
+```
 
-### Adapters
-- ingest OOTP CSV exports
-- export CSV outputs
-- later store/tournament data adapters
+Run a roster build:
 
----
+```powershell
+.\.venv\Scripts\python.exe build_roster.py --preset my_slot_test --html-output outputs\my_slot_test.html
+```
 
-## Current Major Modules
+Run focused validation:
 
-### `ootp_opt/cli.py`
-Main command-line entrypoint.
+```powershell
+.\.venv\Scripts\python.exe -m pytest -p no:cacheprovider test_card_type_filter.py test_store_card_type_mapping.py test_tier_slot_report.py test_tier_slot_repair.py
+.\.venv\Scripts\python.exe -m ruff check --no-cache .
+```
 
-Responsibilities:
-- load config
-- run hitters / pitchers / both
-- trigger outputs
+## Architecture
 
-### `ootp_opt/config.py`
-Loads `config.toml`.
+The intended dependency direction is:
 
-Responsibilities:
-- provide config dictionary
-- centralize path and weight configuration
+UI / scripts -> services -> domain -> ingest/export adapters
 
-### `ootp_opt/ingest/pt_hitters.py`
-Loads Perfect Team hitter exports.
+Important rule:
 
-Responsibilities:
-- support OOTP 26 and 27 header differences
-- normalize hitter columns
-- map duplicate / renamed position fields into stable names
+- downstream tools should reuse normalized ingest and domain scoring
+- do not duplicate scoring logic inside roster repair, upgrade search, or future UI layers
 
-### `ootp_opt/ingest/pt_pitchers.py`
-Loads Perfect Team pitcher exports.
+## Important Data Columns
 
-Responsibilities:
-- support OOTP 26 and 27 header differences
-- normalize pitcher columns
-- map HRR/HRA and P/P_1 style changes
+Card identity and metadata:
 
-### `ootp_opt/domain/rating.py`
-Core scoring formulas.
+- `name`
+- `player_id`
+- `pt_tier`
+- `card_value`
+- `pt_year`
+- `pt_type`
+- `pt_subtype`
+- `is_variant`
 
-Responsibilities:
-- hitter batting scores
-- hitter positional scores
-- pinch run score
-- pitcher starter/reliever role scores
-- config-driven weighting
+`pt_type` comes from owned-card `CType`.
 
-### `ootp_opt/services/rating_service.py`
-Main orchestration layer for scoring.
+Known `pt_type` values:
 
-Responsibilities:
-- build weight objects from config
-- call ingest + domain logic
-- write shortlist output for hitters
-- return scored DataFrames
+- `2026Live`
+- `AS`
+- `FL`
+- `HaH`
+- `Leg`
+- `NeL`
+- `RS`
+- `Snap`
+- `UnH`
+- `VET`
 
-### `ootp_opt/services/shortlist_service.py`
-Creates hitter shortlist output.
+`pt_subtype` is separate from variant status. Subtypes include values such as `BBR`, `HOF`, `ME`, `UTIL`, `VB`, and `WBC`.
 
-Responsibilities:
-- top N by position
-- top bats vs LHP / RHP
-- position summaries for manual lineup building
+Variant status uses normalized boolean `is_variant` from OOTP `VAR`. `pt_subtype` is not variant status.
 
-### `ootp_opt/export/csv_export.py`
-CSV writer helper.
+## Scoring Outputs
 
-### `compare_headers.py`
-Utility script for comparing OOTP export headers between versions.
+Hitter score columns:
 
----
-
-## Current Outputs
-
-### Hitters output
-Main ratings file includes:
-- batting scores
-- position scores
-- pinch run score
-- fielding / eligibility info
-- PT metadata
-
-Important hitter-style columns:
+- `batting_score_overall`
 - `batting_score_vs_lhp`
 - `batting_score_vs_rhp`
-- `batting_score_overall`
-- `score_C_overall`, `score_SS_overall`, etc.
+- `score_C_overall`, `score_SS_overall`, `score_CF_overall`, etc.
 - `pinch_run_score`
 
-### Pitchers output
-Main ratings file includes:
-- starter and reliever scores
-- split role scores
-- pitch-count helper columns
-- PT metadata
+Pitcher score columns:
 
-Important pitcher-style columns:
+- `starter_score_overall`
 - `starter_score_vs_lhb`
 - `starter_score_vs_rhb`
-- `starter_score_overall`
+- `reliever_score_overall`
 - `reliever_score_vs_lhb`
 - `reliever_score_vs_rhb`
-- `reliever_score_overall`
-- `starter_pitch_count_good`
 
-### Hitter shortlist output
-Includes:
-- top players per position
-- top bats vs LHP
-- top bats vs RHP
-- playable positions with ratings
-- best positions by score
+These naming conventions should be preserved.
 
----
+## Roster Rules
 
-## Current Modeling Direction
+Base profiles define roster shape:
 
-Recent Modeling Decisions
+- `standard_pt`: 13 hitters, 13 pitchers
+- `playoff_pt`: 14 hitters, 12 pitchers, 4-man rotation, extra bench slot
 
-Defensive Scoring
--  Switched to using fld_POS (e.g., fld_SS, fld_1B) as the primary defensive input
--  Removed additive use of component ratings (range, arm, etc.) to avoid double-counting
--  Future direction may include small component-based adjustments, but not full recomposition
+Tournament presets are named build recipes, not tournament names. They wrap a base profile and add filters/constraints.
 
-Platoon Handling
--  Current shortlist platoon rows use batting-only splits (batting_score_vs_lhp/rhp)
--  These are useful for:
-   -  bench bats
-   -  DH evaluation
--  Future direction:
-   -  use position-specific split scores (score_POS_vs_lhp/rhp)
-   -  enable true roster-level platoon decisions (offense + defense)
+Supported preset fields include:
 
-### Hitters
-Current focus:
-- pure batting score
-- positional score built from offense + defense
-- pinch run role score
+- `base_profile`
+- `dh_enabled`
+- `platoons_allowed`
+- `tier_min`
+- `tier_max`
+- `card_value_min`
+- `card_value_max`
+- `live_mode`
+- `allowed_card_types`
+- `excluded_card_types`
+- `card_year_min`
+- `card_year_max`
+- `point_cap_total`
+- `variant_limit`
+- `tier_slots`
 
-Important current beliefs:
-- pure batting splits are useful
-- platoon logic should wait until a real optimizer exists
-- defense / offense balance still needs tuning
-- Contact may be redundant in modern PT when BABIP + Avoid K are already present
+Tier slot rules use cumulative rollover logic. For `P = 2`, `D = 1`, `G = 1`:
 
-### Pitchers
-Current focus:
-- starter vs reliever role scoring
-- starter gating by stamina and pitch depth
-- separate starter and reliever weighting
+- Perfect cards <= 2
+- Perfect + Diamond cards <= 3
+- Perfect + Diamond + Gold cards <= 4
 
-Important current beliefs:
-- PBABIP is likely the most important SP trait
-- HRA next
-- Stuff next
-- Control after that
-- movement/contact-style hybrid ratings may need to be de-emphasized or zeroed when decomposed ratings are available
+Unused higher-tier slots can be used by lower-tier cards.
 
----
+## Repair Behavior
 
-## Config Strategy
-The project uses `config.toml` for:
-- file paths
-- output defaults
-- hitter weights
-- pitcher weights
-- position blends
-- starter gating thresholds
+Repairs are greedy heuristics, not optimization.
 
-The goal is to keep tuning out of the code as much as possible.
+Current repair order in `build_roster.py`:
 
----
+1. Build initial hitter and pitcher rosters.
+2. Validate no duplicate players.
+3. Report variant count.
+4. If `variant_limit` is set, greedily repair variants.
+5. If `tier_slots` are set, greedily repair tier slot violations.
+6. Report cap usage.
+7. If `point_cap_total` is set, greedily repair cap overage.
+8. Write HTML and snapshot.
 
-## Recent Version-Compatibility Work
-The ingest layer was patched to handle OOTP 26 → 27 export changes.
+Important limitation:
 
-### Hitters
-Supported changes include:
-- duplicate position columns becoming explicit `_1` columns
+- cap repair happens after tier slot repair and may change the tier mix
+- current code reports tier slots again after cap repair when slots exist
+- deeper interaction among cap, tier slots, and score quality eventually belongs in an optimizer
 
-### Pitchers
-Supported changes include:
-- `HRR` becoming `HRA`
-- duplicate `P` fielding columns becoming `P_1`
+## Current Modeling Decisions
 
----
+Defensive scoring:
+
+- uses `fld_POS` as the primary position defensive input
+- avoids recomposing defense from component ratings to prevent double counting
+- component ratings may still be useful later as small adjustments
+
+Platoon handling:
+
+- current build uses overall position scores for roster construction
+- lineup output includes batting splits vs RHP/LHP
+- true platoon-aware roster construction is deferred
+
+Cap repair:
+
+- greedy slot-for-slot replacement
+- chooses lower card-value replacements by score-loss efficiency
+
+Variant repair:
+
+- greedy replacement of selected variants with non-variants
+- uses normalized `is_variant`
+
+Tier slot repair:
+
+- greedy demotion from the highest violated cumulative tier
+- chooses lower-tier replacements by protected role priority and score loss
+- preserves duplicate-player prevention and bench role requirements
 
 ## Current Pain Points
-1. Ratings/weights still need significant tuning.
-2. It is still a lot of work to manually build a full lineup and bench.
-3. A full optimizer is desired, but should not be rushed blindly.
-4. Store output / cheap-upgrade analysis has not been built yet.
-5. Tournament / draft support will eventually be important.
 
----
+1. Scoring weights need a deeper review.
+2. Greedy roster construction can spend scarce resources in the wrong roles.
+3. Tier slot repair works, but a full optimizer would make better global tradeoffs.
+4. Cap, tier slot, and variant constraints can interact in ways greedy repair cannot fully optimize.
+5. HTML diagnostics are useful but still utilitarian.
 
-## Current Strategic Decision
-Do **not** jump straight into a full optimizer yet.
+## Next Priority
 
-Instead, next discussion should focus on:
-- understanding the future `roster/` architecture
-- separating scoring from roster decision logic
-- deciding whether the next code step should be:
-  - more ratings tuning, or
-  - a roster evaluator / greedy builder
+The next major discussion should focus on scoring.
 
----
+Good starting questions:
 
-## Likely Next Architecture Area
-A future `roster/` package is expected, likely containing:
+- Are hitter batting weights valuing modern PT traits correctly?
+- Should Contact remain zero when BABIP and Avoid K are available?
+- Are defense thresholds and position blends producing believable starters and bench coverage?
+- Are pitcher starter/reliever weights aligned with observed game performance?
+- Are stamina and pitch-depth gates too harsh or too lenient?
 
-- models
-- eligibility helpers
-- evaluator logic
-- greedy roster-building heuristics
+Do not jump to a full optimizer until scoring feels more trustworthy.
 
-This will be the bridge between:
-- current scores
-- future optimizer
-- store-upgrade analysis
-- tournament helpers
+## Notes for Future Chats
 
----
+When resuming in a new Codex or ChatGPT session:
 
-## Current Known Good Workflow
-1. Update config paths if needed.
-2. Run:
-   `python -m ootp_opt.cli`
-3. Review:
-   - `ratings_hitters.csv`
-   - `ratings_pitchers.csv`
-   - `shortlists_hitters.csv`
-
----
-
-## Notes for New Chats
-When resuming in a new chat:
-- paste this file
-- optionally paste `CODE_MAP.md`
-- then explain the immediate next decision or question
-
-The next discussion should assume:
-- scoring works
-- OOTP 26 and 27 ingest works
-- the major question is what to build next and how to structure it cleanly
+- use this file as current context
+- optionally include `CODE_MAP.md`
+- mention the immediate next task
+- assume roster building, card type filters, cap repair, variant repair, tier slot repair, HTML output, snapshots, and store ingest all exist

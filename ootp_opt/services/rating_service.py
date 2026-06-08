@@ -9,10 +9,6 @@ from ootp_opt.export.csv_export import write_csv
 import pandas as pd
 
 from ootp_opt.domain.rating import (
-    RatingWeights,
-    PitcherRatingWeights,
-    rate_hitters_basic,
-    rate_pitchers_basic,
     add_pitcher_role_scores,
     PitcherRoleWeights,
     add_hitter_and_position_scores,

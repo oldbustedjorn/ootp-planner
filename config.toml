@@ -113,7 +113,7 @@ simulation_year = 0
 point_cap_total = 0
 
 [roster_build_defaults.tier_slots]
-# Optional tier slot report targets. These are reported only, not repaired yet.
+# Optional tier slot targets. These are reported and greedily repaired when configured.
 # Full tier names or abbreviations are accepted in tournament presets:
 # perfect/P = 2
 # diamond/D = 3
