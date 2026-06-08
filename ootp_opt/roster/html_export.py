@@ -15,6 +15,7 @@ from ootp_opt.roster.lineup import (
 from ootp_opt.roster.models import HitterRoster, PitcherRoster
 from ootp_opt.roster.rules import Ruleset
 from ootp_opt.roster.tier_slot_report import build_tier_slot_rows
+from ootp_opt.roster.tier_slot_repair import TierSlotRepairResult
 
 DEPTH_ORDER = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH"]
 
@@ -26,6 +27,7 @@ def export_roster_html(
     pitcher_roster: PitcherRoster,
     eligibility_summary: dict[str, Any] | None = None,
     change_statuses: dict[str, str] | None = None,
+    tier_slot_repair_result: TierSlotRepairResult | None = None,
 ) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -36,6 +38,7 @@ def export_roster_html(
         pitcher_roster=pitcher_roster,
         eligibility_summary=eligibility_summary or {},
         change_statuses=change_statuses or {},
+        tier_slot_repair_result=tier_slot_repair_result,
     )
 
     path.write_text(html, encoding="utf-8")
@@ -47,6 +50,7 @@ def build_roster_html(
     pitcher_roster: PitcherRoster,
     eligibility_summary: dict[str, Any],
     change_statuses: dict[str, str],
+    tier_slot_repair_result: TierSlotRepairResult | None = None,
 ) -> str:
     return f"""<!doctype html>
 <html>
@@ -62,6 +66,7 @@ def build_roster_html(
 
   {render_build_summary(ruleset, eligibility_summary)}
   {render_tier_slot_summary(ruleset, hitter_roster, pitcher_roster)}
+  {render_tier_slot_repair_summary(tier_slot_repair_result)}
   {render_roster_checklist(hitter_roster, pitcher_roster, change_statuses)}
 
   <section class="screen two-col">
@@ -157,6 +162,9 @@ def render_tier_slot_summary(
     hitter_roster: HitterRoster,
     pitcher_roster: PitcherRoster,
 ) -> str:
+    if not ruleset.tier_slots:
+        return ""
+
     rows = build_tier_slot_rows(
         hitter_roster=hitter_roster,
         pitcher_roster=pitcher_roster,
@@ -170,12 +178,12 @@ def render_tier_slot_summary(
         "<tr>"
         f"<td>{escape(row.tier)}</td>"
         f"<td class='num'>{row.selected_count}</td>"
-        f"<td class='num'>{row.direct_slots if ruleset.tier_slots else '-'}</td>"
-        f"<td class='num'>{row.cumulative_selected if ruleset.tier_slots else '-'}</td>"
-        f"<td class='num'>{row.cumulative_slots if ruleset.tier_slots else '-'}</td>"
-        f"<td class='num'>{signed_delta(row.remaining) if ruleset.tier_slots else '-'}</td>"
+        f"<td class='num'>{row.direct_slots}</td>"
+        f"<td class='num'>{row.cumulative_selected}</td>"
+        f"<td class='num'>{row.cumulative_slots}</td>"
+        f"<td class='num'>{signed_delta(row.remaining)}</td>"
         f"<td class='{tier_slot_status_class(row.is_over_limit, ruleset)}'>"
-        f"{'OVER' if row.is_over_limit and ruleset.tier_slots else 'OK' if ruleset.tier_slots else '-'}</td>"
+        f"{'OVER' if row.is_over_limit else 'OK'}</td>"
         "</tr>"
         for row in rows
     )
@@ -215,6 +223,75 @@ def tier_slot_status_class(is_over_limit: bool, ruleset: Ruleset) -> str:
     if is_over_limit:
         return "status-over"
     return "status-ok"
+
+
+def render_tier_slot_repair_summary(
+    result: TierSlotRepairResult | None,
+) -> str:
+    if result is None:
+        return ""
+
+    if not result.steps:
+        status = "Successful" if result.success else "Incomplete"
+        detail = "No tier slot repair needed." if result.success else (
+            f"No tier slot repair steps were available; still over {result.final_over_tier}."
+        )
+        return f"""
+<section class="screen">
+  <div class="panel">
+    <div class="panel-title">Tier Slot Repair</div>
+    <table>
+      <tbody>
+        <tr><th>Status</th><td>{escape(status)}</td></tr>
+        <tr><th>Detail</th><td>{escape(detail)}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+"""
+
+    body = "".join(
+        "<tr>"
+        f"<td class='num'>{idx}</td>"
+        f"<td>{escape(step.role)}</td>"
+        f"<td>{escape(step.old_name)}</td>"
+        f"<td>{escape(step.old_tier)}</td>"
+        f"<td>{escape(step.new_name)}</td>"
+        f"<td>{escape(step.new_tier)}</td>"
+        f"<td class='num'>{step.score_loss:.1f}</td>"
+        f"<td>{escape(step.repaired_tier)}</td>"
+        f"<td>{escape(step.still_over_tier or 'none')}</td>"
+        "</tr>"
+        for idx, step in enumerate(result.steps, start=1)
+    )
+
+    status = "Successful" if result.success else "Incomplete"
+    if not result.success and result.final_over_tier:
+        status = f"{status}: still over {result.final_over_tier}"
+
+    return f"""
+<section class="screen">
+  <div class="panel">
+    <div class="panel-title">Tier Slot Repair - {escape(status)}</div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Role</th>
+          <th>Old Player</th>
+          <th>Old Tier</th>
+          <th>New Player</th>
+          <th>New Tier</th>
+          <th>Score Loss</th>
+          <th>Repaired Tier</th>
+          <th>Still Over</th>
+        </tr>
+      </thead>
+      <tbody>{body}</tbody>
+    </table>
+  </div>
+</section>
+"""
 
 
 def render_rotation(pitcher_roster: PitcherRoster) -> str:

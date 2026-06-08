@@ -56,6 +56,36 @@ def build_tier_slot_rows(
     return rows
 
 
+def tier_slots_satisfied(
+    hitter_roster: HitterRoster,
+    pitcher_roster: PitcherRoster,
+    tier_slots: dict[str, int],
+) -> bool:
+    if not tier_slots:
+        return True
+
+    return not any(
+        row.is_over_limit
+        for row in build_tier_slot_rows(hitter_roster, pitcher_roster, tier_slots)
+    )
+
+
+def highest_violated_tier(
+    hitter_roster: HitterRoster,
+    pitcher_roster: PitcherRoster,
+    tier_slots: dict[str, int],
+) -> str | None:
+    for row in build_tier_slot_rows(hitter_roster, pitcher_roster, tier_slots):
+        if row.is_over_limit:
+            return row.tier
+
+    return None
+
+
+def tier_rank(tier: str) -> int:
+    return TIER_ORDER.index(tier)
+
+
 def count_roster_tiers(
     hitter_roster: HitterRoster,
     pitcher_roster: PitcherRoster,

@@ -47,6 +47,11 @@ from ootp_opt.roster.html_export import export_roster_html
 
 from ootp_opt.roster.tier_slot_report import print_tier_slot_report
 
+from ootp_opt.roster.tier_slot_repair import (
+    print_tier_slot_repair_result,
+    repair_roster_to_tier_slots,
+)
+
 from ootp_opt.roster.variant_report import print_variant_report
 
 from ootp_opt.roster.variant_repair import (
@@ -291,6 +296,7 @@ def main() -> None:
 
     hitter_roster = build_hitter_roster(eligible_hitters, ruleset)
     pitcher_roster = build_pitcher_roster(eligible_pitchers, ruleset)
+    tier_slot_result = None
 
     validate_no_duplicate_players(hitter_roster, pitcher_roster)
 
@@ -300,11 +306,13 @@ def main() -> None:
         variant_limit=ruleset.variant_limit,
     )
 
-    print_tier_slot_report(
-        hitter_roster=hitter_roster,
-        pitcher_roster=pitcher_roster,
-        tier_slots=ruleset.tier_slots,
-    )
+    if ruleset.tier_slots:
+        if ruleset.tier_slots:
+            print_tier_slot_report(
+                hitter_roster=hitter_roster,
+                pitcher_roster=pitcher_roster,
+                tier_slots=ruleset.tier_slots,
+            )
 
     if ruleset.variant_limit is not None:
         variant_result = repair_roster_to_variant_limit(
@@ -328,11 +336,35 @@ def main() -> None:
             variant_limit=ruleset.variant_limit,
         )
 
-        print_tier_slot_report(
+        if ruleset.tier_slots:
+            print_tier_slot_report(
+                hitter_roster=hitter_roster,
+                pitcher_roster=pitcher_roster,
+                tier_slots=ruleset.tier_slots,
+            )
+
+    if ruleset.tier_slots:
+        tier_slot_result = repair_roster_to_tier_slots(
             hitter_roster=hitter_roster,
             pitcher_roster=pitcher_roster,
-            tier_slots=ruleset.tier_slots,
+            eligible_hitters=eligible_hitters,
+            eligible_pitchers=eligible_pitchers,
+            ruleset=ruleset,
         )
+
+        print_tier_slot_repair_result(tier_slot_result)
+
+        hitter_roster = tier_slot_result.hitter_roster
+        pitcher_roster = tier_slot_result.pitcher_roster
+
+        validate_no_duplicate_players(hitter_roster, pitcher_roster)
+
+        if ruleset.tier_slots:
+            print_tier_slot_report(
+                hitter_roster=hitter_roster,
+                pitcher_roster=pitcher_roster,
+                tier_slots=ruleset.tier_slots,
+            )
 
     print_cap_report(
         hitter_roster=hitter_roster,
@@ -362,11 +394,12 @@ def main() -> None:
             point_cap_total=ruleset.point_cap_total,
         )
 
-        print_tier_slot_report(
-            hitter_roster=hitter_roster,
-            pitcher_roster=pitcher_roster,
-            tier_slots=ruleset.tier_slots,
-        )
+        if ruleset.tier_slots:
+            print_tier_slot_report(
+                hitter_roster=hitter_roster,
+                pitcher_roster=pitcher_roster,
+                tier_slots=ruleset.tier_slots,
+            )
 
         if ruleset.variant_limit is not None:
             print_variant_report(
@@ -406,6 +439,7 @@ def main() -> None:
         pitcher_roster=pitcher_roster,
         eligibility_summary=eligibility_summary,
         change_statuses=change_statuses,
+        tier_slot_repair_result=tier_slot_result,
     )
 
     write_snapshot(snapshot_path, new_snapshot)
