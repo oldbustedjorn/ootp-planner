@@ -106,6 +106,7 @@ TOURNAMENT_PRESET_RULESET_KEYS = {
     "card_year_max",
     "point_cap_total",
     "variant_limit",
+    "tier_slots",
 }
 
 

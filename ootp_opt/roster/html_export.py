@@ -14,6 +14,7 @@ from ootp_opt.roster.lineup import (
 )
 from ootp_opt.roster.models import HitterRoster, PitcherRoster
 from ootp_opt.roster.rules import Ruleset
+from ootp_opt.roster.tier_slot_report import build_tier_slot_rows
 
 DEPTH_ORDER = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH"]
 
@@ -60,6 +61,7 @@ def build_roster_html(
   <h1>OOTP Roster Build: {escape(ruleset.name)}</h1>
 
   {render_build_summary(ruleset, eligibility_summary)}
+  {render_tier_slot_summary(ruleset, hitter_roster, pitcher_roster)}
   {render_roster_checklist(hitter_roster, pitcher_roster, change_statuses)}
 
   <section class="screen two-col">
@@ -116,6 +118,10 @@ def render_build_summary(
             "-" if ruleset.variant_limit is None else str(ruleset.variant_limit),
         ),
         (
+            "Tier slots",
+            format_tier_slots(ruleset.tier_slots),
+        ),
+        (
             "Point cap",
             "-" if ruleset.point_cap_total is None else str(ruleset.point_cap_total),
         ),
@@ -137,6 +143,78 @@ def render_build_summary(
   </table>
 </section>
 """
+
+
+def format_tier_slots(tier_slots: dict[str, int]) -> str:
+    if not tier_slots:
+        return "-"
+
+    return ", ".join(f"{tier}: {count}" for tier, count in tier_slots.items())
+
+
+def render_tier_slot_summary(
+    ruleset: Ruleset,
+    hitter_roster: HitterRoster,
+    pitcher_roster: PitcherRoster,
+) -> str:
+    rows = build_tier_slot_rows(
+        hitter_roster=hitter_roster,
+        pitcher_roster=pitcher_roster,
+        tier_slots=ruleset.tier_slots,
+    )
+
+    if not rows:
+        return ""
+
+    body = "".join(
+        "<tr>"
+        f"<td>{escape(row.tier)}</td>"
+        f"<td class='num'>{row.selected_count}</td>"
+        f"<td class='num'>{row.direct_slots if ruleset.tier_slots else '-'}</td>"
+        f"<td class='num'>{row.cumulative_selected if ruleset.tier_slots else '-'}</td>"
+        f"<td class='num'>{row.cumulative_slots if ruleset.tier_slots else '-'}</td>"
+        f"<td class='num'>{signed_delta(row.remaining) if ruleset.tier_slots else '-'}</td>"
+        f"<td class='{tier_slot_status_class(row.is_over_limit, ruleset)}'>"
+        f"{'OVER' if row.is_over_limit and ruleset.tier_slots else 'OK' if ruleset.tier_slots else '-'}</td>"
+        "</tr>"
+        for row in rows
+    )
+
+    return f"""
+<section class="screen">
+  <div class="panel">
+    <div class="panel-title">Tier Slot Summary</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Tier</th>
+          <th>Selected</th>
+          <th>Slots</th>
+          <th>Selected or Better</th>
+          <th>Slots or Better</th>
+          <th>Remaining</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>{body}</tbody>
+    </table>
+  </div>
+</section>
+"""
+
+
+def signed_delta(value: int) -> str:
+    if value > 0:
+        return f"+{value}"
+    return str(value)
+
+
+def tier_slot_status_class(is_over_limit: bool, ruleset: Ruleset) -> str:
+    if not ruleset.tier_slots:
+        return ""
+    if is_over_limit:
+        return "status-over"
+    return "status-ok"
 
 
 def render_rotation(pitcher_roster: PitcherRoster) -> str:
@@ -564,6 +642,17 @@ tbody tr:nth-child(even) {
 
 .checklist-unchanged {
   opacity: 0.72;
+}
+
+.status-ok {
+  color: #8ee6a2;
+  font-weight: 700;
+}
+
+.status-over {
+  color: #ffb3b3;
+  background: rgba(180, 20, 35, 0.35);
+  font-weight: 700;
 }
 
 input[type="checkbox"] {

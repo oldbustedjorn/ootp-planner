@@ -113,12 +113,14 @@ simulation_year = 0
 point_cap_total = 0
 
 [roster_build_defaults.tier_slots]
-# Example future shape:
-# perfect = 2
-# diamond = 3
-# gold = 4
-# silver = 5
-# bronze = 6
+# Optional tier slot report targets. These are reported only, not repaired yet.
+# Full tier names or abbreviations are accepted in tournament presets:
+# perfect/P = 2
+# diamond/D = 3
+# gold/G = 4
+# silver/S = 5
+# bronze/B = 6
+# iron/I = 6
 
 # Standard unrestricted Perfect Team roster shape.
 [roster_base_profiles.standard_pt]
@@ -222,6 +224,17 @@ tier_max = "gold"
 card_value_min = 50
 point_cap_total = 1767
 dh_enabled = true
+
+[tournament_presets.my_slot_test]
+base_profile = "playoff_pt"
+
+[tournament_presets.my_slot_test.tier_slots]
+P = 2
+D = 1
+G = 1
+S = 12
+B = 6
+I = 5
 
 [tournament_presets.sporers_sandlot]
 base_profile = "playoff_pt"

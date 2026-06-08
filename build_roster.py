@@ -45,6 +45,8 @@ from ootp_opt.roster.cap_report import print_cap_report
 
 from ootp_opt.roster.html_export import export_roster_html
 
+from ootp_opt.roster.tier_slot_report import print_tier_slot_report
+
 from ootp_opt.roster.variant_report import print_variant_report
 
 from ootp_opt.roster.variant_repair import (
@@ -298,6 +300,12 @@ def main() -> None:
         variant_limit=ruleset.variant_limit,
     )
 
+    print_tier_slot_report(
+        hitter_roster=hitter_roster,
+        pitcher_roster=pitcher_roster,
+        tier_slots=ruleset.tier_slots,
+    )
+
     if ruleset.variant_limit is not None:
         variant_result = repair_roster_to_variant_limit(
             hitter_roster=hitter_roster,
@@ -318,6 +326,12 @@ def main() -> None:
             hitter_roster=hitter_roster,
             pitcher_roster=pitcher_roster,
             variant_limit=ruleset.variant_limit,
+        )
+
+        print_tier_slot_report(
+            hitter_roster=hitter_roster,
+            pitcher_roster=pitcher_roster,
+            tier_slots=ruleset.tier_slots,
         )
 
     print_cap_report(
@@ -346,6 +360,12 @@ def main() -> None:
             hitter_roster=hitter_roster,
             pitcher_roster=pitcher_roster,
             point_cap_total=ruleset.point_cap_total,
+        )
+
+        print_tier_slot_report(
+            hitter_roster=hitter_roster,
+            pitcher_roster=pitcher_roster,
+            tier_slots=ruleset.tier_slots,
         )
 
         if ruleset.variant_limit is not None:
