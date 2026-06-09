@@ -12,6 +12,7 @@ Contains:
 
 - local OOTP export paths
 - hitter and pitcher scoring weights
+- simulation year and ballpark settings
 - position blends
 - roster base profiles
 - tournament presets
@@ -34,6 +35,8 @@ Responsibilities:
 - report/repair point cap
 - write roster HTML and snapshot
 - print roster, lineup, depth, and staff summaries
+
+Simulation context is resolved before scoring, then applied as conservative weight multipliers.
 
 ### `compare_headers.py`
 
@@ -113,6 +116,25 @@ Key functions:
 
 ## Package: `ootp_opt.domain`
 
+### `ootp_opt.domain.simulation_context`
+
+Loads and resolves simulation context.
+
+Responsibilities:
+
+- load `ootp_opt/data/year_era_factors.csv`
+- load `ootp_opt/data/park_factors.csv`
+- keep simulation year and ballpark year independent
+- support direct custom park-factor overrides when a tournament park is missing from the CSV
+- apply conservative era and park multipliers to scoring config
+
+Key functions:
+
+- `resolve_simulation_context(...)`
+- `apply_simulation_context_to_config(...)`
+- `load_era_factors(year)`
+- `load_park_factors(ballpark, year)`
+
 ### `ootp_opt.domain.rating`
 
 Core scoring formulas.
@@ -188,7 +210,7 @@ Responsibilities:
 - build rulesets from base profiles
 - build rulesets from tournament presets
 - merge defaults, base profile settings, preset overrides, and CLI overrides
-- normalize optional fields such as tiers, card values, live mode, card types, years, caps, variant limits, and tier slots
+- normalize optional fields such as tiers, card values, live mode, card types, years, simulation context, caps, variant limits, and tier slots
 
 Key classes:
 
@@ -395,6 +417,7 @@ Focused tests:
 - `test_store_card_type_mapping.py`
 - `test_tier_slot_report.py`
 - `test_tier_slot_repair.py`
+- `test_simulation_context.py`
 
 Ad hoc/manual scripts:
 

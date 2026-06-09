@@ -46,6 +46,9 @@ class Ruleset:
     card_year_min: int | None = None
     card_year_max: int | None = None
     simulation_year: int | None = None
+    ballpark: str | None = None
+    ballpark_year: int | None = None
+    custom_park_factors: dict[str, float] = field(default_factory=dict)
     point_cap_total: int | None = None
     tier_slots: dict[str, int] = field(default_factory=dict)
 
@@ -104,6 +107,10 @@ TOURNAMENT_PRESET_RULESET_KEYS = {
     "excluded_card_types",
     "card_year_min",
     "card_year_max",
+    "simulation_year",
+    "ballpark",
+    "ballpark_year",
+    "custom_park_factors",
     "point_cap_total",
     "variant_limit",
     "tier_slots",
@@ -207,6 +214,9 @@ def build_ruleset(profile_name: str, profile_cfg: dict[str, Any]) -> Ruleset:
     card_year_min = none_if_zero(profile_cfg.get("card_year_min"))
     card_year_max = none_if_zero(profile_cfg.get("card_year_max"))
     simulation_year = none_if_zero(profile_cfg.get("simulation_year"))
+    ballpark = none_if_blank_preserve_case(profile_cfg.get("ballpark"))
+    ballpark_year = none_if_zero(profile_cfg.get("ballpark_year"))
+    custom_park_factors = normalize_float_dict(profile_cfg.get("custom_park_factors"))
     point_cap_total = none_if_zero(profile_cfg.get("point_cap_total"))
 
     tier_slots_raw = profile_cfg.get("tier_slots", {})
@@ -246,6 +256,9 @@ def build_ruleset(profile_name: str, profile_cfg: dict[str, Any]) -> Ruleset:
         card_year_min=card_year_min,
         card_year_max=card_year_max,
         simulation_year=simulation_year,
+        ballpark=ballpark,
+        ballpark_year=ballpark_year,
+        custom_park_factors=custom_park_factors,
         point_cap_total=point_cap_total,
         tier_slots=tier_slots,
     )
@@ -326,6 +339,13 @@ def none_if_blank(value: Any) -> str | None:
     return str(value).lower()
 
 
+def none_if_blank_preserve_case(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+    text = str(value).strip()
+    return text or None
+
+
 def normalize_string_list(value: Any) -> list[str]:
     if value in (None, ""):
         return []
@@ -340,6 +360,19 @@ def normalize_string_list(value: Any) -> list[str]:
         for item in raw_values
         if (normalized := str(item).strip().lower())
     ]
+
+
+def normalize_float_dict(value: Any) -> dict[str, float]:
+    if not value:
+        return {}
+
+    if not isinstance(value, dict):
+        raise ValueError(
+            f"Expected custom_park_factors to be a table/dict, "
+            f"got {type(value).__name__}"
+        )
+
+    return {str(key): float(item) for key, item in value.items()}
 
 
 def deep_copy_dict(value: dict[str, Any]) -> dict[str, Any]:

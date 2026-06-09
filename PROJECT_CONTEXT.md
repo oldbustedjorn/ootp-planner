@@ -19,6 +19,7 @@ Current working capabilities:
 - normalize owned-card `CType` into `pt_type`
 - normalize store `Card Type` numeric codes into the same `pt_type` codes
 - score hitters and pitchers from config-driven weights
+- adjust scoring for simulation year and ballpark context
 - generate ratings and shortlist CSV outputs
 - build deterministic rosters from base profiles and tournament presets
 - prevent duplicate-player selections by normalized player name
@@ -32,6 +33,7 @@ Recent milestone:
 - tournament preset support now covers card type filtering, variant limits, point caps, and rollover tier slot rules
 - greedy repair exists for variant limits, tier slots, and point caps
 - tier slot repair and swap diagnostics appear in HTML output
+- simulation year and ballpark context can now affect scoring
 
 ## Current Workflow
 
@@ -51,6 +53,12 @@ Run a roster build:
 
 ```powershell
 .\.venv\Scripts\python.exe build_roster.py --preset my_slot_test --html-output outputs\my_slot_test.html
+```
+
+Run a simulation-context build:
+
+```powershell
+.\.venv\Scripts\python.exe build_roster.py --base-profile playoff_pt --simulation-year 1919 --ballpark "Dodger Stadium" --ballpark-year 1962 --html-output outputs\sim_test.html
 ```
 
 Run focused validation:
@@ -147,6 +155,10 @@ Supported preset fields include:
 - `excluded_card_types`
 - `card_year_min`
 - `card_year_max`
+- `simulation_year`
+- `ballpark`
+- `ballpark_year`
+- `custom_park_factors`
 - `point_cap_total`
 - `variant_limit`
 - `tier_slots`
@@ -158,6 +170,21 @@ Tier slot rules use cumulative rollover logic. For `P = 2`, `D = 1`, `G = 1`:
 - Perfect + Diamond + Gold cards <= 4
 
 Unused higher-tier slots can be used by lower-tier cards.
+
+## Simulation Context
+
+Simulation year and ballpark year are separate.
+
+Example: a tournament can use `simulation_year = 1919` while playing at an `1886` park. Named park lookup uses `ootp_opt/data/park_factors.csv`. If a tournament park is not in the CSV, use direct custom park factors from tournament text.
+
+Supported custom park factor keys include:
+
+- `ba_lh`, `ba_rh`
+- `hr_lh`, `hr_rh`
+- `doubles_overall`
+- `triples_overall`
+
+The first-pass implementation applies conservative multipliers to scoring weights. It does not mutate raw ratings.
 
 ## Repair Behavior
 
@@ -210,17 +237,24 @@ Tier slot repair:
 - chooses lower-tier replacements by protected role priority and score loss
 - preserves duplicate-player prevention and bench role requirements
 
+Simulation context:
+
+- era and park factors adjust scoring weights before roster construction
+- raw player ratings are unchanged
+- early-era factors are clamped into modest multipliers to avoid huge table values dominating immediately
+
 ## Current Pain Points
 
-1. Scoring weights need a deeper review.
-2. Greedy roster construction can spend scarce resources in the wrong roles.
-3. Tier slot repair works, but a full optimizer would make better global tradeoffs.
-4. Cap, tier slot, and variant constraints can interact in ways greedy repair cannot fully optimize.
-5. HTML diagnostics are useful but still utilitarian.
+1. Simulation context multipliers need validation and tuning.
+2. Scoring weights need a deeper review.
+3. Greedy roster construction can spend scarce resources in the wrong roles.
+4. Tier slot repair works, but a full optimizer would make better global tradeoffs.
+5. Cap, tier slot, and variant constraints can interact in ways greedy repair cannot fully optimize.
+6. HTML diagnostics are useful but still utilitarian.
 
 ## Next Priority
 
-The next major discussion should focus on scoring.
+The next major discussion should focus on scoring and simulation context.
 
 Good starting questions:
 
@@ -229,6 +263,7 @@ Good starting questions:
 - Are defense thresholds and position blends producing believable starters and bench coverage?
 - Are pitcher starter/reliever weights aligned with observed game performance?
 - Are stamina and pitch-depth gates too harsh or too lenient?
+- Are era and park multipliers changing rosters in believable ways?
 
 Do not jump to a full optimizer until scoring feels more trustworthy.
 
@@ -239,4 +274,4 @@ When resuming in a new Codex or ChatGPT session:
 - use this file as current context
 - optionally include `CODE_MAP.md`
 - mention the immediate next task
-- assume roster building, card type filters, cap repair, variant repair, tier slot repair, HTML output, snapshots, and store ingest all exist
+- assume roster building, card type filters, cap repair, variant repair, tier slot repair, simulation context scoring, HTML output, snapshots, and store ingest all exist

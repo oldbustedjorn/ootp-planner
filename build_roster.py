@@ -4,6 +4,10 @@ import argparse
 from typing import Any
 
 from ootp_opt.config import load_config
+from ootp_opt.domain.simulation_context import (
+    apply_simulation_context_to_config,
+    resolve_simulation_context,
+)
 from ootp_opt.roster.builder import (
     build_hitter_roster,
     build_pitcher_roster,
@@ -102,6 +106,33 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--card-year-max", type=int, default=None)
 
     parser.add_argument(
+        "--simulation-year",
+        type=int,
+        default=None,
+        help="Simulation era year used for environment-adjusted scoring.",
+    )
+
+    parser.add_argument(
+        "--ballpark",
+        default=None,
+        help="Ballpark name used for environment-adjusted scoring.",
+    )
+
+    parser.add_argument(
+        "--ballpark-year",
+        type=int,
+        default=None,
+        help="Park-factor year. Defaults to simulation year when omitted.",
+    )
+
+    parser.add_argument("--park-ba-lh", type=float, default=None)
+    parser.add_argument("--park-ba-rh", type=float, default=None)
+    parser.add_argument("--park-hr-lh", type=float, default=None)
+    parser.add_argument("--park-hr-rh", type=float, default=None)
+    parser.add_argument("--park-2b", type=float, default=None)
+    parser.add_argument("--park-3b", type=float, default=None)
+
+    parser.add_argument(
         "--point-cap-total",
         type=int,
         default=None,
@@ -145,6 +176,9 @@ def build_overrides(args: argparse.Namespace) -> dict[str, Any]:
         "exclude_card_types",
         "card_year_min",
         "card_year_max",
+        "simulation_year",
+        "ballpark",
+        "ballpark_year",
         "point_cap_total",
         "variant_limit",
     ]:
@@ -160,7 +194,24 @@ def build_overrides(args: argparse.Namespace) -> dict[str, Any]:
     if args.dh_enabled is not None:
         overrides["dh_enabled"] = args.dh_enabled.lower() == "true"
 
+    custom_park_factors = build_custom_park_factor_overrides(args)
+    if custom_park_factors:
+        overrides["custom_park_factors"] = custom_park_factors
+
     return overrides
+
+
+def build_custom_park_factor_overrides(args: argparse.Namespace) -> dict[str, float]:
+    fields = {
+        "ba_lh": args.park_ba_lh,
+        "ba_rh": args.park_ba_rh,
+        "hr_lh": args.park_hr_lh,
+        "hr_rh": args.park_hr_rh,
+        "doubles_overall": args.park_2b,
+        "triples_overall": args.park_3b,
+    }
+
+    return {key: value for key, value in fields.items() if value is not None}
 
 
 def split_csv_arg(value: str) -> list[str]:
@@ -234,18 +285,34 @@ def main() -> None:
     print(f"Allowed card types: {ruleset.allowed_card_types or '-'}")
     print(f"Excluded card types: {ruleset.excluded_card_types or '-'}")
     print(f"Card year min/max: {ruleset.card_year_min} / {ruleset.card_year_max}")
+    print(f"Simulation year: {ruleset.simulation_year or '-'}")
+    print(f"Ballpark: {ruleset.ballpark or '-'}")
+    print(f"Ballpark year: {ruleset.ballpark_year or '-'}")
+    print(f"Custom park factors: {ruleset.custom_park_factors or '-'}")
     print(f"Variant limit: {ruleset.variant_limit}")
+
+    simulation_context = resolve_simulation_context(
+        simulation_year=ruleset.simulation_year,
+        ballpark=ruleset.ballpark,
+        ballpark_year=ruleset.ballpark_year,
+        custom_park_factors=ruleset.custom_park_factors,
+    )
+    scoring_cfg = apply_simulation_context_to_config(cfg, simulation_context)
+
+    print("\n=== SIMULATION CONTEXT ===")
+    for label, value in simulation_context.summary_rows():
+        print(f"{label}: {value}")
 
     hitters_df = rate_cards_service(
         input_path=cfg["paths"]["hitters_csv"],
         profile="hitters",
-        config=cfg,
+        config=scoring_cfg,
     )
 
     pitchers_df = rate_cards_service(
         input_path=cfg["paths"]["pitchers_csv"],
         profile="pitchers",
-        config=cfg,
+        config=scoring_cfg,
     )
 
     if args.debug:
@@ -440,6 +507,7 @@ def main() -> None:
         eligibility_summary=eligibility_summary,
         change_statuses=change_statuses,
         tier_slot_repair_result=tier_slot_result,
+        simulation_context=simulation_context,
     )
 
     write_snapshot(snapshot_path, new_snapshot)

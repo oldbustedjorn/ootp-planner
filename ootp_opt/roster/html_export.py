@@ -6,6 +6,7 @@ from typing import Any
 
 import pandas as pd
 
+from ootp_opt.domain.simulation_context import SimulationContext
 from ootp_opt.roster.lineup import (
     build_lineup_order,
     assign_position_backups,
@@ -28,6 +29,7 @@ def export_roster_html(
     eligibility_summary: dict[str, Any] | None = None,
     change_statuses: dict[str, str] | None = None,
     tier_slot_repair_result: TierSlotRepairResult | None = None,
+    simulation_context: SimulationContext | None = None,
 ) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -39,6 +41,7 @@ def export_roster_html(
         eligibility_summary=eligibility_summary or {},
         change_statuses=change_statuses or {},
         tier_slot_repair_result=tier_slot_repair_result,
+        simulation_context=simulation_context,
     )
 
     path.write_text(html, encoding="utf-8")
@@ -51,6 +54,7 @@ def build_roster_html(
     eligibility_summary: dict[str, Any],
     change_statuses: dict[str, str],
     tier_slot_repair_result: TierSlotRepairResult | None = None,
+    simulation_context: SimulationContext | None = None,
 ) -> str:
     return f"""<!doctype html>
 <html>
@@ -64,7 +68,7 @@ def build_roster_html(
 <body>
   <h1>OOTP Roster Build: {escape(ruleset.name)}</h1>
 
-  {render_build_summary(ruleset, eligibility_summary)}
+  {render_build_summary(ruleset, eligibility_summary, simulation_context)}
   {render_tier_slot_summary(ruleset, hitter_roster, pitcher_roster)}
   {render_tier_slot_repair_summary(tier_slot_repair_result)}
   {render_roster_checklist(hitter_roster, pitcher_roster, change_statuses)}
@@ -93,6 +97,7 @@ def build_roster_html(
 def render_build_summary(
     ruleset: Ruleset,
     eligibility_summary: dict[str, Any],
+    simulation_context: SimulationContext | None = None,
 ) -> str:
     rows = [
         (
@@ -119,6 +124,22 @@ def render_build_summary(
             f"{ruleset.card_year_min or '-'} / {ruleset.card_year_max or '-'}",
         ),
         (
+            "Simulation year",
+            "-" if ruleset.simulation_year is None else str(ruleset.simulation_year),
+        ),
+        (
+            "Ballpark",
+            ruleset.ballpark or "-",
+        ),
+        (
+            "Ballpark year",
+            "-" if ruleset.ballpark_year is None else str(ruleset.ballpark_year),
+        ),
+        (
+            "Custom park factors",
+            format_custom_park_factors(ruleset.custom_park_factors),
+        ),
+        (
             "Variant limit",
             "-" if ruleset.variant_limit is None else str(ruleset.variant_limit),
         ),
@@ -131,6 +152,9 @@ def render_build_summary(
             "-" if ruleset.point_cap_total is None else str(ruleset.point_cap_total),
         ),
     ]
+
+    if simulation_context is not None:
+        rows.extend(simulation_context.summary_rows())
 
     if eligibility_summary:
         for key, value in eligibility_summary.items():
@@ -155,6 +179,13 @@ def format_tier_slots(tier_slots: dict[str, int]) -> str:
         return "-"
 
     return ", ".join(f"{tier}: {count}" for tier, count in tier_slots.items())
+
+
+def format_custom_park_factors(factors: dict[str, float]) -> str:
+    if not factors:
+        return "-"
+
+    return ", ".join(f"{key}: {value:g}" for key, value in factors.items())
 
 
 def render_tier_slot_summary(

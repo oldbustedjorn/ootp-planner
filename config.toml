@@ -110,6 +110,8 @@ excluded_card_types = []
 card_year_min = 0
 card_year_max = 0
 simulation_year = 0
+ballpark = ""
+ballpark_year = 0
 point_cap_total = 0
 
 [roster_build_defaults.tier_slots]
@@ -121,6 +123,12 @@ point_cap_total = 0
 # silver/S = 5
 # bronze/B = 6
 # iron/I = 6
+
+[roster_build_defaults.custom_park_factors]
+# Optional direct park-factor overrides for tournament text when a named park
+# is not present in ootp_opt/data/park_factors.csv.
+# Supported keys include:
+# ba_lh, ba_rh, hr_lh, hr_rh, doubles_overall, triples_overall
 
 # Standard unrestricted Perfect Team roster shape.
 [roster_base_profiles.standard_pt]
@@ -208,7 +216,8 @@ preferred_positions = ["C", "SS", "CF", "2B", "3B", "LF", "RF", "1B"]
 # Tournament presets
 # -----------------------------
 # These are named wrappers around a base roster shape plus eligibility filters.
-# Simulation year is intentionally not modeled yet.
+# Simulation year and ballpark can be set independently. Tournament text may use
+# one simulation year with park factors from a different historical park year.
 
 [tournament_presets.goldmax_nonlive_1580cap_variantmax10_DH]
 base_profile = "playoff_pt"
