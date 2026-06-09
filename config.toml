@@ -83,10 +83,10 @@ sp_control = 1.10
 sp_movement = 0.00
 
 # reliever weights
-rp_stuff = 1.35
-rp_pbabip = 0.85
-rp_hr_rate = 1.25
-rp_control = 0.90
+rp_stuff = 1.90
+rp_pbabip = 0.70
+rp_hr_rate = 1.15
+rp_control = 0.75
 rp_movement = 0.00
 
 [roster]
