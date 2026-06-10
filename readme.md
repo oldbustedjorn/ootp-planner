@@ -96,6 +96,22 @@ Roster build outputs include:
 - HTML roster report
 - snapshot JSON used to mark changed/new roster slots in later HTML reports
 
+## Store Upgrades
+
+Find store upgrades with the same filters and simulation context used by roster builds:
+
+```powershell
+.\.venv\Scripts\python.exe find_store_upgrades.py --base-profile playoff_pt --tier-max gold --min-gain 5 --html-output outputs\store_upgrades_gold.html
+```
+
+Simulation context works the same way:
+
+```powershell
+.\.venv\Scripts\python.exe find_store_upgrades.py --base-profile playoff_pt --tier-max gold --simulation-year 1919 --ballpark "Swampoodle Grounds" --ballpark-year 1886 --park-ba-lh 0.975 --park-ba-rh 0.975 --park-hr-lh 0.975 --park-hr-rh 0.975 --park-2b 1.000 --park-3b 1.000
+```
+
+Upgrade legality currently focuses on base eligibility filters such as tier, card value, card year, live mode, and card type. It does not enforce changing cap or tier-slot constraints for each candidate replacement.
+
 ## Tournament Presets
 
 Tournament presets are named build recipes in `config.toml`.

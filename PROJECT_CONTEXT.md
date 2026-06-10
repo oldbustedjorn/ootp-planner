@@ -27,6 +27,7 @@ Current working capabilities:
 - export roster HTML reports
 - write roster snapshots and mark changed/new roster slots in later HTML reports
 - analyze store upgrades
+- find store upgrades using roster filters and simulation context
 
 Recent milestone:
 
@@ -59,6 +60,12 @@ Run a simulation-context build:
 
 ```powershell
 .\.venv\Scripts\python.exe build_roster.py --base-profile playoff_pt --simulation-year 1919 --ballpark "Dodger Stadium" --ballpark-year 1962 --html-output outputs\sim_test.html
+```
+
+Run store upgrade search:
+
+```powershell
+.\.venv\Scripts\python.exe find_store_upgrades.py --base-profile playoff_pt --tier-max gold --min-gain 5 --html-output outputs\store_upgrades_gold.html
 ```
 
 Run focused validation:
@@ -242,6 +249,12 @@ Simulation context:
 - era and park factors adjust scoring weights before roster construction
 - raw player ratings are unchanged
 - early-era factors are clamped into modest multipliers to avoid huge table values dominating immediately
+
+Store upgrades:
+
+- `find_store_upgrades.py` mirrors the useful roster-build filters and simulation context
+- store candidates are filtered by tier/card value/year/live/card type
+- cap and tier-slot replacement legality is intentionally not modeled yet
 
 ## Current Pain Points
 

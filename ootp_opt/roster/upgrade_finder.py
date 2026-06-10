@@ -5,6 +5,7 @@ from typing import Any
 import pandas as pd
 
 from ootp_opt.roster.models import HitterRoster, PitcherRoster
+from ootp_opt.roster.builder import player_unique_key
 
 POSITION_SCORE_COLUMNS = {
     "C": "score_C_overall",
@@ -80,6 +81,8 @@ def find_hitter_upgrades(
     upgrade_rows: list[dict[str, Any]] = []
 
     candidates = store_hitters.loc[~store_hitters["is_owned"]].copy()
+    selected_keys = selected_roster_player_keys_from_hitters(hitter_roster)
+    candidates = remove_selected_players(candidates, selected_keys)
 
     for position, current_player in hitter_roster.starters_by_position.items():
         if position not in POSITION_SCORE_COLUMNS:
@@ -145,6 +148,8 @@ def find_pitcher_upgrades(
     upgrade_rows: list[dict[str, Any]] = []
 
     candidates = store_pitchers.loc[~store_pitchers["is_owned"]].copy()
+    selected_keys = selected_roster_player_keys_from_pitchers(pitcher_roster)
+    candidates = remove_selected_players(candidates, selected_keys)
 
     # Worst SP currently in rotation
     current_sp = pitcher_roster.rotation.sort_values(
@@ -273,3 +278,38 @@ def find_pitcher_upgrades(
         ascending=[True, False],
         na_position="last",
     ).reset_index(drop=True)
+
+
+def selected_roster_player_keys_from_hitters(hitter_roster: HitterRoster) -> set[str]:
+    keys = {player_unique_key(row) for row in hitter_roster.starters_by_position.values()}
+
+    for _, row in hitter_roster.bench_players.iterrows():
+        keys.add(player_unique_key(row))
+
+    return keys
+
+
+def selected_roster_player_keys_from_pitchers(pitcher_roster: PitcherRoster) -> set[str]:
+    keys: set[str] = set()
+
+    for roster_part in [
+        pitcher_roster.rotation,
+        pitcher_roster.bullpen,
+        pitcher_roster.lefty_specialist,
+        pitcher_roster.long_man,
+    ]:
+        for _, row in roster_part.iterrows():
+            keys.add(player_unique_key(row))
+
+    return keys
+
+
+def remove_selected_players(
+    candidates: pd.DataFrame,
+    selected_keys: set[str],
+) -> pd.DataFrame:
+    if not selected_keys:
+        return candidates
+
+    mask = ~candidates.apply(lambda row: player_unique_key(row) in selected_keys, axis=1)
+    return candidates.loc[mask].copy()

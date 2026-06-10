@@ -38,6 +38,21 @@ Responsibilities:
 
 Simulation context is resolved before scoring, then applied as conservative weight multipliers.
 
+### `find_store_upgrades.py`
+
+Store upgrade command-line script.
+
+Responsibilities:
+
+- parse base profile, preset, eligibility filters, and simulation context
+- build the current roster using environment-adjusted scoring
+- score and filter store candidates with the same base eligibility rules
+- write store upgrade HTML
+
+Current limitation:
+
+- replacement legality does not model cap or tier-slot changes candidate by candidate
+
 ### `compare_headers.py`
 
 Utility for comparing old/new OOTP export headers.
