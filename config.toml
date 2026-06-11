@@ -234,6 +234,13 @@ card_value_min = 50
 point_cap_total = 1767
 dh_enabled = true
 
+[tournament_presets.q_lowg_unh_snap_rs_1999_dh]
+base_profile = "playoff_pt"
+card_value_max = 84
+allowed_card_types = ["UnH", "Snap", "RS"]
+simulation_year = 1999
+dh_enabled = true
+
 [tournament_presets.my_slot_test]
 base_profile = "playoff_pt"
 
@@ -260,6 +267,24 @@ card_year_min = 1930
 card_year_max = 1989
 point_cap_total = 1699
 dh_enabled = false
+
+[tournament_presets.daily_diamond_heart_1958_no_dh]
+base_profile = "playoff_pt"
+tier_max = "diamond"
+card_year_min = 1930
+card_year_max = 1989
+simulation_year = 1958
+ballpark = "Fenway Park"
+ballpark_year = 1955
+dh_enabled = false
+
+[tournament_presets.daily_diamond_heart_1958_no_dh.custom_park_factors]
+ba_lh = 1.050
+ba_rh = 0.950
+hr_lh = 0.964
+hr_rh = 0.990
+doubles_overall = 1.132
+triples_overall = 0.850
 
 [tournament_presets.nightmare_cap]
 base_profile = "playoff_pt"
