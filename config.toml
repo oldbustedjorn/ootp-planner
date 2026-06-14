@@ -94,14 +94,15 @@ rp_movement = 0.00
 default_base_profile = "standard_pt"
 
 # Generic tournament/settings defaults.
-# Empty strings, zeros, empty lists, and empty tables mean "not restricted".
+# Empty strings, zeros, empty lists, and empty tables usually mean "not restricted".
+# Exception: variant_limit = 0 explicitly means no variants. Leave it blank for no limit.
 # These are meant to be overridden later by CLI/GUI inputs or a small test harness.
 [roster_build_defaults]
 tier_min = ""
 tier_max = ""
 card_value_min = 0
 card_value_max = 0
-variant_limit = 0
+variant_limit = ""
 live_mode = "all" # all, live, non_live
 # Card type filters use the normalized CType codes from owned-card exports:
 # 2026Live, AS, FL, HaH, Leg, NeL, RS, Snap, UnH, VET
@@ -292,3 +293,9 @@ card_value_min = 50
 card_value_max = 74
 point_cap_total = 1559
 dh_enabled = false
+
+[tournament_presets.bronze_nonlive]
+base_profile = "playoff_pt"
+tier_max = "bronze"
+dh_enabled = true
+live_mode = "non_live"
