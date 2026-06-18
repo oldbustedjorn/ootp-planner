@@ -22,6 +22,7 @@ Current working capabilities:
 - adjust scoring for simulation year and ballpark context
 - generate ratings and shortlist CSV outputs
 - build deterministic rosters from base profiles and tournament presets
+- run roster builds through a reusable service layer
 - prevent duplicate-player selections by normalized player name
 - produce lineup, depth chart, pinch hitter, pinch runner, rotation, bullpen, specialist, and long-man outputs
 - export roster HTML reports
@@ -56,6 +57,10 @@ Run a roster build:
 .\.venv\Scripts\python.exe build_roster.py --preset my_slot_test --html-output outputs\my_slot_test.html
 ```
 
+`build_roster.py` is intentionally a thin wrapper. Application code and the
+future local UI should call `ootp_opt.services.roster_build_service.build_roster`
+with a `RosterBuildRequest`.
+
 Run a simulation-context build:
 
 ```powershell
@@ -85,6 +90,7 @@ Important rule:
 
 - downstream tools should reuse normalized ingest and domain scoring
 - do not duplicate scoring logic inside roster repair, upgrade search, or future UI layers
+- future UI code should call service functions instead of shelling out to scripts
 
 ## Important Data Columns
 
@@ -264,10 +270,17 @@ Store upgrades:
 4. Tier slot repair works, but a full optimizer would make better global tradeoffs.
 5. Cap, tier slot, and variant constraints can interact in ways greedy repair cannot fully optimize.
 6. HTML diagnostics are useful but still utilitarian.
+7. Command-line roster building is too slow to operate manually for frequent tournament entry.
 
 ## Next Priority
 
-The next major discussion should focus on scoring and simulation context.
+The next major implementation step should be a single local UI for roster
+creation. It should support both standard Perfect Team roster builds and Perfect
+Team tournament roster builds immediately. The first UI version should let the
+user choose requirements, set an OOTP roster name, run the build through the
+service layer, and open the generated HTML.
+
+After the first usable UI, revisit scoring and simulation context.
 
 Good starting questions:
 

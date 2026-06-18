@@ -61,6 +61,11 @@ Typical outputs:
 
 ## Roster Builds
 
+Roster builds are implemented through `ootp_opt.services.roster_build_service`.
+The `build_roster.py` script is a thin command-line wrapper around that service.
+Future UI code should call the service directly rather than shelling out to the
+script.
+
 Build from the default base profile:
 
 ```powershell
@@ -228,4 +233,4 @@ git push
 
 ## Current Direction
 
-The current milestone is a usable roster builder with tournament-style filters, repairs, and first-pass simulation context scoring. The next high-priority area is validating and tuning the environment multipliers against observed results.
+The current milestone is a usable roster builder with tournament-style filters, repairs, and first-pass simulation context scoring. The next high-priority area is a single local UI for Perfect Team and Perfect Team tournament roster creation. The UI should reuse the roster build service, then later add store upgrades, build history, and scoring diagnostics.

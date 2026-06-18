@@ -20,23 +20,15 @@ Contains:
 
 ### `build_roster.py`
 
-Main roster-build script.
+Thin command-line wrapper for roster builds.
 
 Responsibilities:
 
 - parse CLI options and overrides
-- load config and ruleset
-- score hitters and pitchers
-- filter eligibility
-- build hitter and pitcher rosters
-- run duplicate-player validation
-- report/repair variants
-- report/repair tier slots
-- report/repair point cap
-- write roster HTML and snapshot
-- print roster, lineup, depth, and staff summaries
+- call `ootp_opt.services.roster_build_service.build_roster`
+- print returned report sections
 
-Simulation context is resolved before scoring, then applied as conservative weight multipliers.
+Roster construction, repair, HTML export, and snapshot writing live in the service layer so the future UI can reuse them directly.
 
 ### `find_store_upgrades.py`
 
@@ -196,6 +188,34 @@ Key functions:
 - `rate_cards_service(input_path, profile, config=None)`
 - `rate_hitters_df(df, config)`
 - `rate_pitchers_df(df, config)`
+
+### `ootp_opt.services.roster_build_service`
+
+Reusable roster build orchestration layer.
+
+Responsibilities:
+
+- load config and resolve base profile or tournament preset
+- apply direct overrides from CLI or future UI requests
+- resolve simulation year and ballpark context
+- score owned hitters and pitchers
+- filter eligible cards
+- build hitter and pitcher rosters
+- run duplicate-player validation
+- report and repair variant limits, tier slots, and point caps
+- write roster HTML and snapshot files
+- return structured build results plus report sections
+
+Key classes:
+
+- `RosterBuildRequest`
+- `RosterBuildResult`
+
+Key functions:
+
+- `build_roster(request)`
+- `build_ruleset(cfg, request)`
+- `build_output_name(ruleset, overrides)`
 
 ### `ootp_opt.services.shortlist_service`
 
