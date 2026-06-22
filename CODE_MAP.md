@@ -30,6 +30,16 @@ Responsibilities:
 
 Roster construction, repair, HTML export, and snapshot writing live in the service layer so the future UI can reuse them directly.
 
+### `launch_gui.py`
+
+Starts the local web UI.
+
+Run with:
+
+```powershell
+.\.venv\Scripts\python.exe launch_gui.py
+```
+
 ### `find_store_upgrades.py`
 
 Store upgrade command-line script.
@@ -68,6 +78,21 @@ Key function:
 Original ratings/shortlist CLI.
 
 Use this for generating ratings CSVs and hitter shortlists.
+
+## Package: `ootp_opt.gui`
+
+### `ootp_opt.gui.server`
+
+Dependency-free local web UI built on Python's standard-library HTTP server.
+
+Responsibilities:
+
+- render a roster-build form
+- map form fields into `RosterBuildRequest`
+- support standard PT, playoff-style PT, and PT tournament builds
+- call `ootp_opt.services.roster_build_service.build_roster`
+- record GUI-launched builds in `outputs/roster_build_registry.json`
+- serve generated HTML reports from `outputs/`
 
 ## Package: `ootp_opt.ingest`
 

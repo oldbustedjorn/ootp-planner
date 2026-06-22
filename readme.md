@@ -66,6 +66,28 @@ The `build_roster.py` script is a thin command-line wrapper around that service.
 Future UI code should call the service directly rather than shelling out to the
 script.
 
+## Local GUI
+
+Launch the local web UI:
+
+```powershell
+.\.venv\Scripts\python.exe launch_gui.py
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8765
+```
+
+The first GUI pass supports standard Perfect Team, playoff-style Perfect Team,
+and Perfect Team tournament roster builds. It writes generated reports to
+`outputs/` and tracks GUI-launched builds in `outputs/roster_build_registry.json`.
+Leave the OOTP roster name blank to generate a deterministic name capped at the
+game's 30-character roster-name limit. Generated names include a three-digit
+planner reference, such as `T-042-Gmax-v84-NL`, so the full build details can be
+looked up in the GUI history.
+
 Build from the default base profile:
 
 ```powershell

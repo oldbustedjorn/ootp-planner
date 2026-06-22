@@ -29,6 +29,7 @@ Current working capabilities:
 - write roster snapshots and mark changed/new roster slots in later HTML reports
 - analyze store upgrades
 - find store upgrades using roster filters and simulation context
+- launch a first-pass local web UI for standard PT and PT tournament builds
 
 Recent milestone:
 
@@ -36,6 +37,7 @@ Recent milestone:
 - greedy repair exists for variant limits, tier slots, and point caps
 - tier slot repair and swap diagnostics appear in HTML output
 - simulation year and ballpark context can now affect scoring
+- roster building has a service layer used by both CLI and GUI entry points
 
 ## Current Workflow
 
@@ -60,6 +62,14 @@ Run a roster build:
 `build_roster.py` is intentionally a thin wrapper. Application code and the
 future local UI should call `ootp_opt.services.roster_build_service.build_roster`
 with a `RosterBuildRequest`.
+
+Launch the local GUI:
+
+```powershell
+.\.venv\Scripts\python.exe launch_gui.py
+```
+
+Then open `http://127.0.0.1:8765`.
 
 Run a simulation-context build:
 
@@ -274,11 +284,12 @@ Store upgrades:
 
 ## Next Priority
 
-The next major implementation step should be a single local UI for roster
-creation. It should support both standard Perfect Team roster builds and Perfect
-Team tournament roster builds immediately. The first UI version should let the
-user choose requirements, set an OOTP roster name, run the build through the
-service layer, and open the generated HTML.
+The current implementation focus is the single local UI for roster creation. It
+already supports standard Perfect Team, playoff-style Perfect Team, and Perfect
+Team tournament roster builds. Near-term UI follow-ups should improve build
+history, saved build recipes, and faster reuse of OOTP roster names. Blank GUI
+roster names auto-generate a 30-character-safe OOTP name with a three-digit
+planner reference number, while the full build recipe remains in history.
 
 After the first usable UI, revisit scoring and simulation context.
 
