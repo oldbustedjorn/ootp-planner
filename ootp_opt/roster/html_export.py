@@ -17,6 +17,7 @@ from ootp_opt.roster.models import HitterRoster, PitcherRoster
 from ootp_opt.roster.rules import Ruleset
 from ootp_opt.roster.tier_slot_report import build_tier_slot_rows
 from ootp_opt.roster.tier_slot_repair import TierSlotRepairResult
+from ootp_opt.roster.variant_report import is_variant_card
 
 DEPTH_ORDER = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH"]
 
@@ -516,6 +517,7 @@ def render_roster_checklist(
           <th>Tier</th>
           <th>Year</th>
           <th>Type</th>
+          <th>Variant</th>
         </tr>
       </thead>
       <tbody>{''.join(rows)}</tbody>
@@ -543,8 +545,13 @@ def render_checklist_row(
         f"<td>{escape(str(row.get('pt_tier', '')))}</td>"
         f"<td>{escape(str(row.get('pt_year', '')))}</td>"
         f"<td>{escape(str(row.get('pt_type', '')))}</td>"
+        f"<td>{format_variant_flag(row)}</td>"
         "</tr>"
     )
+
+
+def format_variant_flag(row: pd.Series) -> str:
+    return "Yes" if is_variant_card(row) else "No"
 
 
 def render_depth_chart_panel(
