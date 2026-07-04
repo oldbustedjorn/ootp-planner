@@ -30,6 +30,9 @@ Current working capabilities:
 - analyze store upgrades
 - find store upgrades using roster filters and simulation context
 - launch a first-pass local web UI for standard PT and PT tournament builds
+- browse configured tournament presets in the local UI
+- rebuild preset rosters and run preset store-upgrade reports from the UI
+- label presets with GUI-only display titles and notes while keeping stable preset IDs
 
 Recent milestone:
 
@@ -38,6 +41,7 @@ Recent milestone:
 - tier slot repair and swap diagnostics appear in HTML output
 - simulation year and ballpark context can now affect scoring
 - roster building has a service layer used by both CLI and GUI entry points
+- store upgrade analysis has a service layer used by both CLI and GUI entry points
 
 ## Current Workflow
 
@@ -287,9 +291,11 @@ Store upgrades:
 The current implementation focus is the single local UI for roster creation. It
 already supports standard Perfect Team, playoff-style Perfect Team, and Perfect
 Team tournament roster builds. Near-term UI follow-ups should improve build
-history, saved build recipes, and faster reuse of OOTP roster names. Blank GUI
-roster names auto-generate a 30-character-safe OOTP name with a three-digit
-planner reference number, while the full build recipe remains in history.
+history, saved build recipes, and faster reuse of OOTP roster names. The UI now
+has a preset list/detail panel with actions to rebuild a preset roster and run
+store upgrades for the selected preset. Blank GUI roster names auto-generate a
+30-character-safe OOTP name with a three-digit planner reference number, while
+the full build recipe remains in history.
 
 After the first usable UI, revisit scoring and simulation context.
 

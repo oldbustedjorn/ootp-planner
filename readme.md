@@ -88,6 +88,15 @@ game's 30-character roster-name limit. Generated names include a three-digit
 planner reference, such as `T-042-Gmax-v84-NL`, so the full build details can be
 looked up in the GUI history.
 
+The Presets panel lists configured tournament presets from `config.toml`. Selecting
+a preset shows the saved requirements and can:
+
+- rebuild the roster to a stable preset report path
+- run store upgrade analysis for that preset
+- reopen the latest preset roster and upgrade reports
+- save a display title and note, such as the in-game tournament name, without
+  changing the stable preset ID used by commands and report paths
+
 Build from the default base profile:
 
 ```powershell

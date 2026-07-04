@@ -14,11 +14,23 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from ootp_opt.config import load_config
 from ootp_opt.services.roster_build_service import RosterBuildRequest, build_roster
+from ootp_opt.services.store_upgrade_service import (
+    StoreUpgradeRequest,
+    find_store_upgrades,
+)
 
 CARD_TYPES = ["2026Live", "AS", "FL", "HaH", "Leg", "NeL", "RS", "Snap", "UnH", "VET"]
 TIERS = ["iron", "bronze", "silver", "gold", "diamond", "perfect"]
 TIER_SLOT_KEYS = ["P", "D", "G", "S", "B", "I"]
 MAX_OOTP_ROSTER_NAME_LENGTH = 30
+GUI_PRESET_META_KEYS = {
+    "_gui_title",
+    "_gui_note",
+    "_gui_roster_name",
+    "_gui_build_type",
+    "_gui_build_number",
+    "_gui_html_output",
+}
 BUILD_TYPES = {
     "pt_standard": ("Perfect Team Regular", "standard_pt"),
     "pt_playoffs": ("Perfect Team Playoffs", "playoff_pt"),
@@ -54,7 +66,13 @@ def build_handler(config_path: str):
         def do_GET(self) -> None:
             parsed = urlparse(self.path)
             if parsed.path == "/":
-                self.respond_html(render_home(config_path=config_path))
+                query = parse_qs(parsed.query)
+                self.respond_html(
+                    render_home(
+                        config_path=config_path,
+                        selected_preset=text_value(query, "preset"),
+                    )
+                )
                 return
 
             if parsed.path.startswith("/reports/"):
@@ -65,14 +83,43 @@ def build_handler(config_path: str):
 
         def do_POST(self) -> None:
             parsed = urlparse(self.path)
-            if parsed.path != "/build":
-                self.respond_text("Not found", HTTPStatus.NOT_FOUND)
+            if parsed.path == "/build":
+                self.handle_build(form=None, config_path=config_path)
                 return
 
+            if parsed.path == "/preset-build":
+                self.handle_preset_build(form=None, config_path=config_path)
+                return
+
+            if parsed.path == "/preset-upgrades":
+                self.handle_preset_upgrades(form=None, config_path=config_path)
+                return
+
+            if parsed.path == "/history-save-preset":
+                self.handle_history_save_preset(form=None, config_path=config_path)
+                return
+
+            if parsed.path == "/preset-delete":
+                self.handle_preset_delete(form=None, config_path=config_path)
+                return
+
+            if parsed.path == "/preset-notes":
+                self.handle_preset_notes(form=None, config_path=config_path)
+                return
+
+            self.respond_text("Not found", HTTPStatus.NOT_FOUND)
+
+        def read_form(self) -> dict[str, list[str]]:
             length = int(self.headers.get("Content-Length", "0"))
             raw_body = self.rfile.read(length).decode("utf-8")
-            form = parse_qs(raw_body, keep_blank_values=True)
+            return parse_qs(raw_body, keep_blank_values=True)
 
+        def handle_build(
+            self,
+            form: dict[str, list[str]] | None,
+            config_path: str,
+        ) -> None:
+            form = form or self.read_form()
             try:
                 build_number = next_build_number(load_build_records())
                 gui_request = build_gui_request(
@@ -92,9 +139,10 @@ def build_handler(config_path: str):
                         config_path=config_path,
                         notice=(
                             f"Built {escape(gui_request.roster_name)}. "
-                            f"Report: {report_link(result.html_output)}"
+                            f"Report: {report_link(result.html_output, 'Open roster')}"
                         ),
                         selected_record_id=record["id"],
+                        selected_preset=gui_request.preset_name,
                     )
                 )
             except Exception as exc:
@@ -102,6 +150,223 @@ def build_handler(config_path: str):
                     render_home(
                         config_path=config_path,
                         error=escape(f"{type(exc).__name__}: {exc}"),
+                    ),
+                    HTTPStatus.BAD_REQUEST,
+                )
+
+        def handle_preset_build(
+            self,
+            form: dict[str, list[str]] | None,
+            config_path: str,
+        ) -> None:
+            form = form or self.read_form()
+            preset_name = text_value(form, "preset_name")
+            if not preset_name:
+                self.respond_text("Not found", HTTPStatus.NOT_FOUND)
+                return
+
+            try:
+                cfg = load_config(config_path)
+                records = load_build_records()
+                preset_cfg = cfg.get("tournament_presets", {}).get(preset_name, {})
+                metadata = resolve_preset_build_metadata(
+                    preset_name=preset_name,
+                    preset_cfg=preset_cfg,
+                    records=records,
+                )
+                build_number = metadata.get("build_number") or next_build_number(records)
+                build_type = metadata.get("build_type") or infer_build_type_from_base_profile(
+                    preset_cfg.get("base_profile")
+                )
+                roster_name = metadata.get("roster_name") or build_auto_roster_name(
+                    build_type=build_type,
+                    base_profile=preset_cfg.get("base_profile") or BUILD_TYPES[build_type][1],
+                    build_number=build_number,
+                    preset_name=preset_name,
+                    overrides={},
+                )
+                html_output = metadata.get("html_output") or preset_roster_output_path(preset_name)
+                gui_request = GuiBuildRequest(
+                    roster_name=roster_name,
+                    build_type=build_type,
+                    build_number=build_number,
+                    preset_name=preset_name,
+                    roster_request=RosterBuildRequest(
+                        config_path=config_path,
+                        preset=preset_name,
+                        html_output=html_output,
+                    ),
+                )
+                result = build_roster(gui_request.roster_request)
+                record = append_build_record(
+                    gui_request=gui_request,
+                    html_output=result.html_output,
+                    snapshot_path=result.snapshot_path,
+                    status="success",
+                )
+                self.respond_html(
+                    render_home(
+                        config_path=config_path,
+                        notice=(
+                            f"Built {escape(gui_request.roster_name)}. "
+                            f"Report: {report_link(result.html_output, 'Open roster')}"
+                        ),
+                        selected_record_id=record["id"],
+                        selected_preset=preset_name,
+                    )
+                )
+            except Exception as exc:
+                self.respond_html(
+                    render_home(
+                        config_path=config_path,
+                        error=escape(f"{type(exc).__name__}: {exc}"),
+                        selected_preset=preset_name,
+                    ),
+                    HTTPStatus.BAD_REQUEST,
+                )
+
+        def handle_preset_upgrades(
+            self,
+            form: dict[str, list[str]] | None,
+            config_path: str,
+        ) -> None:
+            form = form or self.read_form()
+            preset_name = text_value(form, "preset_name")
+            if not preset_name:
+                self.respond_text("Not found", HTTPStatus.NOT_FOUND)
+                return
+
+            try:
+                result = find_store_upgrades(
+                    StoreUpgradeRequest(
+                        config_path=config_path,
+                        preset=preset_name,
+                        min_gain=float_value(form, "min_gain") or 5.0,
+                        html_output=preset_upgrade_output_path(preset_name),
+                    )
+                )
+                self.respond_html(
+                    render_home(
+                        config_path=config_path,
+                        notice=(
+                            f"Built store upgrades for {escape(preset_name)}. "
+                            f"Report: {report_link(result.html_output, 'Open upgrades')}"
+                        ),
+                        selected_preset=preset_name,
+                    )
+                )
+            except Exception as exc:
+                self.respond_html(
+                    render_home(
+                        config_path=config_path,
+                        error=escape(f"{type(exc).__name__}: {exc}"),
+                        selected_preset=preset_name,
+                    ),
+                    HTTPStatus.BAD_REQUEST,
+                )
+
+        def handle_history_save_preset(
+            self,
+            form: dict[str, list[str]] | None,
+            config_path: str,
+        ) -> None:
+            form = form or self.read_form()
+            record_id = text_value(form, "record_id")
+            records = load_build_records()
+            record = find_record(records, record_id)
+            if record is None:
+                self.respond_text("History record not found", HTTPStatus.NOT_FOUND)
+                return
+
+            try:
+                preset_name = text_value(form, "preset_name") or preset_name_from_record(record)
+                append_history_record_as_preset(
+                    config_path=Path(config_path),
+                    record=record,
+                    preset_name=preset_name,
+                )
+                self.respond_html(
+                    render_home(
+                        config_path=config_path,
+                        notice=(
+                            f"Saved {escape(record.get('roster_name', 'history build'))} "
+                            f"as preset {escape(preset_name)}."
+                        ),
+                        selected_preset=preset_name,
+                    )
+                )
+            except Exception as exc:
+                self.respond_html(
+                    render_home(
+                        config_path=config_path,
+                        error=escape(f"{type(exc).__name__}: {exc}"),
+                    ),
+                    HTTPStatus.BAD_REQUEST,
+                )
+
+        def handle_preset_delete(
+            self,
+            form: dict[str, list[str]] | None,
+            config_path: str,
+        ) -> None:
+            form = form or self.read_form()
+            preset_name = text_value(form, "preset_name")
+            if not preset_name:
+                self.respond_text("Preset not found", HTTPStatus.NOT_FOUND)
+                return
+
+            try:
+                deleted_files = delete_preset(Path(config_path), preset_name)
+                cleanup_suffix = (
+                    f" Removed {len(deleted_files)} output file(s)." if deleted_files else ""
+                )
+                self.respond_html(
+                    render_home(
+                        config_path=config_path,
+                        notice=f"Deleted preset {escape(preset_name)}.{cleanup_suffix}",
+                    )
+                )
+            except Exception as exc:
+                self.respond_html(
+                    render_home(
+                        config_path=config_path,
+                        error=escape(f"{type(exc).__name__}: {exc}"),
+                        selected_preset=preset_name,
+                    ),
+                    HTTPStatus.BAD_REQUEST,
+                )
+
+        def handle_preset_notes(
+            self,
+            form: dict[str, list[str]] | None,
+            config_path: str,
+        ) -> None:
+            form = form or self.read_form()
+            preset_name = text_value(form, "preset_name")
+            if not preset_name:
+                self.respond_text("Preset not found", HTTPStatus.NOT_FOUND)
+                return
+
+            try:
+                update_preset_notes(
+                    config_path=Path(config_path),
+                    preset_name=preset_name,
+                    title=text_value(form, "title"),
+                    note=text_value(form, "note"),
+                )
+                self.respond_html(
+                    render_home(
+                        config_path=config_path,
+                        notice=f"Saved notes for {escape(preset_name)}.",
+                        selected_preset=preset_name,
+                    )
+                )
+            except Exception as exc:
+                self.respond_html(
+                    render_home(
+                        config_path=config_path,
+                        error=escape(f"{type(exc).__name__}: {exc}"),
+                        selected_preset=preset_name,
                     ),
                     HTTPStatus.BAD_REQUEST,
                 )
@@ -261,9 +526,11 @@ def render_home(
     notice: str | None = None,
     error: str | None = None,
     selected_record_id: str | None = None,
+    selected_preset: str | None = None,
 ) -> str:
     cfg = load_config(config_path)
     presets = sorted(cfg.get("tournament_presets", {}).keys())
+    selected_preset = selected_preset if selected_preset in presets else first_or_none(presets)
     records = load_build_records()
 
     return f"""<!doctype html>
@@ -285,6 +552,8 @@ def render_home(
   <main>
     {render_alert("success", notice) if notice else ""}
     {render_alert("error", error) if error else ""}
+
+    {render_presets_panel(cfg, presets, selected_preset)}
 
     <section class="workspace">
       <form method="post" action="/build" class="build-form">
@@ -363,6 +632,186 @@ def render_home(
 </html>"""
 
 
+def render_presets_panel(
+    cfg: dict[str, Any],
+    presets: list[str],
+    selected_preset: str | None,
+) -> str:
+    if not presets:
+        return ""
+
+    preset_links = "\n".join(
+        render_preset_link(
+            preset_name=preset_name,
+            preset_cfg=cfg["tournament_presets"][preset_name],
+            selected=preset_name == selected_preset,
+        )
+        for preset_name in presets
+    )
+    detail = render_preset_detail(
+        selected_preset,
+        cfg["tournament_presets"].get(selected_preset, {}) if selected_preset else {},
+    )
+
+    return f"""
+<section class="preset-panel">
+  <div class="section-heading">
+    <h2>Presets</h2>
+  </div>
+  <div class="preset-layout">
+    <nav class="preset-list">{preset_links}</nav>
+    {detail}
+  </div>
+</section>
+"""
+
+
+def render_preset_link(
+    preset_name: str,
+    preset_cfg: dict[str, Any],
+    selected: bool,
+) -> str:
+    selected_class = " selected" if selected else ""
+    title = preset_display_title(preset_name, preset_cfg)
+    id_line = f"{preset_name} | {format_preset_badges(preset_cfg)}"
+    return f"""
+<a class="preset-link{selected_class}" href="/?preset={escape(preset_name)}">
+  <span>{escape(title)}</span>
+  <small>{escape(id_line)}</small>
+</a>
+"""
+
+
+def render_preset_detail(preset_name: str | None, preset_cfg: dict[str, Any]) -> str:
+    if not preset_name:
+        return '<div class="preset-detail"><p class="muted">No preset selected.</p></div>'
+
+    roster_output = preset_roster_output_path(preset_name)
+    upgrade_output = preset_upgrade_output_path(preset_name)
+    title = preset_display_title(preset_name, preset_cfg)
+    note = str(preset_cfg.get("_gui_note") or "")
+    note_html = f'<p class="preset-note">{escape(note)}</p>' if note else ""
+
+    return f"""
+<div class="preset-detail">
+  <div class="section-heading">
+    <div>
+      <h3>{escape(title)}</h3>
+      <p class="muted">ID: {escape(preset_name)} | {escape(format_preset_badges(preset_cfg))}</p>
+    </div>
+  </div>
+  {note_html}
+  <dl class="preset-fields">
+    {render_preset_fields(preset_cfg)}
+  </dl>
+  <form method="post" action="/preset-notes" class="preset-note-form">
+    <input type="hidden" name="preset_name" value="{escape(preset_name)}">
+    <label><span>Display title</span><input type="text" name="title" value="{escape(str(preset_cfg.get("_gui_title") or ""))}" placeholder="{escape(preset_name)}"></label>
+    <label><span>Tournament note</span><textarea name="note" rows="3" placeholder="Tournament name, server slot, or reminder">{escape(note)}</textarea></label>
+    <button type="submit">Save Notes</button>
+  </form>
+  <div class="preset-actions">
+    <form method="post" action="/preset-build">
+      <input type="hidden" name="preset_name" value="{escape(preset_name)}">
+      <button type="submit">Build Roster</button>
+    </form>
+    <form method="post" action="/preset-upgrades">
+      <input type="hidden" name="preset_name" value="{escape(preset_name)}">
+      <label class="inline-field"><span>Min gain</span><input type="number" step="0.1" name="min_gain" value="5"></label>
+      <button type="submit">Find Upgrades</button>
+    </form>
+    <form method="post" action="/preset-delete">
+      <input type="hidden" name="preset_name" value="{escape(preset_name)}">
+      <button type="submit" class="danger">Delete Preset</button>
+    </form>
+    <div class="preset-report-links">
+      {report_link(roster_output, "Open roster") if Path(roster_output).exists() else '<span class="muted">No roster report yet</span>'}
+      {report_link(upgrade_output, "Open upgrades") if Path(upgrade_output).exists() else '<span class="muted">No upgrade report yet</span>'}
+    </div>
+  </div>
+</div>
+"""
+
+
+def preset_display_title(preset_name: str, preset_cfg: dict[str, Any]) -> str:
+    return str(preset_cfg.get("_gui_title") or preset_name)
+
+
+def render_preset_fields(preset_cfg: dict[str, Any]) -> str:
+    rows = []
+    for key, value in flatten_preset_summary(preset_cfg):
+        rows.append(f"<dt>{escape(key)}</dt><dd>{escape(format_preset_value(value))}</dd>")
+    return "\n".join(rows)
+
+
+def flatten_preset_summary(preset_cfg: dict[str, Any]) -> list[tuple[str, Any]]:
+    ordered_keys = [
+        "base_profile",
+        "dh_enabled",
+        "tier_min",
+        "tier_max",
+        "card_value_min",
+        "card_value_max",
+        "live_mode",
+        "allowed_card_types",
+        "card_year_min",
+        "card_year_max",
+        "simulation_year",
+        "ballpark",
+        "ballpark_year",
+        "point_cap_total",
+        "variant_limit",
+        "tier_slots",
+        "custom_park_factors",
+    ]
+    return [(key, preset_cfg[key]) for key in ordered_keys if key in preset_cfg]
+
+
+def format_preset_badges(preset_cfg: dict[str, Any]) -> str:
+    badges = []
+    if preset_cfg.get("base_profile"):
+        badges.append(str(preset_cfg["base_profile"]))
+    if preset_cfg.get("tier_min") or preset_cfg.get("tier_max"):
+        badges.append(format_range_badge(preset_cfg.get("tier_min"), preset_cfg.get("tier_max")))
+    if preset_cfg.get("card_value_min") or preset_cfg.get("card_value_max"):
+        badges.append(
+            format_range_badge(
+                preset_cfg.get("card_value_min"),
+                preset_cfg.get("card_value_max"),
+                prefix="v",
+            )
+        )
+    if preset_cfg.get("live_mode") and preset_cfg.get("live_mode") != "all":
+        badges.append(str(preset_cfg["live_mode"]))
+    if preset_cfg.get("simulation_year"):
+        badges.append(f"Y{preset_cfg['simulation_year']}")
+    if "dh_enabled" in preset_cfg:
+        badges.append("DH" if preset_cfg["dh_enabled"] else "NoDH")
+    if preset_cfg.get("point_cap_total"):
+        badges.append(f"cap {preset_cfg['point_cap_total']}")
+    if preset_cfg.get("variant_limit") is not None:
+        badges.append(f"var {preset_cfg['variant_limit']}")
+    if preset_cfg.get("tier_slots"):
+        badges.append("slots")
+    return " | ".join(badges) or "Preset"
+
+
+def format_range_badge(value_min: Any, value_max: Any, prefix: str = "") -> str:
+    if value_min and value_max:
+        return f"{prefix}{value_min}-{value_max}"
+    if value_max:
+        return f"{prefix}<={value_max}"
+    return f"{prefix}>={value_min}"
+
+
+def format_preset_value(value: Any) -> str:
+    if isinstance(value, dict):
+        return ", ".join(f"{key}: {item}" for key, item in value.items())
+    if isinstance(value, list):
+        return ", ".join(str(item) for item in value)
+    return str(value)
+
+
 def render_history(records: list[dict[str, Any]], selected_record_id: str | None) -> str:
     if not records:
         return '<p class="muted">No GUI builds yet.</p>'
@@ -370,15 +819,32 @@ def render_history(records: list[dict[str, Any]], selected_record_id: str | None
     rows = []
     for record in records[:20]:
         selected = " selected" if record.get("id") == selected_record_id else ""
-        report = report_link(record["html_output"])
+        report = report_link(record["html_output"], "Open HTML")
         rows.append(
             f"""<article class="history-item{selected}">
   <div class="history-title">{escape(record["roster_name"])}</div>
   <div class="history-meta">#{format_build_number(record.get("build_number"))} - {escape(record["build_type"])} - {escape(record["created_at"])}</div>
-  <div>{report}</div>
+  <div class="history-actions">
+    {report}
+    {render_save_history_preset_form(record)}
+  </div>
 </article>"""
         )
     return "\n".join(rows)
+
+
+def render_save_history_preset_form(record: dict[str, Any]) -> str:
+    if record.get("preset_name"):
+        return '<span class="muted">Preset build</span>'
+
+    suggested = preset_name_from_record(record)
+    return f"""
+<form method="post" action="/history-save-preset" class="inline-action">
+  <input type="hidden" name="record_id" value="{escape(record.get('id', ''))}">
+  <input type="text" name="preset_name" value="{escape(suggested)}" aria-label="Preset name">
+  <button type="submit">Save as Preset</button>
+</form>
+"""
 
 
 def append_build_record(
@@ -420,6 +886,283 @@ def save_build_records(records: list[dict[str, Any]]) -> None:
     path.write_text(json.dumps(records, indent=2), encoding="utf-8")
 
 
+def find_record(records: list[dict[str, Any]], record_id: str | None) -> dict[str, Any] | None:
+    if not record_id:
+        return None
+    return next((record for record in records if record.get("id") == record_id), None)
+
+
+def preset_name_from_record(record: dict[str, Any]) -> str:
+    number = format_build_number(record.get("build_number"))
+    base = slugify(str(record.get("roster_name") or f"build_{number}"))
+    if number != "---" and not base.startswith(number):
+        base = f"{number}_{base}"
+    return safe_preset_name(base)
+
+
+def safe_preset_name(value: str) -> str:
+    text = slugify(value)
+    if not text:
+        text = "preset"
+    if text[0].isdigit():
+        text = f"preset_{text}"
+    return text
+
+
+def append_history_record_as_preset(
+    config_path: Path,
+    record: dict[str, Any],
+    preset_name: str,
+) -> None:
+    preset_name = safe_preset_name(preset_name)
+    cfg = load_config(config_path)
+    if preset_name in cfg.get("tournament_presets", {}):
+        raise ValueError(f"Preset '{preset_name}' already exists.")
+
+    preset_cfg = preset_config_from_history_record(record, cfg)
+    append_preset_block(config_path, preset_name, preset_cfg)
+
+
+def preset_config_from_history_record(
+    record: dict[str, Any],
+    cfg: dict[str, Any],
+) -> dict[str, Any]:
+    preset_cfg: dict[str, Any] = {}
+
+    if record.get("preset_name"):
+        source = cfg.get("tournament_presets", {}).get(record["preset_name"])
+        if source:
+            return dict(source)
+
+    base_profile = record.get("base_profile") or "playoff_pt"
+    preset_cfg["base_profile"] = base_profile
+    preset_cfg.update(record.get("overrides") or {})
+    preset_cfg["_gui_title"] = str(record.get("roster_name") or "")
+    preset_cfg["_gui_roster_name"] = str(record.get("roster_name") or "")
+    preset_cfg["_gui_build_type"] = str(record.get("build_type") or "")
+    if str(record.get("build_number", "")).isdigit():
+        preset_cfg["_gui_build_number"] = int(record["build_number"])
+    if record.get("html_output"):
+        preset_cfg["_gui_html_output"] = str(record["html_output"])
+    return preset_cfg
+
+
+def append_preset_block(
+    config_path: Path,
+    preset_name: str,
+    preset_cfg: dict[str, Any],
+) -> None:
+    lines = ["", f"[tournament_presets.{preset_name}]"]
+    nested_tables: list[tuple[str, dict[str, Any]]] = []
+
+    for key, value in preset_cfg.items():
+        if isinstance(value, dict):
+            nested_tables.append((key, value))
+        else:
+            lines.append(f"{key} = {toml_value(value)}")
+
+    for key, values in nested_tables:
+        lines.extend(["", f"[tournament_presets.{preset_name}.{key}]"])
+        for nested_key, nested_value in values.items():
+            lines.append(f"{nested_key} = {toml_value(nested_value)}")
+
+    text = config_path.read_text(encoding="utf-8")
+    suffix = "\n" if text.endswith("\n") else "\n\n"
+    config_path.write_text(text + suffix + "\n".join(lines).strip() + "\n", encoding="utf-8")
+
+
+def delete_preset_block(config_path: Path, preset_name: str) -> None:
+    cfg = load_config(config_path)
+    if preset_name not in cfg.get("tournament_presets", {}):
+        raise ValueError(f"Preset '{preset_name}' does not exist.")
+
+    text = config_path.read_text(encoding="utf-8")
+    pattern = re.compile(
+        rf"^\[tournament_presets\.{re.escape(preset_name)}(?:\.[^\]]+)?\]\n.*?(?=^\[|\Z)",
+        re.MULTILINE | re.DOTALL,
+    )
+    new_text, count = pattern.subn("", text)
+    if count == 0:
+        raise ValueError(f"Could not find TOML block for preset '{preset_name}'.")
+
+    config_path.write_text(re.sub(r"\n{3,}", "\n\n", new_text).rstrip() + "\n", encoding="utf-8")
+
+
+def delete_preset(config_path: Path, preset_name: str) -> list[Path]:
+    cfg = load_config(config_path)
+    preset_cfg = dict(cfg.get("tournament_presets", {}).get(preset_name) or {})
+    if not preset_cfg:
+        raise ValueError(f"Preset '{preset_name}' does not exist.")
+
+    output_paths = preset_owned_output_paths(preset_name, preset_cfg)
+    delete_preset_block(config_path, preset_name)
+    return delete_existing_files(output_paths)
+
+
+def preset_owned_output_paths(
+    preset_name: str,
+    preset_cfg: dict[str, Any],
+) -> list[Path]:
+    candidates = [
+        Path(preset_roster_output_path(preset_name)),
+        Path(preset_upgrade_output_path(preset_name)),
+    ]
+    if preset_cfg.get("_gui_html_output"):
+        candidates.append(Path(str(preset_cfg["_gui_html_output"])))
+
+    owned_paths: list[Path] = []
+    for path in candidates:
+        output_path = safe_output_path(path)
+        if output_path is None:
+            continue
+        owned_paths.append(output_path)
+        snapshot_path = output_path.with_suffix(".snapshot.json")
+        if output_path.suffix.lower() == ".html":
+            owned_paths.append(snapshot_path)
+
+    return unique_paths(owned_paths)
+
+
+def safe_output_path(path: Path) -> Path | None:
+    output_dir = Path("outputs").resolve()
+    resolved = path.resolve()
+    try:
+        resolved.relative_to(output_dir)
+    except ValueError:
+        return None
+    return resolved
+
+
+def unique_paths(paths: list[Path]) -> list[Path]:
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for path in paths:
+        if path in seen:
+            continue
+        seen.add(path)
+        unique.append(path)
+    return unique
+
+
+def delete_existing_files(paths: list[Path]) -> list[Path]:
+    deleted: list[Path] = []
+    for path in paths:
+        if not path.exists() or not path.is_file():
+            continue
+        try:
+            path.unlink()
+        except PermissionError:
+            continue
+        else:
+            deleted.append(path)
+    return deleted
+
+
+def update_preset_notes(
+    config_path: Path,
+    preset_name: str,
+    title: str | None,
+    note: str | None,
+) -> None:
+    cfg = load_config(config_path)
+    preset_cfg = dict(cfg.get("tournament_presets", {}).get(preset_name) or {})
+    if not preset_cfg:
+        raise ValueError(f"Preset '{preset_name}' does not exist.")
+
+    title = (title or "").strip()
+    note = (note or "").strip()
+    if title:
+        preset_cfg["_gui_title"] = title
+    else:
+        preset_cfg.pop("_gui_title", None)
+
+    if note:
+        preset_cfg["_gui_note"] = note
+    else:
+        preset_cfg.pop("_gui_note", None)
+
+    delete_preset_block(config_path, preset_name)
+    append_preset_block(config_path, preset_name, preset_cfg)
+
+
+def resolve_preset_build_metadata(
+    preset_name: str,
+    preset_cfg: dict[str, Any],
+    records: list[dict[str, Any]],
+) -> dict[str, Any]:
+    explicit = preset_metadata_from_config(preset_cfg)
+    if explicit:
+        return explicit
+
+    source_record = find_source_record_for_history_preset(preset_name, records)
+    if source_record:
+        return preset_metadata_from_record(source_record)
+
+    previous_preset_record = next(
+        (record for record in records if record.get("preset_name") == preset_name),
+        None,
+    )
+    if previous_preset_record:
+        return preset_metadata_from_record(previous_preset_record)
+
+    return {}
+
+
+def preset_metadata_from_config(preset_cfg: dict[str, Any]) -> dict[str, Any]:
+    metadata: dict[str, Any] = {}
+    if preset_cfg.get("_gui_roster_name"):
+        metadata["roster_name"] = str(preset_cfg["_gui_roster_name"])
+    if preset_cfg.get("_gui_build_type"):
+        metadata["build_type"] = str(preset_cfg["_gui_build_type"])
+    if str(preset_cfg.get("_gui_build_number", "")).isdigit():
+        metadata["build_number"] = int(preset_cfg["_gui_build_number"])
+    if preset_cfg.get("_gui_html_output"):
+        metadata["html_output"] = str(preset_cfg["_gui_html_output"])
+    return metadata
+
+
+def find_source_record_for_history_preset(
+    preset_name: str,
+    records: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    match = re.match(r"^preset_(\d{3})_", preset_name)
+    if not match:
+        return None
+
+    build_number = int(match.group(1))
+    return next(
+        (record for record in records if record.get("build_number") == build_number),
+        None,
+    )
+
+
+def preset_metadata_from_record(record: dict[str, Any]) -> dict[str, Any]:
+    metadata: dict[str, Any] = {}
+    if record.get("roster_name"):
+        metadata["roster_name"] = str(record["roster_name"])
+    if record.get("build_type"):
+        metadata["build_type"] = str(record["build_type"])
+    if str(record.get("build_number", "")).isdigit():
+        metadata["build_number"] = int(record["build_number"])
+    if record.get("html_output"):
+        metadata["html_output"] = str(record["html_output"])
+    return metadata
+
+
+def infer_build_type_from_base_profile(base_profile: Any) -> str:
+    return "pt_standard" if base_profile == "standard_pt" else "pt_tournament"
+
+
+def toml_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(toml_value(item) for item in value) + "]"
+    return json.dumps(str(value))
+
+
 def next_build_number(records: list[dict[str, Any]]) -> int:
     numbers = [
         int(record["build_number"])
@@ -437,6 +1180,14 @@ def format_build_number(value: object) -> str:
 
 def registry_path() -> Path:
     return Path("outputs") / "roster_build_registry.json"
+
+
+def preset_roster_output_path(preset_name: str) -> str:
+    return str(Path("outputs") / f"preset_roster_{slugify(preset_name)}.html")
+
+
+def preset_upgrade_output_path(preset_name: str) -> str:
+    return str(Path("outputs") / f"preset_upgrades_{slugify(preset_name)}.html")
 
 
 def build_html_output_path(roster_name: str) -> str:
@@ -641,13 +1392,17 @@ def render_alert(kind: str, message: str) -> str:
     return f"""<div class="alert {escape(kind)}">{message}</div>"""
 
 
-def report_link(html_output: str) -> str:
+def report_link(html_output: str, label: str = "Open HTML") -> str:
     name = Path(html_output).name
-    return f"""<a href="/reports/{escape(name)}" target="_blank" rel="noreferrer">Open HTML</a>"""
+    return f"""<a href="/reports/{escape(name)}" target="_blank" rel="noreferrer">{escape(label)}</a>"""
 
 
 def escape(value: object) -> str:
     return html.escape(str(value), quote=True)
+
+
+def first_or_none(items: list[str]) -> str | None:
+    return items[0] if items else None
 
 
 CSS = """
@@ -684,11 +1439,96 @@ main { padding: 22px; }
   gap: 18px;
   align-items: start;
 }
-.build-form, .history {
+.build-form, .history, .preset-panel {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 18px;
+}
+.preset-panel {
+  margin-bottom: 18px;
+}
+.preset-layout {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap: 14px;
+}
+.preset-list {
+  display: grid;
+  gap: 8px;
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 4px;
+}
+.preset-link {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--text);
+  background: #fbfcfd;
+}
+.preset-link:hover, .preset-link.selected {
+  border-color: var(--accent);
+  background: #eef5ff;
+}
+.preset-link span {
+  font-weight: 700;
+}
+.preset-link small {
+  color: var(--muted);
+}
+.preset-detail {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  min-height: 260px;
+}
+.preset-fields {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 6px 10px;
+  margin: 0 0 14px;
+}
+.preset-fields dt {
+  color: var(--muted);
+  font-weight: 700;
+}
+.preset-fields dd {
+  margin: 0;
+}
+.preset-actions {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.preset-note {
+  margin-bottom: 14px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+.preset-note-form {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.preset-actions form {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+}
+.preset-report-links {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.inline-field {
+  width: 120px;
 }
 .section-heading {
   display: flex;
@@ -716,7 +1556,7 @@ label span, legend {
   font-size: 13px;
   font-weight: 600;
 }
-input, select {
+input, select, textarea {
   width: 100%;
   min-height: 36px;
   border: 1px solid #b9c3cf;
@@ -725,6 +1565,10 @@ input, select {
   font: inherit;
   color: var(--text);
   background: #fff;
+}
+textarea {
+  min-height: 82px;
+  resize: vertical;
 }
 button {
   border: 0;
@@ -736,6 +1580,8 @@ button {
   cursor: pointer;
 }
 button:hover { background: var(--accent-dark); }
+button.danger { background: #b42318; }
+button.danger:hover { background: #8f1c14; }
 details, fieldset {
   margin-top: 14px;
   border: 1px solid var(--line);
@@ -775,6 +1621,18 @@ summary {
   font-size: 12px;
   margin: 4px 0 8px;
 }
+.history-actions {
+  display: grid;
+  gap: 8px;
+}
+.inline-action {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.inline-action input {
+  min-width: 0;
+}
 .alert {
   border-radius: 8px;
   padding: 12px 14px;
@@ -787,7 +1645,7 @@ summary {
 a { color: var(--accent); font-weight: 700; }
 .muted { color: var(--muted); }
 @media (max-width: 960px) {
-  .workspace { grid-template-columns: 1fr; }
+  .workspace, .preset-layout { grid-template-columns: 1fr; }
   .grid.two, .grid.three, .grid.four, .grid.six, .checks {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

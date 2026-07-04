@@ -220,55 +220,6 @@ preferred_positions = ["C", "SS", "CF", "2B", "3B", "LF", "RF", "1B"]
 # Simulation year and ballpark can be set independently. Tournament text may use
 # one simulation year with park factors from a different historical park year.
 
-[tournament_presets.goldmax_nonlive_1580cap_variantmax10_DH]
-base_profile = "playoff_pt"
-tier_max = "gold"
-live_mode = "non_live"
-point_cap_total = 1580
-variant_limit = 10
-dh_enabled = true
-
-[tournament_presets.high_iron_floor_gold_ceiling]
-base_profile = "playoff_pt"
-tier_max = "gold"
-card_value_min = 50
-point_cap_total = 1767
-dh_enabled = true
-
-[tournament_presets.q_lowg_unh_snap_rs_1999_dh]
-base_profile = "playoff_pt"
-card_value_max = 84
-allowed_card_types = ["UnH", "Snap", "RS"]
-simulation_year = 1999
-dh_enabled = true
-
-[tournament_presets.my_slot_test]
-base_profile = "playoff_pt"
-
-[tournament_presets.my_slot_test.tier_slots]
-P = 2
-D = 1
-G = 1
-S = 12
-B = 6
-I = 5
-
-[tournament_presets.sporers_sandlot]
-base_profile = "playoff_pt"
-tier_min = "bronze"
-tier_max = "gold"
-point_cap_total = 1858
-dh_enabled = true
-
-[tournament_presets.cwhit_cap_challenge]
-base_profile = "playoff_pt"
-card_value_min = 50
-card_value_max = 84
-card_year_min = 1930
-card_year_max = 1989
-point_cap_total = 1699
-dh_enabled = false
-
 [tournament_presets.daily_diamond_heart_1958_no_dh]
 base_profile = "playoff_pt"
 tier_max = "diamond"
@@ -278,24 +229,104 @@ simulation_year = 1958
 ballpark = "Fenway Park"
 ballpark_year = 1955
 dh_enabled = false
+_gui_note = "Last updated 6/10/2026"
 
 [tournament_presets.daily_diamond_heart_1958_no_dh.custom_park_factors]
-ba_lh = 1.050
-ba_rh = 0.950
+ba_lh = 1.05
+ba_rh = 0.95
 hr_lh = 0.964
-hr_rh = 0.990
+hr_rh = 0.99
 doubles_overall = 1.132
-triples_overall = 0.850
+triples_overall = 0.85
 
-[tournament_presets.nightmare_cap]
+[tournament_presets.goldmax_nonlive_1580cap_variantmax10_DH]
 base_profile = "playoff_pt"
-card_value_min = 50
-card_value_max = 74
-point_cap_total = 1559
-dh_enabled = false
-
-[tournament_presets.bronze_nonlive]
-base_profile = "playoff_pt"
-tier_max = "bronze"
-dh_enabled = true
+tier_max = "gold"
 live_mode = "non_live"
+point_cap_total = 1580
+variant_limit = 10
+dh_enabled = true
+_gui_title = "daily_goldmax_nonlive_1580cap_variantmax10_DH"
+_gui_note = "Last updated: 6/7/26"
+
+[tournament_presets.preset_002_t_002_b_g_y1993_dh_c1858]
+base_profile = "playoff_pt"
+dh_enabled = true
+simulation_year = 1993
+tier_min = "bronze"
+tier_max = "gold"
+live_mode = "all"
+point_cap_total = 1858
+variant_limit = 8
+_gui_title = "weekly_preset_002_t_002_b_g_y1993_dh_c1858"
+_gui_note = "Last changed: 6/22/26"
+
+[tournament_presets.preset_002_t_002_b_g_y1993_dh_c1858.custom_park_factors]
+ba_lh = 1.05
+ba_rh = 1.05
+hr_lh = 1.22
+hr_rh = 0.78
+doubles_overall = 1.03
+triples_overall = 0.98
+
+[tournament_presets.preset_003_t_003_bmax_y1955_nodh_c1275]
+base_profile = "playoff_pt"
+dh_enabled = false
+simulation_year = 1955
+ballpark_year = 1955
+ballpark = "Ebbets Field"
+tier_max = "bronze"
+live_mode = "all"
+point_cap_total = 1275
+variant_limit = 10
+_gui_title = "daily_preset_003_t_003_bmax_y1955_nodh_c1275"
+_gui_note = "Last changed: 6/22/26"
+
+[tournament_presets.preset_005_t_005_smax_dh]
+base_profile = "playoff_pt"
+dh_enabled = true
+tier_max = "silver"
+variant_limit = 10
+_gui_title = "quick_preset_005_t_005_smax_dh"
+_gui_note = "Last updated: 6/23/26"
+
+[tournament_presets.preset_006_t_006_smax_y1986_nodh]
+base_profile = "playoff_pt"
+dh_enabled = false
+simulation_year = 1986
+ballpark_year = 1984
+ballpark = "Jack Murphy Stadium"
+tier_max = "silver"
+card_year_min = 1930
+card_year_max = 1989
+_gui_title = "daily_preset_006_t_006_smax_y1986_nodh"
+_gui_note = "Last changed: 6/24/26"
+
+[tournament_presets.preset_008_standard_pt_regular_season]
+base_profile = "standard_pt"
+dh_enabled = true
+_gui_title = "pt_reg_preset_008_standard_pt_regular_season"
+
+[tournament_presets.q_lowg_unh_snap_rs_1999_dh]
+base_profile = "playoff_pt"
+card_value_max = 84
+allowed_card_types = ["UnH", "Snap", "RS"]
+simulation_year = 1999
+dh_enabled = true
+_gui_title = "quick_lowg_unh_snap_rs_1999_dh"
+_gui_note = "Last changed: 6/10/26"
+
+[tournament_presets.preset_011_t_011_imax_y1987_dh]
+base_profile = "playoff_pt"
+dh_enabled = true
+simulation_year = 1987
+ballpark_year = 1987
+ballpark = "Yankee Stadium"
+tier_max = "iron"
+live_mode = "all"
+_gui_title = "weekly_T-011-Imax-Y1987-DH"
+_gui_roster_name = "T-011-Imax-Y1987-DH"
+_gui_build_type = "pt_tournament"
+_gui_build_number = 11
+_gui_html_output = "outputs\\gui_t_011_imax_y1987_dh_20260703_171137.html"
+_gui_note = "Date changed: 7/3/26"

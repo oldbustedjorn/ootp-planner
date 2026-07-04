@@ -90,7 +90,10 @@ Responsibilities:
 - render a roster-build form
 - map form fields into `RosterBuildRequest`
 - support standard PT, playoff-style PT, and PT tournament builds
+- list configured tournament presets and show preset details
+- save GUI-only preset display titles and notes while preserving stable preset IDs
 - call `ootp_opt.services.roster_build_service.build_roster`
+- call `ootp_opt.services.store_upgrade_service.find_store_upgrades`
 - record GUI-launched builds in `outputs/roster_build_registry.json`
 - serve generated HTML reports from `outputs/`
 
@@ -249,6 +252,31 @@ Creates hitter shortlist views.
 Key function:
 
 - `generate_hitter_shortlists(df, top_n=15)`
+
+### `ootp_opt.services.store_upgrade_service`
+
+Reusable store-upgrade orchestration layer.
+
+Responsibilities:
+
+- resolve base profile or tournament preset rulesets
+- apply direct overrides from CLI or future UI requests
+- resolve simulation year and ballpark context
+- score owned cards and store candidates
+- build the fresh comparison roster
+- find hitter and pitcher upgrades
+- write store upgrade HTML reports
+
+Key classes:
+
+- `StoreUpgradeRequest`
+- `StoreUpgradeResult`
+
+Key functions:
+
+- `find_store_upgrades(request)`
+- `build_ruleset(cfg, request)`
+- `build_output_name(ruleset)`
 
 ## Package: `ootp_opt.roster`
 

@@ -3,28 +3,10 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
-from ootp_opt.config import load_config
-from ootp_opt.domain.simulation_context import (
-    apply_simulation_context_to_config,
-    resolve_simulation_context,
+from ootp_opt.services.store_upgrade_service import (
+    StoreUpgradeRequest,
+    find_store_upgrades,
 )
-from ootp_opt.ingest.pt_hitters import load_pt_cards_csv
-from ootp_opt.ingest.pt_pitchers import load_pt_pitchers_csv
-from ootp_opt.ingest.pt_store import load_pt_store_hitters_pitchers
-from ootp_opt.roster.builder import (
-    build_hitter_roster,
-    build_pitcher_roster,
-    validate_no_duplicate_players,
-)
-from ootp_opt.roster.eligibility import filter_eligible_hitters, filter_eligible_pitchers
-from ootp_opt.roster.rules import (
-    Ruleset,
-    build_ruleset_from_base_profile,
-    build_ruleset_from_tournament_preset,
-)
-from ootp_opt.roster.upgrade_finder import find_hitter_upgrades, find_pitcher_upgrades
-from ootp_opt.roster.upgrade_html_export import export_upgrade_html
-from ootp_opt.services.rating_service import rate_hitters_df, rate_pitchers_df
 
 
 def parse_args() -> argparse.Namespace:
@@ -133,43 +115,21 @@ def build_custom_park_factor_overrides(args: argparse.Namespace) -> dict[str, fl
     return {key: value for key, value in fields.items() if value is not None}
 
 
-def build_ruleset(
-    cfg: dict[str, Any],
-    args: argparse.Namespace,
-    overrides: dict[str, Any],
-) -> Ruleset:
-    if args.preset:
-        return build_ruleset_from_tournament_preset(
-            cfg,
-            preset_name=args.preset,
-            overrides=overrides,
-        )
-
-    return build_ruleset_from_base_profile(
-        cfg,
-        base_profile_name=args.base_profile,
-        overrides=overrides,
-    )
-
-
-def build_output_name(ruleset: Ruleset) -> str:
-    safe_name = ruleset.name.replace(" ", "_").replace("/", "_")
-    return f"outputs/store_upgrades_{safe_name}.html"
-
-
 def main() -> None:
     args = parse_args()
-    cfg = load_config(args.config)
     overrides = build_overrides(args)
-    ruleset = build_ruleset(cfg, args, overrides)
-
-    simulation_context = resolve_simulation_context(
-        simulation_year=ruleset.simulation_year,
-        ballpark=ruleset.ballpark,
-        ballpark_year=ruleset.ballpark_year,
-        custom_park_factors=ruleset.custom_park_factors,
+    result = find_store_upgrades(
+        StoreUpgradeRequest(
+            config_path=args.config,
+            base_profile=args.base_profile,
+            preset=args.preset,
+            overrides=overrides,
+            min_gain=args.min_gain,
+            include_owned=args.include_owned,
+            html_output=args.html_output,
+        )
     )
-    scoring_cfg = apply_simulation_context_to_config(cfg, simulation_context)
+    ruleset = result.ruleset
 
     print("\n=== STORE UPGRADE RULESET ===")
     print(f"Ruleset: {ruleset.name}")
@@ -183,75 +143,22 @@ def main() -> None:
     print(f"Include owned store cards: {args.include_owned}")
 
     print("\n=== SIMULATION CONTEXT ===")
-    for label, value in simulation_context.summary_rows():
+    for label, value in result.simulation_context.summary_rows():
         print(f"{label}: {value}")
 
-    hitters_df = load_pt_cards_csv(cfg["paths"]["hitters_csv"])
-    pitchers_df = load_pt_pitchers_csv(cfg["paths"]["pitchers_csv"])
-
-    scored_hitters = rate_hitters_df(hitters_df, scoring_cfg)
-    scored_pitchers = rate_pitchers_df(pitchers_df, scoring_cfg)
-
-    eligible_hitters = filter_eligible_hitters(scored_hitters, ruleset)
-    eligible_pitchers = filter_eligible_pitchers(scored_pitchers, ruleset)
-
-    if eligible_hitters.empty:
-        raise ValueError("No eligible hitters after applying filters.")
-    if eligible_pitchers.empty:
-        raise ValueError("No eligible pitchers after applying filters.")
-
-    hitter_roster = build_hitter_roster(eligible_hitters, ruleset)
-    pitcher_roster = build_pitcher_roster(eligible_pitchers, ruleset)
-    validate_no_duplicate_players(hitter_roster, pitcher_roster)
-
-    store_hitters, store_pitchers = load_pt_store_hitters_pitchers(
-        cfg["paths"]["store_csv"]
-    )
-
-    scored_store_hitters = rate_hitters_df(store_hitters, scoring_cfg)
-    scored_store_pitchers = rate_pitchers_df(store_pitchers, scoring_cfg)
-
-    eligible_store_hitters = filter_eligible_hitters(scored_store_hitters, ruleset)
-    eligible_store_pitchers = filter_eligible_pitchers(scored_store_pitchers, ruleset)
-
-    if args.include_owned:
-        eligible_store_hitters = eligible_store_hitters.copy()
-        eligible_store_pitchers = eligible_store_pitchers.copy()
-        eligible_store_hitters["is_owned"] = False
-        eligible_store_pitchers["is_owned"] = False
-
-    hitter_upgrades = find_hitter_upgrades(
-        hitter_roster,
-        eligible_store_hitters,
-        min_gain=args.min_gain,
-    )
-    pitcher_upgrades = find_pitcher_upgrades(
-        pitcher_roster,
-        eligible_store_pitchers,
-        min_gain=args.min_gain,
-    )
-
     print("\n=== STORE ELIGIBILITY SUMMARY ===")
-    print(f"Owned hitters eligible: {len(eligible_hitters)}")
-    print(f"Owned pitchers eligible: {len(eligible_pitchers)}")
-    print(f"Store hitters eligible: {len(eligible_store_hitters)}")
-    print(f"Store pitchers eligible: {len(eligible_store_pitchers)}")
+    print(f"Owned hitters eligible: {result.eligibility_summary['owned_hitters_eligible']}")
+    print(f"Owned pitchers eligible: {result.eligibility_summary['owned_pitchers_eligible']}")
+    print(f"Store hitters eligible: {result.eligibility_summary['store_hitters_eligible']}")
+    print(f"Store pitchers eligible: {result.eligibility_summary['store_pitchers_eligible']}")
 
     print("\n=== TOP HITTER UPGRADES ===")
-    print_top_rows(hitter_upgrades, args.top)
+    print_top_rows(result.hitter_upgrades, args.top)
 
     print("\n=== TOP PITCHER UPGRADES ===")
-    print_top_rows(pitcher_upgrades, args.top)
+    print_top_rows(result.pitcher_upgrades, args.top)
 
-    html_output = args.html_output or build_output_name(ruleset)
-    export_upgrade_html(
-        path=html_output,
-        hitter_upgrades=hitter_upgrades,
-        pitcher_upgrades=pitcher_upgrades,
-        title=f"OOTP Store Upgrades - {ruleset.name}",
-    )
-
-    print(f"\nHTML upgrade report written to: {html_output}")
+    print(f"\nHTML upgrade report written to: {result.html_output}")
 
 
 def print_top_rows(df, top: int) -> None:
