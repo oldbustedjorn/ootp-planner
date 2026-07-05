@@ -16,6 +16,7 @@ from ootp_opt.ingest.pt_store import load_pt_store_hitters_pitchers
 from ootp_opt.roster.builder import (
     build_hitter_roster,
     build_pitcher_roster,
+    selected_hitter_roster_keys,
     validate_no_duplicate_players,
 )
 from ootp_opt.roster.eligibility import filter_eligible_hitters, filter_eligible_pitchers
@@ -80,7 +81,11 @@ def find_store_upgrades(request: StoreUpgradeRequest) -> StoreUpgradeResult:
         raise ValueError("No eligible pitchers after applying filters.")
 
     hitter_roster = build_hitter_roster(eligible_hitters, ruleset)
-    pitcher_roster = build_pitcher_roster(eligible_pitchers, ruleset)
+    pitcher_roster = build_pitcher_roster(
+        eligible_pitchers,
+        ruleset,
+        used_player_names=selected_hitter_roster_keys(hitter_roster),
+    )
     validate_no_duplicate_players(hitter_roster, pitcher_roster)
 
     store_hitters, store_pitchers = load_pt_store_hitters_pitchers(

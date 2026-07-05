@@ -23,6 +23,13 @@ def selected_player_keys(df: pd.DataFrame) -> set[str]:
     return {str(name).strip().lower() for name in df["name"].dropna()}
 
 
+def selected_hitter_roster_keys(hitter_roster: HitterRoster) -> set[str]:
+    keys = {player_unique_key(row) for row in hitter_roster.starters_by_position.values()}
+    for _, row in hitter_roster.bench_players.iterrows():
+        keys.add(player_unique_key(row))
+    return keys
+
+
 def remove_players_by_name(
     df: pd.DataFrame,
     used_player_names: set[str],
@@ -177,9 +184,14 @@ def score_bench_candidate(
     return batting_score + (preferred_hits * 2.0) + (uncovered_hits * 5.0)
 
 
-def build_pitcher_roster(df: pd.DataFrame, ruleset: Ruleset) -> PitcherRoster:
+def build_pitcher_roster(
+    df: pd.DataFrame,
+    ruleset: Ruleset,
+    used_player_names: set[str] | None = None,
+) -> PitcherRoster:
     remaining = df.copy()
-    used_player_names: set[str] = set()
+    used_player_names = set(used_player_names or set())
+    remaining = remove_players_by_name(remaining, used_player_names)
 
     rotation, remaining = select_top_n(
         remove_players_by_name(remaining, used_player_names),

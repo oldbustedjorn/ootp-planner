@@ -15,6 +15,7 @@ from ootp_opt.roster.builder import (
     build_hitter_roster,
     build_pitcher_roster,
     get_player_covered_positions,
+    selected_hitter_roster_keys,
     validate_no_duplicate_players,
 )
 from ootp_opt.roster.cap_repair import (
@@ -164,7 +165,11 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         raise ValueError("No eligible pitchers after applying filters.")
 
     hitter_roster = build_hitter_roster(eligible_hitters, ruleset)
-    pitcher_roster = build_pitcher_roster(eligible_pitchers, ruleset)
+    pitcher_roster = build_pitcher_roster(
+        eligible_pitchers,
+        ruleset,
+        used_player_names=selected_hitter_roster_keys(hitter_roster),
+    )
     validate_no_duplicate_players(hitter_roster, pitcher_roster)
 
     add_captured_section(
