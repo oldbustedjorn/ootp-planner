@@ -7,7 +7,8 @@ import pandas as pd
 from ootp_opt.roster.cap_report import iter_roster_rows
 from ootp_opt.roster.models import HitterRoster, PitcherRoster
 
-TIER_ORDER = ["perfect", "diamond", "gold", "silver", "bronze", "iron"]
+FINITE_SLOT_TIERS = ["perfect", "diamond", "gold", "silver", "bronze"]
+TIER_ORDER = [*FINITE_SLOT_TIERS, "iron"]
 
 
 @dataclass(frozen=True)
@@ -16,8 +17,8 @@ class TierSlotRow:
     selected_count: int
     direct_slots: int
     cumulative_selected: int
-    cumulative_slots: int
-    remaining: int
+    cumulative_slots: int | None
+    remaining: int | None
     is_over_limit: bool
 
 
@@ -38,8 +39,15 @@ def build_tier_slot_rows(
         selected_count = selected_counts.get(tier, 0)
         direct_slots = normalized_slots.get(tier, 0)
         cumulative_selected += selected_count
-        cumulative_slots += direct_slots
-        remaining = cumulative_slots - cumulative_selected
+        if tier == "iron":
+            row_cumulative_slots = None
+            remaining = None
+            is_over_limit = False
+        else:
+            cumulative_slots += direct_slots
+            row_cumulative_slots = cumulative_slots
+            remaining = cumulative_slots - cumulative_selected
+            is_over_limit = remaining < 0
 
         rows.append(
             TierSlotRow(
@@ -47,9 +55,9 @@ def build_tier_slot_rows(
                 selected_count=selected_count,
                 direct_slots=direct_slots,
                 cumulative_selected=cumulative_selected,
-                cumulative_slots=cumulative_slots,
+                cumulative_slots=row_cumulative_slots,
                 remaining=remaining,
-                is_over_limit=remaining < 0,
+                is_over_limit=is_over_limit,
             )
         )
 
@@ -106,7 +114,7 @@ def normalize_tier_slots(tier_slots: dict[str, int]) -> dict[str, int]:
     return {
         normalize_tier_name(tier): int(count)
         for tier, count in tier_slots.items()
-        if normalize_tier_name(tier)
+        if normalize_tier_name(tier) in FINITE_SLOT_TIERS
     }
 
 
@@ -187,7 +195,7 @@ def print_tier_slot_report(
                 "selected": row.selected_count,
                 "slots": row.direct_slots,
                 "selected_or_better": row.cumulative_selected,
-                "slots_or_better": row.cumulative_slots,
+                "slots_or_better": slot_value(row.cumulative_slots),
                 "remaining": signed_delta(row.remaining),
                 "status": "OVER" if row.is_over_limit else "OK",
             }
@@ -198,7 +206,13 @@ def print_tier_slot_report(
     print(table.to_string(index=False))
 
 
-def signed_delta(value: int) -> str:
+def signed_delta(value: int | None) -> str:
+    if value is None:
+        return "unlimited"
     if value > 0:
         return f"+{value}"
     return str(value)
+
+
+def slot_value(value: int | None) -> int | str:
+    return "unlimited" if value is None else value

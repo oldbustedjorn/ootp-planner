@@ -15,7 +15,7 @@ from ootp_opt.roster.lineup import (
 )
 from ootp_opt.roster.models import HitterRoster, PitcherRoster
 from ootp_opt.roster.rules import Ruleset
-from ootp_opt.roster.tier_slot_report import build_tier_slot_rows
+from ootp_opt.roster.tier_slot_report import build_tier_slot_rows, normalize_tier_slots
 from ootp_opt.roster.tier_slot_repair import TierSlotRepairResult
 from ootp_opt.roster.variant_report import is_variant_card
 
@@ -179,7 +179,14 @@ def format_tier_slots(tier_slots: dict[str, int]) -> str:
     if not tier_slots:
         return "-"
 
-    return ", ".join(f"{tier}: {count}" for tier, count in tier_slots.items())
+    normalized_slots = normalize_tier_slots(tier_slots)
+    if not normalized_slots:
+        return "-"
+
+    return (
+        ", ".join(f"{tier}: {count}" for tier, count in normalized_slots.items())
+        + ", iron: unlimited"
+    )
 
 
 def format_custom_park_factors(factors: dict[str, float]) -> str:
@@ -212,7 +219,7 @@ def render_tier_slot_summary(
         f"<td class='num'>{row.selected_count}</td>"
         f"<td class='num'>{row.direct_slots}</td>"
         f"<td class='num'>{row.cumulative_selected}</td>"
-        f"<td class='num'>{row.cumulative_slots}</td>"
+        f"<td class='num'>{slot_value(row.cumulative_slots)}</td>"
         f"<td class='num'>{signed_delta(row.remaining)}</td>"
         f"<td class='{tier_slot_status_class(row.is_over_limit, ruleset)}'>"
         f"{'OVER' if row.is_over_limit else 'OK'}</td>"
@@ -243,10 +250,16 @@ def render_tier_slot_summary(
 """
 
 
-def signed_delta(value: int) -> str:
+def signed_delta(value: int | None) -> str:
+    if value is None:
+        return "unlimited"
     if value > 0:
         return f"+{value}"
     return str(value)
+
+
+def slot_value(value: int | None) -> str:
+    return "unlimited" if value is None else str(value)
 
 
 def tier_slot_status_class(is_over_limit: bool, ruleset: Ruleset) -> str:

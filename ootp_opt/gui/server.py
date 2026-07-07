@@ -21,7 +21,7 @@ from ootp_opt.services.store_upgrade_service import (
 
 CARD_TYPES = ["2026Live", "AS", "FL", "HaH", "Leg", "NeL", "RS", "Snap", "UnH", "VET"]
 TIERS = ["iron", "bronze", "silver", "gold", "diamond", "perfect"]
-TIER_SLOT_KEYS = ["P", "D", "G", "S", "B", "I"]
+TIER_SLOT_KEYS = ["P", "D", "G", "S", "B"]
 MAX_OOTP_ROSTER_NAME_LENGTH = 30
 GUI_PRESET_META_KEYS = {
     "_gui_title",

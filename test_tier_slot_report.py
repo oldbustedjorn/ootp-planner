@@ -2,7 +2,7 @@ import pandas as pd
 
 from ootp_opt.roster.models import HitterRoster, PitcherRoster
 from ootp_opt.roster.rules import build_ruleset_from_tournament_preset
-from ootp_opt.roster.tier_slot_report import build_tier_slot_rows
+from ootp_opt.roster.tier_slot_report import build_tier_slot_rows, tier_slots_satisfied
 
 
 def test_tier_slot_rows_count_whole_roster_and_normalize_abbreviations():
@@ -42,7 +42,7 @@ def test_tier_slot_rows_count_whole_roster_and_normalize_abbreviations():
             "G": 1,
             "S": 1,
             "B": 1,
-            "I": 2,
+            "I": 0,
         },
     )
 
@@ -68,8 +68,50 @@ def test_tier_slot_rows_count_whole_roster_and_normalize_abbreviations():
 
     assert by_tier["iron"].selected_count == 2
     assert by_tier["iron"].cumulative_selected == 9
-    assert by_tier["iron"].cumulative_slots == 10
-    assert by_tier["iron"].remaining == 1
+    assert by_tier["iron"].cumulative_slots is None
+    assert by_tier["iron"].remaining is None
+    assert not by_tier["iron"].is_over_limit
+
+
+def test_iron_slots_are_unlimited_even_when_zero_is_configured():
+    hitter_roster = HitterRoster(
+        starters_by_position={
+            "C": pd.Series({"pt_tier": "Iron"}),
+            "1B": pd.Series({"pt_tier": "Iron"}),
+        },
+        bench_players=pd.DataFrame(
+            [
+                {"pt_tier": "Iron"},
+                {"pt_tier": "Iron"},
+            ]
+        ),
+        unused_players=pd.DataFrame(),
+    )
+
+    pitcher_roster = PitcherRoster(
+        rotation=pd.DataFrame(
+            [
+                {"pt_tier": "Perfect"},
+                {"pt_tier": "Iron"},
+            ]
+        ),
+        bullpen=pd.DataFrame([{"pt_tier": "Iron"}]),
+        lefty_specialist=pd.DataFrame([{"pt_tier": "Iron"}]),
+        long_man=pd.DataFrame([{"pt_tier": "Iron"}]),
+        unused_players=pd.DataFrame(),
+    )
+
+    tier_slots = {"P": 1, "D": 1, "G": 0, "S": 0, "B": 0, "I": 0}
+    rows = build_tier_slot_rows(
+        hitter_roster=hitter_roster,
+        pitcher_roster=pitcher_roster,
+        tier_slots=tier_slots,
+    )
+    by_tier = {row.tier: row for row in rows}
+
+    assert tier_slots_satisfied(hitter_roster, pitcher_roster, tier_slots)
+    assert by_tier["iron"].selected_count == 8
+    assert by_tier["iron"].remaining is None
     assert not by_tier["iron"].is_over_limit
 
 
