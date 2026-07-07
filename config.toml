@@ -123,7 +123,7 @@ point_cap_total = 0
 # gold/G = 4
 # silver/S = 5
 # bronze/B = 6
-# iron/I = 6
+# iron is implicit and unlimited
 
 [roster_build_defaults.custom_park_factors]
 # Optional direct park-factor overrides for tournament text when a named park
@@ -330,3 +330,43 @@ simulation_year = 1999
 dh_enabled = true
 _gui_title = "quick_lowg_unh_snap_rs_1999_dh"
 _gui_note = "Last changed: 7/4/26"
+
+[tournament_presets.preset_014_t_014_y1975_dh_slots]
+base_profile = "playoff_pt"
+dh_enabled = true
+simulation_year = 1975
+ballpark_year = 1977
+ballpark = "Atlanta Fulton County Stadium"
+_gui_title = "daily_T-014-Y1975-DH-Slots"
+_gui_roster_name = "T-014-Y1975-DH-Slots"
+_gui_build_type = "pt_tournament"
+_gui_build_number = 14
+_gui_html_output = "outputs\\gui_t_014_y1975_dh_slots_20260705_132341.html"
+_gui_note = "Daily Diamond Slots"
+
+[tournament_presets.preset_014_t_014_y1975_dh_slots.tier_slots]
+P = 0
+D = 12
+G = 5
+S = 4
+B = 3
+
+[tournament_presets.preset_015_t_015_dmax_dh]
+base_profile = "playoff_pt"
+dh_enabled = true
+tier_max = "diamond"
+variant_limit = 5
+_gui_title = "weekly_T-015-Dmax-DH"
+_gui_roster_name = "T-015-Dmax-DH"
+_gui_build_type = "pt_tournament"
+_gui_build_number = 15
+_gui_html_output = "outputs\\gui_t_015_dmax_dh_20260707_145018.html"
+_gui_note = "Wednesday Ice to See You\r\nLast Changed: 7/7/26"
+
+[tournament_presets.preset_015_t_015_dmax_dh.custom_park_factors]
+ba_lh = 1.02
+ba_rh = 1.01
+hr_lh = 1.09
+hr_rh = 1.1
+doubles_overall = 0.97
+triples_overall = 1.038
