@@ -220,19 +220,6 @@ preferred_positions = ["C", "SS", "CF", "2B", "3B", "LF", "RF", "1B"]
 # Simulation year and ballpark can be set independently. Tournament text may use
 # one simulation year with park factors from a different historical park year.
 
-[tournament_presets.preset_003_t_003_bmax_y1955_nodh_c1275]
-base_profile = "playoff_pt"
-dh_enabled = false
-simulation_year = 1955
-ballpark_year = 1955
-ballpark = "Ebbets Field"
-tier_max = "bronze"
-live_mode = "all"
-point_cap_total = 1275
-variant_limit = 10
-_gui_title = "daily_preset_003_t_003_bmax_y1955_nodh_c1275"
-_gui_note = "Last changed: 6/22/26"
-
 [tournament_presets.preset_005_t_005_smax_dh]
 base_profile = "playoff_pt"
 dh_enabled = true
@@ -258,21 +245,6 @@ base_profile = "standard_pt"
 dh_enabled = true
 _gui_title = "pt_reg_preset_008_standard_pt_regular_season"
 
-[tournament_presets.preset_011_t_011_imax_y1987_dh]
-base_profile = "playoff_pt"
-dh_enabled = true
-simulation_year = 1987
-ballpark_year = 1987
-ballpark = "Yankee Stadium"
-tier_max = "iron"
-live_mode = "all"
-_gui_title = "weekly_T-011-Imax-Y1987-DH"
-_gui_roster_name = "T-011-Imax-Y1987-DH"
-_gui_build_type = "pt_tournament"
-_gui_build_number = 11
-_gui_html_output = "outputs\\gui_t_011_imax_y1987_dh_20260703_171137.html"
-_gui_note = "Date changed: 7/3/26"
-
 [tournament_presets.daily_diamond_heart_1958_no_dh]
 base_profile = "playoff_pt"
 tier_max = "diamond"
@@ -291,26 +263,6 @@ hr_lh = 0.964
 hr_rh = 0.99
 doubles_overall = 1.132
 triples_overall = 0.85
-
-[tournament_presets.preset_002_t_002_b_g_y1993_dh_c1858]
-base_profile = "playoff_pt"
-dh_enabled = true
-simulation_year = 1993
-tier_min = "bronze"
-tier_max = "gold"
-live_mode = "all"
-point_cap_total = 1858
-variant_limit = 8
-_gui_title = "weekly_preset_002_t_002_b_g_y1993_dh_c1858"
-_gui_note = "Tuesday Sporer's Sandlot\r\nLast changed: 6/22/26"
-
-[tournament_presets.preset_002_t_002_b_g_y1993_dh_c1858.custom_park_factors]
-ba_lh = 1.05
-ba_rh = 1.05
-hr_lh = 1.22
-hr_rh = 0.78
-doubles_overall = 1.03
-triples_overall = 0.98
 
 [tournament_presets.goldmax_nonlive_1580cap_variantmax10_DH]
 base_profile = "playoff_pt"
@@ -370,3 +322,51 @@ hr_lh = 1.09
 hr_rh = 1.1
 doubles_overall = 0.97
 triples_overall = 1.038
+
+[tournament_presets.preset_011_t_011_imax_y1987_dh]
+base_profile = "playoff_pt"
+dh_enabled = true
+simulation_year = 1987
+ballpark_year = 1987
+ballpark = "Yankee Stadium"
+tier_max = "iron"
+live_mode = "all"
+_gui_title = "weekly_T-011-Imax-Y1987-DH"
+_gui_roster_name = "T-011-Imax-Y1987-DH"
+_gui_build_type = "pt_tournament"
+_gui_build_number = 11
+_gui_html_output = "outputs\\gui_t_011_imax_y1987_dh_20260703_171137.html"
+_gui_note = "Saturday Iron Warriors\r\nDate changed: 7/3/26"
+
+[tournament_presets.preset_002_t_002_b_g_y1993_dh_c1858]
+base_profile = "playoff_pt"
+dh_enabled = true
+simulation_year = 1993
+tier_min = "bronze"
+tier_max = "gold"
+live_mode = "all"
+point_cap_total = 1858
+variant_limit = 8
+_gui_title = "weekly_preset_002_t_002_b_g_y1993_dh_c1858"
+_gui_note = "Tuesday Sporer's Sandlot\r\nLast changed: 7/13/26"
+
+[tournament_presets.preset_002_t_002_b_g_y1993_dh_c1858.custom_park_factors]
+ba_lh = 1.05
+ba_rh = 1.05
+hr_lh = 1.22
+hr_rh = 0.78
+doubles_overall = 1.03
+triples_overall = 0.98
+
+[tournament_presets.preset_003_t_003_bmax_y1955_nodh_c1275]
+base_profile = "playoff_pt"
+dh_enabled = false
+simulation_year = 1955
+ballpark_year = 1955
+ballpark = "Ebbets Field"
+tier_max = "bronze"
+live_mode = "all"
+point_cap_total = 1275
+variant_limit = 10
+_gui_title = "daily_preset_003_t_003_bmax_y1955_nodh_c1275"
+_gui_note = "Daily Bronze Cap\r\nLast changed: 6/22/26"
