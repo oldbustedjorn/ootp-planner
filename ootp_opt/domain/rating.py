@@ -113,6 +113,12 @@ class PitcherRoleWeights:
     sp_pbabip: float = 1.30
     sp_hr_rate: float = 1.20
     sp_control: float = 0.80
+    sp_stuff_midpoint: float | None = None
+    sp_pbabip_midpoint: float | None = None
+    sp_hr_rate_midpoint: float | None = None
+    sp_control_midpoint: float | None = None
+    sp_control_floor: float | None = None
+    sp_control_floor_penalty: float = 0.0
 
     # reliever base weights
     rp_stuff: float = 1.30
@@ -120,6 +126,12 @@ class PitcherRoleWeights:
     rp_pbabip: float = 1.10
     rp_hr_rate: float = 1.00
     rp_control: float = 0.80
+    rp_stuff_midpoint: float | None = None
+    rp_pbabip_midpoint: float | None = None
+    rp_hr_rate_midpoint: float | None = None
+    rp_control_midpoint: float | None = None
+    rp_control_floor: float | None = None
+    rp_control_floor_penalty: float = 0.0
 
     # starter-only modifiers
     stamina: float = 0.00
@@ -144,23 +156,39 @@ def score_pitcher_components(
     pbabip_weight: float,
     hr_rate_weight: float,
     use_nonlinear_transforms: bool,
+    stuff_midpoint: float | None = None,
+    pbabip_midpoint: float | None = None,
+    hr_rate_midpoint: float | None = None,
+    control_midpoint: float | None = None,
+    control_floor: float | None = None,
+    control_floor_penalty: float = 0.0,
 ) -> pd.Series:
     if use_nonlinear_transforms:
-        return (
-            stuff.apply(stuff_value) * stuff_weight
+        score = (
+            stuff.apply(lambda value: stuff_value(value, midpoint=stuff_midpoint))
+            * stuff_weight
             + movement * movement_weight
-            + control.apply(control_value) * control_weight
-            + pbabip.apply(pbabip_value) * pbabip_weight
-            + hr_rate.apply(hr_rate_value) * hr_rate_weight
+            + control.apply(lambda value: control_value(value, midpoint=control_midpoint))
+            * control_weight
+            + pbabip.apply(lambda value: pbabip_value(value, midpoint=pbabip_midpoint))
+            * pbabip_weight
+            + hr_rate.apply(lambda value: hr_rate_value(value, midpoint=hr_rate_midpoint))
+            * hr_rate_weight
         )
+        if control_floor is not None and control_floor_penalty > 0:
+            score -= (control_floor - control).clip(lower=0) * control_floor_penalty
+        return score
 
-    return (
+    score = (
         stuff * stuff_weight
         + movement * movement_weight
         + control * control_weight
         + pbabip * pbabip_weight
         + hr_rate * hr_rate_weight
     )
+    if control_floor is not None and control_floor_penalty > 0:
+        score -= (control_floor - control).clip(lower=0) * control_floor_penalty
+    return score
 
 
 def add_pitcher_role_scores(
@@ -225,6 +253,12 @@ def add_pitcher_role_scores(
         pbabip_weight=weights.sp_pbabip,
         hr_rate_weight=weights.sp_hr_rate,
         use_nonlinear_transforms=weights.use_nonlinear_transforms,
+        stuff_midpoint=weights.sp_stuff_midpoint,
+        pbabip_midpoint=weights.sp_pbabip_midpoint,
+        hr_rate_midpoint=weights.sp_hr_rate_midpoint,
+        control_midpoint=weights.sp_control_midpoint,
+        control_floor=weights.sp_control_floor,
+        control_floor_penalty=weights.sp_control_floor_penalty,
     )
 
     sp_base_vs_rhb = score_pitcher_components(
@@ -239,6 +273,12 @@ def add_pitcher_role_scores(
         pbabip_weight=weights.sp_pbabip,
         hr_rate_weight=weights.sp_hr_rate,
         use_nonlinear_transforms=weights.use_nonlinear_transforms,
+        stuff_midpoint=weights.sp_stuff_midpoint,
+        pbabip_midpoint=weights.sp_pbabip_midpoint,
+        hr_rate_midpoint=weights.sp_hr_rate_midpoint,
+        control_midpoint=weights.sp_control_midpoint,
+        control_floor=weights.sp_control_floor,
+        control_floor_penalty=weights.sp_control_floor_penalty,
     )
 
     # Reliever base scores
@@ -254,6 +294,12 @@ def add_pitcher_role_scores(
         pbabip_weight=weights.rp_pbabip,
         hr_rate_weight=weights.rp_hr_rate,
         use_nonlinear_transforms=weights.use_nonlinear_transforms,
+        stuff_midpoint=weights.rp_stuff_midpoint,
+        pbabip_midpoint=weights.rp_pbabip_midpoint,
+        hr_rate_midpoint=weights.rp_hr_rate_midpoint,
+        control_midpoint=weights.rp_control_midpoint,
+        control_floor=weights.rp_control_floor,
+        control_floor_penalty=weights.rp_control_floor_penalty,
     )
 
     rp_base_vs_rhb = score_pitcher_components(
@@ -268,6 +314,12 @@ def add_pitcher_role_scores(
         pbabip_weight=weights.rp_pbabip,
         hr_rate_weight=weights.rp_hr_rate,
         use_nonlinear_transforms=weights.use_nonlinear_transforms,
+        stuff_midpoint=weights.rp_stuff_midpoint,
+        pbabip_midpoint=weights.rp_pbabip_midpoint,
+        hr_rate_midpoint=weights.rp_hr_rate_midpoint,
+        control_midpoint=weights.rp_control_midpoint,
+        control_floor=weights.rp_control_floor,
+        control_floor_penalty=weights.rp_control_floor_penalty,
     )
 
     # Starter bonuses
@@ -333,6 +385,11 @@ class HitterRoleWeights:
     gap_power: float = 0.55
     babip: float = 0.35
     avoid_k: float = 0.40
+    power_midpoint: float | None = None
+    eye_midpoint: float | None = None
+    gap_midpoint: float | None = None
+    babip_midpoint: float | None = None
+    avoid_k_midpoint: float | None = None
 
     # small offensive baserunning bonus
     off_speed: float = 0.06
@@ -398,11 +455,18 @@ def score_hitter_batting_components(
 ) -> pd.Series:
     if weights.use_nonlinear_transforms:
         return (
-            power.apply(power_value) * weights.power
-            + eye.apply(eye_value) * weights.eye
-            + avoid_k.apply(avoid_k_value) * weights.avoid_k
-            + gap_power.apply(gap_value) * weights.gap_power
-            + babip.apply(babip_value) * weights.babip
+            power.apply(lambda value: power_value(value, midpoint=weights.power_midpoint))
+            * weights.power
+            + eye.apply(lambda value: eye_value(value, midpoint=weights.eye_midpoint))
+            * weights.eye
+            + avoid_k.apply(
+                lambda value: avoid_k_value(value, midpoint=weights.avoid_k_midpoint)
+            )
+            * weights.avoid_k
+            + gap_power.apply(lambda value: gap_value(value, midpoint=weights.gap_midpoint))
+            * weights.gap_power
+            + babip.apply(lambda value: babip_value(value, midpoint=weights.babip_midpoint))
+            * weights.babip
         )
 
     return (

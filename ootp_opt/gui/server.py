@@ -21,6 +21,7 @@ from ootp_opt.services.store_upgrade_service import (
 
 CARD_TYPES = ["2026Live", "AS", "FL", "HaH", "Leg", "NeL", "RS", "Snap", "UnH", "VET"]
 TIERS = ["iron", "bronze", "silver", "gold", "diamond", "perfect"]
+SCORING_ENVIRONMENTS = ["auto", "iron", "bronze", "silver", "gold", "diamond", "open", "none"]
 TIER_SLOT_KEYS = ["P", "D", "G", "S", "B"]
 MAX_OOTP_ROSTER_NAME_LENGTH = 30
 GUI_PRESET_META_KEYS = {
@@ -486,6 +487,10 @@ def build_overrides_from_form(
     if custom_park_factors:
         overrides["custom_park_factors"] = custom_park_factors
 
+    scoring_environment = text_value(form, "scoring_environment")
+    if scoring_environment:
+        overrides["scoring_environment"] = scoring_environment
+
     if not include_tournament:
         return overrides
 
@@ -573,6 +578,7 @@ def render_home(
           <h3>Scoring Environment</h3>
         </div>
         <div class="grid three">
+          {field_select("Scoring tier", "scoring_environment", [(env, env.title()) for env in SCORING_ENVIRONMENTS], "auto")}
           {field_number("Simulation year", "simulation_year")}
           {field_text("Ballpark", "ballpark", placeholder="Fenway Park")}
           {field_number("Ballpark year", "ballpark_year")}
@@ -757,6 +763,7 @@ def flatten_preset_summary(preset_cfg: dict[str, Any]) -> list[tuple[str, Any]]:
         "card_year_min",
         "card_year_max",
         "simulation_year",
+        "scoring_environment",
         "ballpark",
         "ballpark_year",
         "point_cap_total",
@@ -785,6 +792,8 @@ def format_preset_badges(preset_cfg: dict[str, Any]) -> str:
         badges.append(str(preset_cfg["live_mode"]))
     if preset_cfg.get("simulation_year"):
         badges.append(f"Y{preset_cfg['simulation_year']}")
+    if preset_cfg.get("scoring_environment"):
+        badges.append(f"score {preset_cfg['scoring_environment']}")
     if "dh_enabled" in preset_cfg:
         badges.append("DH" if preset_cfg["dh_enabled"] else "NoDH")
     if preset_cfg.get("point_cap_total"):
@@ -1223,6 +1232,9 @@ def build_auto_roster_name(
 
     if overrides.get("simulation_year") is not None:
         parts.append(f"Y{overrides['simulation_year']}")
+
+    if overrides.get("scoring_environment") not in (None, "auto"):
+        parts.append(f"Sc{tier_abbrev(overrides['scoring_environment'])}")
 
     if overrides.get("dh_enabled") is False:
         parts.append("NoDH")

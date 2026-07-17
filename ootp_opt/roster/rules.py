@@ -51,6 +51,7 @@ class Ruleset:
     custom_park_factors: dict[str, float] = field(default_factory=dict)
     point_cap_total: int | None = None
     tier_slots: dict[str, int] = field(default_factory=dict)
+    scoring_environment: str | None = None
 
 
 def build_ruleset_from_base_profile(
@@ -114,6 +115,7 @@ TOURNAMENT_PRESET_RULESET_KEYS = {
     "point_cap_total",
     "variant_limit",
     "tier_slots",
+    "scoring_environment",
 }
 
 
@@ -218,6 +220,7 @@ def build_ruleset(profile_name: str, profile_cfg: dict[str, Any]) -> Ruleset:
     ballpark_year = none_if_zero(profile_cfg.get("ballpark_year"))
     custom_park_factors = normalize_float_dict(profile_cfg.get("custom_park_factors"))
     point_cap_total = none_if_zero(profile_cfg.get("point_cap_total"))
+    scoring_environment = none_if_blank(profile_cfg.get("scoring_environment"))
 
     tier_slots_raw = profile_cfg.get("tier_slots", {})
     tier_slots = {str(tier): int(count) for tier, count in tier_slots_raw.items()}
@@ -261,6 +264,7 @@ def build_ruleset(profile_name: str, profile_cfg: dict[str, Any]) -> Ruleset:
         custom_park_factors=custom_park_factors,
         point_cap_total=point_cap_total,
         tier_slots=tier_slots,
+        scoring_environment=scoring_environment,
     )
 
 

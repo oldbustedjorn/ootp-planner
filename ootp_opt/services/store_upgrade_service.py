@@ -10,6 +10,11 @@ from ootp_opt.domain.simulation_context import (
     apply_simulation_context_to_config,
     resolve_simulation_context,
 )
+from ootp_opt.domain.scoring_environment import (
+    ScoringEnvironment,
+    apply_scoring_environment_to_config,
+    resolve_scoring_environment,
+)
 from ootp_opt.ingest.pt_hitters import load_pt_cards_csv
 from ootp_opt.ingest.pt_pitchers import load_pt_pitchers_csv
 from ootp_opt.ingest.pt_store import load_pt_store_hitters_pitchers
@@ -46,6 +51,7 @@ class StoreUpgradeRequest:
 class StoreUpgradeResult:
     ruleset: Ruleset
     simulation_context: SimulationContext
+    scoring_environment: ScoringEnvironment
     hitter_roster: HitterRoster
     pitcher_roster: PitcherRoster
     hitter_upgrades: Any
@@ -57,6 +63,8 @@ class StoreUpgradeResult:
 def find_store_upgrades(request: StoreUpgradeRequest) -> StoreUpgradeResult:
     cfg = load_config(request.config_path)
     ruleset = build_ruleset(cfg, request)
+    scoring_environment = resolve_scoring_environment(cfg, ruleset)
+    environment_cfg = apply_scoring_environment_to_config(cfg, scoring_environment)
 
     simulation_context = resolve_simulation_context(
         simulation_year=ruleset.simulation_year,
@@ -64,7 +72,7 @@ def find_store_upgrades(request: StoreUpgradeRequest) -> StoreUpgradeResult:
         ballpark_year=ruleset.ballpark_year,
         custom_park_factors=ruleset.custom_park_factors,
     )
-    scoring_cfg = apply_simulation_context_to_config(cfg, simulation_context)
+    scoring_cfg = apply_simulation_context_to_config(environment_cfg, simulation_context)
 
     hitters_df = load_pt_cards_csv(cfg["paths"]["hitters_csv"])
     pitchers_df = load_pt_pitchers_csv(cfg["paths"]["pitchers_csv"])
@@ -121,11 +129,19 @@ def find_store_upgrades(request: StoreUpgradeRequest) -> StoreUpgradeResult:
         hitter_upgrades=hitter_upgrades,
         pitcher_upgrades=pitcher_upgrades,
         title=f"OOTP Store Upgrades - {ruleset.name}",
+        summary_rows=[
+            ("Ruleset", ruleset.name),
+            ("Scoring environment", scoring_environment.name),
+            ("Scoring environment source", scoring_environment.source),
+            ("Simulation year", simulation_context.simulation_year or "-"),
+            ("Ballpark", simulation_context.park.park if simulation_context.park else "-"),
+        ],
     )
 
     return StoreUpgradeResult(
         ruleset=ruleset,
         simulation_context=simulation_context,
+        scoring_environment=scoring_environment,
         hitter_roster=hitter_roster,
         pitcher_roster=pitcher_roster,
         hitter_upgrades=hitter_upgrades,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from html import escape
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -11,6 +12,7 @@ def export_upgrade_html(
     hitter_upgrades: pd.DataFrame,
     pitcher_upgrades: pd.DataFrame,
     title: str = "OOTP Upgrade Finder",
+    summary_rows: list[tuple[str, Any]] | None = None,
 ) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -26,6 +28,8 @@ def export_upgrade_html(
 </head>
 <body>
 <h1>{escape(title)}</h1>
+
+{render_summary(summary_rows or [])}
 
 <section>
 <h2>Hitter Upgrades</h2>
@@ -45,6 +49,23 @@ def export_upgrade_html(
 """
 
     path.write_text(html, encoding="utf-8")
+
+
+def render_summary(rows: list[tuple[str, Any]]) -> str:
+    if not rows:
+        return ""
+
+    body = "".join(
+        f"<tr><th>{escape(str(label))}</th><td>{escape(str(value))}</td></tr>"
+        for label, value in rows
+    )
+    return f"""
+<section class="summary">
+<table>
+<tbody>{body}</tbody>
+</table>
+</section>
+"""
 
 
 def render_table(df: pd.DataFrame) -> str:

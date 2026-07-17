@@ -11,6 +11,11 @@ from ootp_opt.domain.simulation_context import (
     apply_simulation_context_to_config,
     resolve_simulation_context,
 )
+from ootp_opt.domain.scoring_environment import (
+    ScoringEnvironment,
+    apply_scoring_environment_to_config,
+    resolve_scoring_environment,
+)
 from ootp_opt.roster.builder import (
     build_hitter_roster,
     build_pitcher_roster,
@@ -78,6 +83,7 @@ class RosterBuildResult:
     config: dict[str, Any]
     ruleset: Ruleset
     simulation_context: SimulationContext
+    scoring_environment: ScoringEnvironment
     hitter_roster: HitterRoster
     pitcher_roster: PitcherRoster
     eligibility_summary: dict[str, str]
@@ -96,13 +102,21 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
 
     add_text_section(report_sections, "BUILD RULESET", format_ruleset_summary(ruleset))
 
+    scoring_environment = resolve_scoring_environment(cfg, ruleset)
+    environment_cfg = apply_scoring_environment_to_config(cfg, scoring_environment)
+    add_text_section(
+        report_sections,
+        "SCORING ENVIRONMENT",
+        format_scoring_environment_summary(scoring_environment),
+    )
+
     simulation_context = resolve_simulation_context(
         simulation_year=ruleset.simulation_year,
         ballpark=ruleset.ballpark,
         ballpark_year=ruleset.ballpark_year,
         custom_park_factors=ruleset.custom_park_factors,
     )
-    scoring_cfg = apply_simulation_context_to_config(cfg, simulation_context)
+    scoring_cfg = apply_simulation_context_to_config(environment_cfg, simulation_context)
     add_text_section(
         report_sections,
         "SIMULATION CONTEXT",
@@ -322,6 +336,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         change_statuses=change_statuses,
         tier_slot_repair_result=tier_slot_result,
         simulation_context=simulation_context,
+        scoring_environment=scoring_environment,
     )
     write_snapshot(snapshot_path, new_snapshot)
 
@@ -341,6 +356,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         config=cfg,
         ruleset=ruleset,
         simulation_context=simulation_context,
+        scoring_environment=scoring_environment,
         hitter_roster=hitter_roster,
         pitcher_roster=pitcher_roster,
         eligibility_summary=eligibility_summary,
@@ -391,6 +407,8 @@ def build_output_name(ruleset: Ruleset, overrides: dict[str, Any]) -> str:
         parts.append(f"year_min_{ruleset.card_year_min}")
     if ruleset.card_year_max is not None:
         parts.append(f"year_max_{ruleset.card_year_max}")
+    if ruleset.scoring_environment not in (None, "auto"):
+        parts.append(f"score_{ruleset.scoring_environment}")
 
     safe_name = "_".join(parts)
     safe_name = safe_name.replace(" ", "_").replace("/", "_")
@@ -415,6 +433,7 @@ def format_ruleset_summary(ruleset: Ruleset) -> str:
             f"Ballpark year: {ruleset.ballpark_year or '-'}",
             f"Custom park factors: {ruleset.custom_park_factors or '-'}",
             f"Variant limit: {ruleset.variant_limit}",
+            f"Scoring environment: {ruleset.scoring_environment or 'auto'}",
         ]
     )
 
@@ -422,6 +441,14 @@ def format_ruleset_summary(ruleset: Ruleset) -> str:
 def format_simulation_context_summary(simulation_context: SimulationContext) -> str:
     return "\n".join(
         f"{label}: {value}" for label, value in simulation_context.summary_rows()
+    )
+
+
+def format_scoring_environment_summary(
+    scoring_environment: ScoringEnvironment,
+) -> str:
+    return "\n".join(
+        f"{label}: {value}" for label, value in scoring_environment.summary_rows()
     )
 
 

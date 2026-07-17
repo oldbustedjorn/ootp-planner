@@ -34,6 +34,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--card-year-max", type=int, default=None)
 
     parser.add_argument("--simulation-year", type=int, default=None)
+    parser.add_argument("--scoring-environment", default=None)
     parser.add_argument("--ballpark", default=None)
     parser.add_argument("--ballpark-year", type=int, default=None)
     parser.add_argument("--park-ba-lh", type=float, default=None)
@@ -79,6 +80,7 @@ def build_overrides(args: argparse.Namespace) -> dict[str, Any]:
         "card_year_min",
         "card_year_max",
         "simulation_year",
+        "scoring_environment",
         "ballpark",
         "ballpark_year",
     ]:
@@ -139,11 +141,16 @@ def main() -> None:
     print(f"Allowed card types: {ruleset.allowed_card_types or '-'}")
     print(f"Excluded card types: {ruleset.excluded_card_types or '-'}")
     print(f"Card year min/max: {ruleset.card_year_min} / {ruleset.card_year_max}")
+    print(f"Scoring environment: {result.scoring_environment.name}")
     print(f"Min gain: {args.min_gain}")
     print(f"Include owned store cards: {args.include_owned}")
 
     print("\n=== SIMULATION CONTEXT ===")
     for label, value in result.simulation_context.summary_rows():
+        print(f"{label}: {value}")
+
+    print("\n=== SCORING ENVIRONMENT ===")
+    for label, value in result.scoring_environment.summary_rows():
         print(f"{label}: {value}")
 
     print("\n=== STORE ELIGIBILITY SUMMARY ===")

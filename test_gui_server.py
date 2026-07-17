@@ -413,6 +413,9 @@ def test_preset_owned_output_paths_ignore_gui_html_outside_outputs():
 def test_delete_preset_removes_config_even_if_outputs_are_absent():
     config_path = Path("outputs/test_delete_preset_owned_config.toml")
     config_path.parent.mkdir(parents=True, exist_ok=True)
+    for path in preset_owned_output_paths("remove_me", {}):
+        if path.exists():
+            path.unlink()
     config_path.write_text(
         """
 [tournament_presets.remove_me]

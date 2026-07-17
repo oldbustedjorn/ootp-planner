@@ -56,6 +56,11 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Simulation era year used for environment-adjusted scoring.",
     )
+    parser.add_argument(
+        "--scoring-environment",
+        default=None,
+        help="Scoring tier/environment: auto, iron, bronze, silver, gold, diamond, open, none.",
+    )
 
     parser.add_argument(
         "--ballpark",
@@ -122,6 +127,7 @@ def build_overrides(args: argparse.Namespace) -> dict[str, Any]:
         "card_year_min",
         "card_year_max",
         "simulation_year",
+        "scoring_environment",
         "ballpark",
         "ballpark_year",
         "point_cap_total",

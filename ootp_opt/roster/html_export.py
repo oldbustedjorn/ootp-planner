@@ -6,6 +6,7 @@ from typing import Any
 
 import pandas as pd
 
+from ootp_opt.domain.scoring_environment import ScoringEnvironment
 from ootp_opt.domain.simulation_context import SimulationContext
 from ootp_opt.roster.lineup import (
     build_lineup_order,
@@ -31,6 +32,7 @@ def export_roster_html(
     change_statuses: dict[str, str] | None = None,
     tier_slot_repair_result: TierSlotRepairResult | None = None,
     simulation_context: SimulationContext | None = None,
+    scoring_environment: ScoringEnvironment | None = None,
 ) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -43,6 +45,7 @@ def export_roster_html(
         change_statuses=change_statuses or {},
         tier_slot_repair_result=tier_slot_repair_result,
         simulation_context=simulation_context,
+        scoring_environment=scoring_environment,
     )
 
     path.write_text(html, encoding="utf-8")
@@ -56,6 +59,7 @@ def build_roster_html(
     change_statuses: dict[str, str],
     tier_slot_repair_result: TierSlotRepairResult | None = None,
     simulation_context: SimulationContext | None = None,
+    scoring_environment: ScoringEnvironment | None = None,
 ) -> str:
     return f"""<!doctype html>
 <html>
@@ -69,7 +73,7 @@ def build_roster_html(
 <body>
   <h1>OOTP Roster Build: {escape(ruleset.name)}</h1>
 
-  {render_build_summary(ruleset, eligibility_summary, simulation_context)}
+  {render_build_summary(ruleset, eligibility_summary, simulation_context, scoring_environment)}
   {render_tier_slot_summary(ruleset, hitter_roster, pitcher_roster)}
   {render_tier_slot_repair_summary(tier_slot_repair_result)}
   {render_roster_checklist(hitter_roster, pitcher_roster, change_statuses)}
@@ -99,6 +103,7 @@ def render_build_summary(
     ruleset: Ruleset,
     eligibility_summary: dict[str, Any],
     simulation_context: SimulationContext | None = None,
+    scoring_environment: ScoringEnvironment | None = None,
 ) -> str:
     rows = [
         (
@@ -153,6 +158,9 @@ def render_build_summary(
             "-" if ruleset.point_cap_total is None else str(ruleset.point_cap_total),
         ),
     ]
+
+    if scoring_environment is not None:
+        rows.extend(scoring_environment.summary_rows())
 
     if simulation_context is not None:
         rows.extend(simulation_context.summary_rows())
