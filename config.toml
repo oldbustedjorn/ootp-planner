@@ -342,15 +342,6 @@ base_profile = "standard_pt"
 dh_enabled = true
 _gui_title = "pt_reg_preset_008_standard_pt_regular_season"
 
-[tournament_presets.q_lowg_unh_snap_rs_1999_dh]
-base_profile = "playoff_pt"
-card_value_max = 84
-allowed_card_types = ["UnH", "Snap", "RS"]
-simulation_year = 1999
-dh_enabled = true
-_gui_title = "quick_lowg_unh_snap_rs_1999_dh"
-_gui_note = "Last changed: 7/4/26"
-
 [tournament_presets.preset_014_t_014_y1975_dh_slots]
 base_profile = "playoff_pt"
 dh_enabled = true
@@ -479,3 +470,12 @@ hr_lh = 0.964
 hr_rh = 0.99
 doubles_overall = 1.132
 triples_overall = 0.85
+
+[tournament_presets.q_lowg_unh_snap_rs_1999_dh]
+base_profile = "playoff_pt"
+card_value_max = 84
+allowed_card_types = ["UnH", "Snap", "RS"]
+simulation_year = 1999
+dh_enabled = true
+_gui_title = "quick_lowg_unh_snap_rs_1999_dh"
+_gui_note = "Last changed: 7/18/26"

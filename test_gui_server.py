@@ -2,17 +2,19 @@ from pathlib import Path
 
 from ootp_opt.gui.server import (
     MAX_OOTP_ROSTER_NAME_LENGTH,
-    append_history_record_as_preset,
     build_auto_roster_name,
     build_gui_request,
     build_overrides_from_form,
+    render_presets_panel,
+)
+from ootp_opt.services.preset_service import (
+    append_history_record_as_preset,
     delete_preset,
     delete_preset_block,
     next_build_number,
     preset_owned_output_paths,
     preset_roster_output_path,
     preset_upgrade_output_path,
-    render_presets_panel,
     resolve_preset_build_metadata,
     slugify,
     update_preset_notes,

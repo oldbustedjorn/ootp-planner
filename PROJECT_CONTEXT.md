@@ -105,6 +105,8 @@ Important rule:
 - downstream tools should reuse normalized ingest and domain scoring
 - do not duplicate scoring logic inside roster repair, upgrade search, or future UI layers
 - future UI code should call service functions instead of shelling out to scripts
+- preset and build-history persistence belongs in `ootp_opt.services.preset_service`,
+  not in an HTTP or desktop-client adapter
 
 ## Important Data Columns
 
@@ -288,16 +290,16 @@ Store upgrades:
 
 ## Next Priority
 
-The current implementation focus is the single local UI for roster creation. It
-already supports standard Perfect Team, playoff-style Perfect Team, and Perfect
-Team tournament roster builds. Near-term UI follow-ups should improve build
-history, saved build recipes, and faster reuse of OOTP roster names. The UI now
-has a preset list/detail panel with actions to rebuild a preset roster and run
-store upgrades for the selected preset. Blank GUI roster names auto-generate a
-30-character-safe OOTP name with a three-digit planner reference number, while
-the full build recipe remains in history.
+The local UI supports standard Perfect Team, playoff-style Perfect Team, and
+Perfect Team tournament roster builds, including build history, saved presets,
+preset rebuilds, store upgrades, display notes, and stable OOTP roster identity.
+Preset and history persistence is now reusable outside the web server through
+`ootp_opt.services.preset_service`, which prepares the project for a stronger web
+UI or a local desktop client.
 
-After the first usable UI, revisit scoring and simulation context.
+The next major architecture work is to separate candidate scoring from roster
+selection and define a structured optimizer input before implementing a full
+optimizer.
 
 Good starting questions:
 

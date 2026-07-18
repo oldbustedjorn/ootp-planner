@@ -63,8 +63,9 @@ Typical outputs:
 
 Roster builds are implemented through `ootp_opt.services.roster_build_service`.
 The `build_roster.py` script is a thin command-line wrapper around that service.
-Future UI code should call the service directly rather than shelling out to the
-script.
+The GUI calls the service directly rather than shelling out to the script.
+Preset and build-history persistence is provided separately by
+`ootp_opt.services.preset_service` so another web or desktop UI can reuse it.
 
 ## Local GUI
 
@@ -264,4 +265,8 @@ git push
 
 ## Current Direction
 
-The current milestone is a usable roster builder with tournament-style filters, repairs, and first-pass simulation context scoring. The next high-priority area is a single local UI for Perfect Team and Perfect Team tournament roster creation. The UI should reuse the roster build service, then later add store upgrades, build history, and scoring diagnostics.
+The current milestone is a usable roster builder with tournament-style filters,
+repairs, simulation-context scoring, a local UI, preset management, build
+history, and store-upgrade actions. The next architecture milestone is separating
+candidate scoring from roster selection and defining the input contract for a
+full optimizer.

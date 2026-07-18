@@ -91,10 +91,9 @@ Responsibilities:
 - map form fields into `RosterBuildRequest`
 - support standard PT, playoff-style PT, and PT tournament builds
 - list configured tournament presets and show preset details
-- save GUI-only preset display titles and notes while preserving stable preset IDs
+- delegate preset and build-history persistence to `preset_service`
 - call `ootp_opt.services.roster_build_service.build_roster`
 - call `ootp_opt.services.store_upgrade_service.find_store_upgrades`
-- record GUI-launched builds in `outputs/roster_build_registry.json`
 - serve generated HTML reports from `outputs/`
 
 ## Package: `ootp_opt.ingest`
@@ -197,6 +196,27 @@ Nonlinear hitter rating transforms.
 Nonlinear pitcher rating transforms.
 
 ## Package: `ootp_opt.services`
+
+### `ootp_opt.services.preset_service`
+
+Reusable preset and build-history persistence layer.
+
+Responsibilities:
+
+- record and load GUI build history
+- create presets from build-history records
+- update preset display titles and notes while preserving stable preset IDs
+- resolve the roster identity and report path used when rebuilding a preset
+- delete preset TOML blocks and their owned output files
+- provide stable preset roster and upgrade report paths
+
+Key functions:
+
+- `append_build_record(...)`
+- `append_history_record_as_preset(...)`
+- `resolve_preset_build_metadata(...)`
+- `update_preset_notes(...)`
+- `delete_preset(...)`
 
 ### `ootp_opt.services.rating_service`
 
