@@ -197,6 +197,22 @@ Nonlinear pitcher rating transforms.
 
 ## Package: `ootp_opt.services`
 
+### `ootp_opt.services.build_timing`
+
+Ordered build-stage timing diagnostics.
+
+Responsibilities:
+
+- record elapsed time between named build checkpoints
+- expose immutable stage and total timing results
+- format short durations consistently for CLI and HTML reporting
+
+Key classes:
+
+- `BuildTimer`
+- `BuildTiming`
+- `BuildTimingStage`
+
 ### `ootp_opt.services.preset_service`
 
 Reusable preset and build-history persistence layer.
@@ -251,6 +267,7 @@ Responsibilities:
 - build hitter and pitcher rosters
 - run duplicate-player validation
 - report and repair variant limits, tier slots, and point caps
+- record ordered stage timings for build diagnostics and performance baselines
 - write roster HTML and snapshot files
 - return structured build results plus report sections
 

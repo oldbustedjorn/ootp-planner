@@ -107,6 +107,8 @@ Important rule:
 - future UI code should call service functions instead of shelling out to scripts
 - preset and build-history persistence belongs in `ootp_opt.services.preset_service`,
   not in an HTTP or desktop-client adapter
+- roster build performance changes should be compared against the structured
+  stage timings exposed by `RosterBuildResult.build_timing`
 
 ## Important Data Columns
 

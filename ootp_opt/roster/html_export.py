@@ -33,6 +33,7 @@ def export_roster_html(
     tier_slot_repair_result: TierSlotRepairResult | None = None,
     simulation_context: SimulationContext | None = None,
     scoring_environment: ScoringEnvironment | None = None,
+    build_timing_rows: list[tuple[str, str]] | None = None,
 ) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -46,6 +47,7 @@ def export_roster_html(
         tier_slot_repair_result=tier_slot_repair_result,
         simulation_context=simulation_context,
         scoring_environment=scoring_environment,
+        build_timing_rows=build_timing_rows,
     )
 
     path.write_text(html, encoding="utf-8")
@@ -60,6 +62,7 @@ def build_roster_html(
     tier_slot_repair_result: TierSlotRepairResult | None = None,
     simulation_context: SimulationContext | None = None,
     scoring_environment: ScoringEnvironment | None = None,
+    build_timing_rows: list[tuple[str, str]] | None = None,
 ) -> str:
     return f"""<!doctype html>
 <html>
@@ -74,6 +77,7 @@ def build_roster_html(
   <h1>OOTP Roster Build: {escape(ruleset.name)}</h1>
 
   {render_build_summary(ruleset, eligibility_summary, simulation_context, scoring_environment)}
+  {render_build_timing_summary(build_timing_rows)}
   {render_tier_slot_summary(ruleset, hitter_roster, pitcher_roster)}
   {render_tier_slot_repair_summary(tier_slot_repair_result)}
   {render_roster_checklist(hitter_roster, pitcher_roster, change_statuses)}
@@ -202,6 +206,26 @@ def format_custom_park_factors(factors: dict[str, float]) -> str:
         return "-"
 
     return ", ".join(f"{key}: {value:g}" for key, value in factors.items())
+
+
+def render_build_timing_summary(
+    build_timing_rows: list[tuple[str, str]] | None,
+) -> str:
+    if not build_timing_rows:
+        return ""
+
+    body = "".join(
+        f"<tr><th>{escape(label)}</th><td class='num'>{escape(value)}</td></tr>"
+        for label, value in build_timing_rows
+    )
+    return f"""
+<section class="screen">
+  <div class="panel">
+    <div class="panel-title">Build Timings</div>
+    <table><tbody>{body}</tbody></table>
+  </div>
+</section>
+"""
 
 
 def render_tier_slot_summary(

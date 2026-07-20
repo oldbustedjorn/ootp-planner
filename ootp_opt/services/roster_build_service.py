@@ -65,6 +65,7 @@ from ootp_opt.roster.variant_repair import (
     repair_roster_to_variant_limit,
 )
 from ootp_opt.roster.variant_report import print_variant_report
+from ootp_opt.services.build_timing import BuildTimer, BuildTiming
 from ootp_opt.services.rating_service import rate_cards_service
 
 
@@ -90,12 +91,14 @@ class RosterBuildResult:
     html_output: str
     snapshot_path: str
     report_sections: list[tuple[str, str]]
+    build_timing: BuildTiming
     variant_repair_result: VariantRepairResult | None = None
     tier_slot_repair_result: TierSlotRepairResult | None = None
     cap_repair_result: CapRepairResult | None = None
 
 
 def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
+    timer = BuildTimer()
     cfg = load_config(request.config_path)
     ruleset = build_ruleset(cfg, request)
     report_sections: list[tuple[str, str]] = []
@@ -122,17 +125,20 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         "SIMULATION CONTEXT",
         format_simulation_context_summary(simulation_context),
     )
+    timer.checkpoint("Configuration and contexts")
 
     hitters_df = rate_cards_service(
         input_path=cfg["paths"]["hitters_csv"],
         profile="hitters",
         config=scoring_cfg,
     )
+    timer.checkpoint("Hitter ingest and scoring")
     pitchers_df = rate_cards_service(
         input_path=cfg["paths"]["pitchers_csv"],
         profile="pitchers",
         config=scoring_cfg,
     )
+    timer.checkpoint("Pitcher ingest and scoring")
 
     if request.debug:
         add_text_section(
@@ -150,6 +156,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
             "RAW DATA CHECK",
             format_raw_data_check(hitters_df, pitchers_df),
         )
+        timer.checkpoint("Debug input diagnostics")
 
     eligible_hitters = filter_eligible_hitters(hitters_df, ruleset)
     eligible_pitchers = filter_eligible_pitchers(pitchers_df, ruleset)
@@ -172,6 +179,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
             ]
         ),
     )
+    timer.checkpoint("Eligibility filtering")
 
     if eligible_hitters.empty:
         raise ValueError("No eligible hitters after applying filters.")
@@ -185,6 +193,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         used_player_names=selected_hitter_roster_keys(hitter_roster),
     )
     validate_no_duplicate_players(hitter_roster, pitcher_roster)
+    timer.checkpoint("Initial roster selection")
 
     add_captured_section(
         report_sections,
@@ -204,6 +213,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
             pitcher_roster=pitcher_roster,
             tier_slots=ruleset.tier_slots,
         )
+    timer.checkpoint("Initial constraint diagnostics")
 
     variant_result = None
     if ruleset.variant_limit is not None:
@@ -231,6 +241,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
             pitcher_roster=pitcher_roster,
             variant_limit=ruleset.variant_limit,
         )
+    timer.checkpoint("Variant repair")
 
     tier_slot_result = None
     if ruleset.tier_slots:
@@ -258,6 +269,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
             pitcher_roster=pitcher_roster,
             tier_slots=ruleset.tier_slots,
         )
+    timer.checkpoint("Tier slot repair")
 
     add_captured_section(
         report_sections,
@@ -314,6 +326,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
                 pitcher_roster=pitcher_roster,
                 variant_limit=ruleset.variant_limit,
             )
+    timer.checkpoint("Cap validation and repair")
 
     html_output = request.html_output or build_output_name(ruleset, request.overrides)
     snapshot_path = snapshot_path_for_html(html_output)
@@ -326,6 +339,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         old_snapshot=old_snapshot,
         new_snapshot=new_snapshot,
     )
+    timer.checkpoint("Snapshot comparison")
 
     export_roster_html(
         path=html_output,
@@ -337,8 +351,12 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         tier_slot_repair_result=tier_slot_result,
         simulation_context=simulation_context,
         scoring_environment=scoring_environment,
+        build_timing_rows=timer.snapshot().summary_rows(
+            total_label="Pre-export subtotal"
+        ),
     )
     write_snapshot(snapshot_path, new_snapshot)
+    timer.checkpoint("HTML and snapshot export")
 
     add_text_section(
         report_sections,
@@ -351,6 +369,13 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         ),
     )
     add_roster_summary_sections(report_sections, hitter_roster, pitcher_roster, ruleset)
+    timer.checkpoint("Report summary preparation")
+    build_timing = timer.snapshot()
+    add_text_section(
+        report_sections,
+        "BUILD TIMINGS",
+        format_build_timing_summary(build_timing),
+    )
 
     return RosterBuildResult(
         config=cfg,
@@ -363,6 +388,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         html_output=html_output,
         snapshot_path=snapshot_path,
         report_sections=report_sections,
+        build_timing=build_timing,
         variant_repair_result=variant_result,
         tier_slot_repair_result=tier_slot_result,
         cap_repair_result=cap_result,
@@ -449,6 +475,12 @@ def format_scoring_environment_summary(
 ) -> str:
     return "\n".join(
         f"{label}: {value}" for label, value in scoring_environment.summary_rows()
+    )
+
+
+def format_build_timing_summary(build_timing: BuildTiming) -> str:
+    return "\n".join(
+        f"{label}: {value}" for label, value in build_timing.summary_rows()
     )
 
 

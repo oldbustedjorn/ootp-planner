@@ -159,7 +159,8 @@ def build_handler(config_path: str):
                     render_home(
                         config_path=config_path,
                         notice=(
-                            f"Built {escape(gui_request.roster_name)}. "
+                            f"Built {escape(gui_request.roster_name)} in "
+                            f"{result.build_timing.total_seconds:.2f}s. "
                             f"Report: {report_link(result.html_output, 'Open roster')}"
                         ),
                         selected_record_id=record["id"],
@@ -234,7 +235,8 @@ def build_handler(config_path: str):
                     render_home(
                         config_path=config_path,
                         notice=(
-                            f"Built {escape(gui_request.roster_name)}. "
+                            f"Built {escape(gui_request.roster_name)} in "
+                            f"{result.build_timing.total_seconds:.2f}s. "
                             f"Report: {report_link(result.html_output, 'Open roster')}"
                         ),
                         selected_record_id=record["id"],

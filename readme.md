@@ -98,6 +98,11 @@ a preset shows the saved requirements and can:
 - save a display title and note, such as the in-game tournament name, without
   changing the stable preset ID used by commands and report paths
 
+Completed GUI builds show their total elapsed time. Generated roster HTML also
+includes a Build Timings section covering ingest and scoring, eligibility,
+initial roster selection, constraint diagnostics and repairs, and output
+preparation. CLI builds include the complete timing breakdown in their report.
+
 Build from the default base profile:
 
 ```powershell
