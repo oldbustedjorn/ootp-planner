@@ -459,3 +459,17 @@ tier_max = "silver"
 variant_limit = 10
 _gui_title = "quick_preset_005_t_005_smax_dh"
 _gui_note = "Last updated: 7/20/26"
+
+[tournament_presets.daily_017_t_017_bmax_nl_scb_dh]
+base_profile = "playoff_pt"
+dh_enabled = true
+scoring_environment = "bronze"
+tier_max = "bronze"
+live_mode = "non_live"
+variant_limit = 0
+_gui_title = "daily_T-017-Bmax-NL-ScB-DH"
+_gui_roster_name = "T-017-Bmax-NL-ScB-DH"
+_gui_build_type = "pt_tournament"
+_gui_build_number = 17
+_gui_html_output = "outputs\\gui_t_017_bmax_nl_scb_dh_20260720_180430.html"
+_gui_note = "Daily Return of the Bronze\r\nLast Updated: 7/20/2026"
