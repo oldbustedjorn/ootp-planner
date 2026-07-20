@@ -66,6 +66,9 @@ The `build_roster.py` script is a thin command-line wrapper around that service.
 The GUI calls the service directly rather than shelling out to the script.
 Preset and build-history persistence is provided separately by
 `ootp_opt.services.preset_service` so another web or desktop UI can reuse it.
+Roster builds and store analysis resolve environment settings into one
+`BuildContext`, then expose scored and ruleset-eligible cards through reusable
+`CandidatePool` objects.
 
 ## Local GUI
 
@@ -272,6 +275,6 @@ git push
 
 The current milestone is a usable roster builder with tournament-style filters,
 repairs, simulation-context scoring, a local UI, preset management, build
-history, and store-upgrade actions. The next architecture milestone is separating
-candidate scoring from roster selection and defining the input contract for a
-full optimizer.
+history, store-upgrade actions, and shared build-context/candidate-pool
+contracts. The next architecture milestone is preparing sparse role eligibility
+and score matrices, then defining the input contract for a full optimizer.

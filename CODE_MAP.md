@@ -197,6 +197,29 @@ Nonlinear pitcher rating transforms.
 
 ## Package: `ootp_opt.services`
 
+### `ootp_opt.services.candidate_service`
+
+Resolved build context and candidate-pool contracts shared by roster builds and
+store analysis.
+
+Responsibilities:
+
+- resolve scoring environment and simulation context once per build
+- produce the final scoring configuration used by every candidate source
+- retain scored hitter and pitcher populations for diagnostics
+- expose ruleset-eligible hitter and pitcher subsets to selection code
+- validate that required candidate groups are non-empty
+
+Key classes:
+
+- `BuildContext`
+- `CandidatePool`
+
+Key functions:
+
+- `resolve_build_context(...)`
+- `build_candidate_pool(...)`
+
 ### `ootp_opt.services.build_timing`
 
 Ordered build-stage timing diagnostics.
@@ -260,6 +283,7 @@ Reusable roster build orchestration layer.
 Responsibilities:
 
 - load config and resolve base profile or tournament preset
+- resolve one `BuildContext` and prepare one owned-card `CandidatePool`
 - apply direct overrides from CLI or future UI requests
 - resolve simulation year and ballpark context
 - score owned hitters and pitchers
@@ -297,6 +321,7 @@ Reusable store-upgrade orchestration layer.
 Responsibilities:
 
 - resolve base profile or tournament preset rulesets
+- reuse one `BuildContext` for owned and store candidate pools
 - apply direct overrides from CLI or future UI requests
 - resolve simulation year and ballpark context
 - score owned cards and store candidates

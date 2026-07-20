@@ -100,6 +100,10 @@ The intended dependency direction is:
 
 UI / scripts -> services -> domain -> ingest/export adapters
 
+Roster preparation now follows:
+
+Request -> BuildContext -> scored CandidatePool -> roster selection / upgrade analysis
+
 Important rule:
 
 - downstream tools should reuse normalized ingest and domain scoring
@@ -109,6 +113,10 @@ Important rule:
   not in an HTTP or desktop-client adapter
 - roster build performance changes should be compared against the structured
   stage timings exposed by `RosterBuildResult.build_timing`
+- scoring environment, simulation context, and final scoring config should be
+  passed together as `BuildContext`
+- selection and future optimization should consume `CandidatePool` rather than
+  independently loading, scoring, or filtering card exports
 
 ## Important Data Columns
 
@@ -299,9 +307,9 @@ Preset and history persistence is now reusable outside the web server through
 `ootp_opt.services.preset_service`, which prepares the project for a stronger web
 UI or a local desktop client.
 
-The next major architecture work is to separate candidate scoring from roster
-selection and define a structured optimizer input before implementing a full
-optimizer.
+The next major architecture work is to add optimizer-friendly candidate IDs,
+role eligibility, and score matrices to `CandidatePool`, then define the
+structured optimization problem and usage model.
 
 Good starting questions:
 

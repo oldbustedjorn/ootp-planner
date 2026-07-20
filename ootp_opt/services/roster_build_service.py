@@ -6,16 +6,8 @@ from io import StringIO
 from typing import Any
 
 from ootp_opt.config import load_config
-from ootp_opt.domain.simulation_context import (
-    SimulationContext,
-    apply_simulation_context_to_config,
-    resolve_simulation_context,
-)
-from ootp_opt.domain.scoring_environment import (
-    ScoringEnvironment,
-    apply_scoring_environment_to_config,
-    resolve_scoring_environment,
-)
+from ootp_opt.domain.simulation_context import SimulationContext
+from ootp_opt.domain.scoring_environment import ScoringEnvironment
 from ootp_opt.roster.builder import (
     build_hitter_roster,
     build_pitcher_roster,
@@ -29,10 +21,6 @@ from ootp_opt.roster.cap_repair import (
     repair_roster_to_cap,
 )
 from ootp_opt.roster.cap_report import print_cap_report
-from ootp_opt.roster.eligibility import (
-    filter_eligible_hitters,
-    filter_eligible_pitchers,
-)
 from ootp_opt.roster.html_export import export_roster_html
 from ootp_opt.roster.lineup import (
     build_lineup_depth_rows,
@@ -66,6 +54,12 @@ from ootp_opt.roster.variant_repair import (
 )
 from ootp_opt.roster.variant_report import print_variant_report
 from ootp_opt.services.build_timing import BuildTimer, BuildTiming
+from ootp_opt.services.candidate_service import (
+    BuildContext,
+    CandidatePool,
+    build_candidate_pool,
+    resolve_build_context,
+)
 from ootp_opt.services.rating_service import rate_cards_service
 
 
@@ -82,6 +76,8 @@ class RosterBuildRequest:
 @dataclass(frozen=True)
 class RosterBuildResult:
     config: dict[str, Any]
+    context: BuildContext
+    candidate_pool: CandidatePool
     ruleset: Ruleset
     simulation_context: SimulationContext
     scoring_environment: ScoringEnvironment
@@ -101,25 +97,19 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
     timer = BuildTimer()
     cfg = load_config(request.config_path)
     ruleset = build_ruleset(cfg, request)
+    context = resolve_build_context(cfg, ruleset)
     report_sections: list[tuple[str, str]] = []
 
     add_text_section(report_sections, "BUILD RULESET", format_ruleset_summary(ruleset))
 
-    scoring_environment = resolve_scoring_environment(cfg, ruleset)
-    environment_cfg = apply_scoring_environment_to_config(cfg, scoring_environment)
+    scoring_environment = context.scoring_environment
     add_text_section(
         report_sections,
         "SCORING ENVIRONMENT",
         format_scoring_environment_summary(scoring_environment),
     )
 
-    simulation_context = resolve_simulation_context(
-        simulation_year=ruleset.simulation_year,
-        ballpark=ruleset.ballpark,
-        ballpark_year=ruleset.ballpark_year,
-        custom_park_factors=ruleset.custom_park_factors,
-    )
-    scoring_cfg = apply_simulation_context_to_config(environment_cfg, simulation_context)
+    simulation_context = context.simulation_context
     add_text_section(
         report_sections,
         "SIMULATION CONTEXT",
@@ -130,13 +120,13 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
     hitters_df = rate_cards_service(
         input_path=cfg["paths"]["hitters_csv"],
         profile="hitters",
-        config=scoring_cfg,
+        config=context.scoring_config,
     )
     timer.checkpoint("Hitter ingest and scoring")
     pitchers_df = rate_cards_service(
         input_path=cfg["paths"]["pitchers_csv"],
         profile="pitchers",
-        config=scoring_cfg,
+        config=context.scoring_config,
     )
     timer.checkpoint("Pitcher ingest and scoring")
 
@@ -158,8 +148,14 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         )
         timer.checkpoint("Debug input diagnostics")
 
-    eligible_hitters = filter_eligible_hitters(hitters_df, ruleset)
-    eligible_pitchers = filter_eligible_pitchers(pitchers_df, ruleset)
+    candidate_pool = build_candidate_pool(
+        source="owned",
+        context=context,
+        scored_hitters=hitters_df,
+        scored_pitchers=pitchers_df,
+    )
+    eligible_hitters = candidate_pool.eligible_hitters
+    eligible_pitchers = candidate_pool.eligible_pitchers
 
     eligibility_summary = {
         "Hitters scored": str(len(hitters_df)),
@@ -181,10 +177,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
     )
     timer.checkpoint("Eligibility filtering")
 
-    if eligible_hitters.empty:
-        raise ValueError("No eligible hitters after applying filters.")
-    if eligible_pitchers.empty:
-        raise ValueError("No eligible pitchers after applying filters.")
+    candidate_pool.require_eligible_cards()
 
     hitter_roster = build_hitter_roster(eligible_hitters, ruleset)
     pitcher_roster = build_pitcher_roster(
@@ -379,6 +372,8 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
 
     return RosterBuildResult(
         config=cfg,
+        context=context,
+        candidate_pool=candidate_pool,
         ruleset=ruleset,
         simulation_context=simulation_context,
         scoring_environment=scoring_environment,

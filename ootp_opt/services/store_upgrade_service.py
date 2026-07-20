@@ -1,20 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
 from ootp_opt.config import load_config
-from ootp_opt.domain.simulation_context import (
-    SimulationContext,
-    apply_simulation_context_to_config,
-    resolve_simulation_context,
-)
-from ootp_opt.domain.scoring_environment import (
-    ScoringEnvironment,
-    apply_scoring_environment_to_config,
-    resolve_scoring_environment,
-)
+from ootp_opt.domain.simulation_context import SimulationContext
+from ootp_opt.domain.scoring_environment import ScoringEnvironment
 from ootp_opt.ingest.pt_hitters import load_pt_cards_csv
 from ootp_opt.ingest.pt_pitchers import load_pt_pitchers_csv
 from ootp_opt.ingest.pt_store import load_pt_store_hitters_pitchers
@@ -24,7 +16,6 @@ from ootp_opt.roster.builder import (
     selected_hitter_roster_keys,
     validate_no_duplicate_players,
 )
-from ootp_opt.roster.eligibility import filter_eligible_hitters, filter_eligible_pitchers
 from ootp_opt.roster.models import HitterRoster, PitcherRoster
 from ootp_opt.roster.rules import (
     Ruleset,
@@ -33,6 +24,12 @@ from ootp_opt.roster.rules import (
 )
 from ootp_opt.roster.upgrade_finder import find_hitter_upgrades, find_pitcher_upgrades
 from ootp_opt.roster.upgrade_html_export import export_upgrade_html
+from ootp_opt.services.candidate_service import (
+    BuildContext,
+    CandidatePool,
+    build_candidate_pool,
+    resolve_build_context,
+)
 from ootp_opt.services.rating_service import rate_hitters_df, rate_pitchers_df
 
 
@@ -49,6 +46,9 @@ class StoreUpgradeRequest:
 
 @dataclass(frozen=True)
 class StoreUpgradeResult:
+    context: BuildContext
+    owned_candidates: CandidatePool
+    store_candidates: CandidatePool
     ruleset: Ruleset
     simulation_context: SimulationContext
     scoring_environment: ScoringEnvironment
@@ -63,30 +63,24 @@ class StoreUpgradeResult:
 def find_store_upgrades(request: StoreUpgradeRequest) -> StoreUpgradeResult:
     cfg = load_config(request.config_path)
     ruleset = build_ruleset(cfg, request)
-    scoring_environment = resolve_scoring_environment(cfg, ruleset)
-    environment_cfg = apply_scoring_environment_to_config(cfg, scoring_environment)
-
-    simulation_context = resolve_simulation_context(
-        simulation_year=ruleset.simulation_year,
-        ballpark=ruleset.ballpark,
-        ballpark_year=ruleset.ballpark_year,
-        custom_park_factors=ruleset.custom_park_factors,
-    )
-    scoring_cfg = apply_simulation_context_to_config(environment_cfg, simulation_context)
+    context = resolve_build_context(cfg, ruleset)
+    scoring_environment = context.scoring_environment
+    simulation_context = context.simulation_context
 
     hitters_df = load_pt_cards_csv(cfg["paths"]["hitters_csv"])
     pitchers_df = load_pt_pitchers_csv(cfg["paths"]["pitchers_csv"])
 
-    scored_hitters = rate_hitters_df(hitters_df, scoring_cfg)
-    scored_pitchers = rate_pitchers_df(pitchers_df, scoring_cfg)
-
-    eligible_hitters = filter_eligible_hitters(scored_hitters, ruleset)
-    eligible_pitchers = filter_eligible_pitchers(scored_pitchers, ruleset)
-
-    if eligible_hitters.empty:
-        raise ValueError("No eligible hitters after applying filters.")
-    if eligible_pitchers.empty:
-        raise ValueError("No eligible pitchers after applying filters.")
+    scored_hitters = rate_hitters_df(hitters_df, context.scoring_config)
+    scored_pitchers = rate_pitchers_df(pitchers_df, context.scoring_config)
+    owned_candidates = build_candidate_pool(
+        source="owned",
+        context=context,
+        scored_hitters=scored_hitters,
+        scored_pitchers=scored_pitchers,
+    )
+    owned_candidates.require_eligible_cards()
+    eligible_hitters = owned_candidates.eligible_hitters
+    eligible_pitchers = owned_candidates.eligible_pitchers
 
     hitter_roster = build_hitter_roster(eligible_hitters, ruleset)
     pitcher_roster = build_pitcher_roster(
@@ -100,17 +94,27 @@ def find_store_upgrades(request: StoreUpgradeRequest) -> StoreUpgradeResult:
         cfg["paths"]["store_csv"]
     )
 
-    scored_store_hitters = rate_hitters_df(store_hitters, scoring_cfg)
-    scored_store_pitchers = rate_pitchers_df(store_pitchers, scoring_cfg)
-
-    eligible_store_hitters = filter_eligible_hitters(scored_store_hitters, ruleset)
-    eligible_store_pitchers = filter_eligible_pitchers(scored_store_pitchers, ruleset)
+    scored_store_hitters = rate_hitters_df(store_hitters, context.scoring_config)
+    scored_store_pitchers = rate_pitchers_df(store_pitchers, context.scoring_config)
+    store_candidates = build_candidate_pool(
+        source="store",
+        context=context,
+        scored_hitters=scored_store_hitters,
+        scored_pitchers=scored_store_pitchers,
+    )
+    eligible_store_hitters = store_candidates.eligible_hitters
+    eligible_store_pitchers = store_candidates.eligible_pitchers
 
     if request.include_owned:
         eligible_store_hitters = eligible_store_hitters.copy()
         eligible_store_pitchers = eligible_store_pitchers.copy()
         eligible_store_hitters["is_owned"] = False
         eligible_store_pitchers["is_owned"] = False
+        store_candidates = replace(
+            store_candidates,
+            eligible_hitters=eligible_store_hitters,
+            eligible_pitchers=eligible_store_pitchers,
+        )
 
     hitter_upgrades = find_hitter_upgrades(
         hitter_roster,
@@ -139,6 +143,9 @@ def find_store_upgrades(request: StoreUpgradeRequest) -> StoreUpgradeResult:
     )
 
     return StoreUpgradeResult(
+        context=context,
+        owned_candidates=owned_candidates,
+        store_candidates=store_candidates,
         ruleset=ruleset,
         simulation_context=simulation_context,
         scoring_environment=scoring_environment,
