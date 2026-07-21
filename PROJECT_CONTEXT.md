@@ -117,13 +117,24 @@ Important rule:
   passed together as `BuildContext`
 - selection and future optimization should consume `CandidatePool` rather than
   independently loading, scoring, or filtering card exports
+- selectable assets use `candidate_id`; duplicate-player constraints use
+  `person_key`
+- candidate source is not part of identity, so an owned card and the matching
+  store card receive the same `candidate_id`
+- future role and slot definitions should be data-driven; adding or removing a
+  specialist, closer, stopper, setup role, or long-relief role must not require
+  new roster-model fields
 
 ## Important Data Columns
 
 Card identity and metadata:
 
 - `name`
-- `player_id`
+- `candidate_id`: canonical selectable card/player identity
+- `person_key`: canonical person-level duplicate constraint identity
+- `source_record_id`: source export ID retained for traceability
+- `player_id`: legacy normalized OOTP source ID; owned `ID` and store `Card ID`
+  use different numeric namespaces
 - `pt_tier`
 - `card_value`
 - `pt_year`
@@ -307,9 +318,10 @@ Preset and history persistence is now reusable outside the web server through
 `ootp_opt.services.preset_service`, which prepares the project for a stronger web
 UI or a local desktop client.
 
-The next major architecture work is to add optimizer-friendly candidate IDs,
-role eligibility, and score matrices to `CandidatePool`, then define the
-structured optimization problem and usage model.
+Candidate and person identities are now attached by `CandidatePool`. The next
+major architecture work is to define configurable roster slots, then add sparse
+role-eligibility and score matrices before defining the structured optimization
+problem and usage model.
 
 Good starting questions:
 

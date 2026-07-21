@@ -5,6 +5,11 @@ from typing import Any, Literal
 
 import pandas as pd
 
+from ootp_opt.domain.candidate_identity import (
+    PT_CARD_IDENTITY_SCHEMA,
+    CandidateIdentitySchema,
+    attach_candidate_identities,
+)
 from ootp_opt.domain.scoring_environment import (
     ScoringEnvironment,
     apply_scoring_environment_to_config,
@@ -21,7 +26,7 @@ from ootp_opt.roster.eligibility import (
 )
 from ootp_opt.roster.rules import Ruleset
 
-CandidateSource = Literal["owned", "store"]
+CandidateSource = Literal["owned", "store", "league"]
 
 
 @dataclass(frozen=True)
@@ -36,6 +41,7 @@ class BuildContext:
 class CandidatePool:
     source: CandidateSource
     context: BuildContext
+    identity_schema: CandidateIdentitySchema
     scored_hitters: pd.DataFrame
     scored_pitchers: pd.DataFrame
     eligible_hitters: pd.DataFrame
@@ -88,12 +94,21 @@ def build_candidate_pool(
     context: BuildContext,
     scored_hitters: pd.DataFrame,
     scored_pitchers: pd.DataFrame,
+    identity_schema: CandidateIdentitySchema = PT_CARD_IDENTITY_SCHEMA,
 ) -> CandidatePool:
+    identified_hitters = attach_candidate_identities(scored_hitters, identity_schema)
+    identified_pitchers = attach_candidate_identities(scored_pitchers, identity_schema)
+
     return CandidatePool(
         source=source,
         context=context,
-        scored_hitters=scored_hitters,
-        scored_pitchers=scored_pitchers,
-        eligible_hitters=filter_eligible_hitters(scored_hitters, context.ruleset),
-        eligible_pitchers=filter_eligible_pitchers(scored_pitchers, context.ruleset),
+        identity_schema=identity_schema,
+        scored_hitters=identified_hitters,
+        scored_pitchers=identified_pitchers,
+        eligible_hitters=filter_eligible_hitters(
+            identified_hitters, context.ruleset
+        ),
+        eligible_pitchers=filter_eligible_pitchers(
+            identified_pitchers, context.ruleset
+        ),
     )

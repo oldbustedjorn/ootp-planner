@@ -68,7 +68,10 @@ Preset and build-history persistence is provided separately by
 `ootp_opt.services.preset_service` so another web or desktop UI can reuse it.
 Roster builds and store analysis resolve environment settings into one
 `BuildContext`, then expose scored and ruleset-eligible cards through reusable
-`CandidatePool` objects.
+`CandidatePool` objects. Candidate pools attach two identities before filtering:
+`candidate_id` identifies the selectable card or player record, while
+`person_key` prevents selecting multiple cards representing the same player.
+The same PT card receives the same candidate identity in owned and store data.
 
 ## Local GUI
 
@@ -277,4 +280,7 @@ The current milestone is a usable roster builder with tournament-style filters,
 repairs, simulation-context scoring, a local UI, preset management, build
 history, store-upgrade actions, and shared build-context/candidate-pool
 contracts. The next architecture milestone is preparing sparse role eligibility
-and score matrices, then defining the input contract for a full optimizer.
+and score matrices from configurable roster-slot definitions, then defining the
+input contract for a full optimizer. Pitching jobs such as specialist, long
+relief, closer, stopper, and setup roles should be configuration rather than new
+hard-coded roster fields.

@@ -195,6 +195,27 @@ Nonlinear hitter rating transforms.
 
 Nonlinear pitcher rating transforms.
 
+### `ootp_opt.domain.candidate_identity`
+
+Canonical identities for selectable roster assets and the people represented by
+those assets.
+
+Responsibilities:
+
+- assign one stable `candidate_id` to each selectable card or player record
+- assign one `person_key` used by duplicate-player constraints
+- keep identity independent from candidate source such as owned or store data
+- retain the export-specific identifier separately as `source_record_id`
+- provide a PT card schema and a save-scoped base-game schema factory
+- derive deterministic fallback candidate IDs when a source ID is unavailable
+
+Key classes and functions:
+
+- `CandidateIdentitySchema`
+- `PT_CARD_IDENTITY_SCHEMA`
+- `build_base_game_identity_schema(...)`
+- `attach_candidate_identities(...)`
+
 ## Package: `ootp_opt.services`
 
 ### `ootp_opt.services.candidate_service`
@@ -208,6 +229,7 @@ Responsibilities:
 - produce the final scoring configuration used by every candidate source
 - retain scored hitter and pitcher populations for diagnostics
 - expose ruleset-eligible hitter and pitcher subsets to selection code
+- attach canonical candidate and person identities before filtering
 - validate that required candidate groups are non-empty
 
 Key classes:

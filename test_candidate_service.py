@@ -2,6 +2,11 @@ import pandas as pd
 import pytest
 
 from ootp_opt.config import load_config
+from ootp_opt.domain.candidate_identity import (
+    CANDIDATE_ID_COLUMN,
+    PERSON_KEY_COLUMN,
+    PT_CARD_IDENTITY_SCHEMA,
+)
 from ootp_opt.roster.rules import build_ruleset_from_base_profile
 from ootp_opt.services.candidate_service import (
     build_candidate_pool,
@@ -54,10 +59,13 @@ def test_candidate_pool_preserves_scored_cards_and_exposes_eligible_subset():
     )
 
     assert pool.source == "owned"
+    assert pool.identity_schema is PT_CARD_IDENTITY_SCHEMA
     assert pool.scored_counts == (2, 2)
     assert pool.eligible_counts == (1, 1)
     assert pool.eligible_hitters.iloc[0]["name"] == "Bronze Hitter"
     assert pool.eligible_pitchers.iloc[0]["name"] == "Iron Pitcher"
+    assert CANDIDATE_ID_COLUMN in pool.scored_hitters.columns
+    assert PERSON_KEY_COLUMN in pool.eligible_pitchers.columns
 
 
 def test_candidate_pool_rejects_missing_eligible_group():

@@ -354,21 +354,6 @@ hr_rh = 1.1
 doubles_overall = 0.97
 triples_overall = 1.038
 
-[tournament_presets.preset_011_t_011_imax_y1987_dh]
-base_profile = "playoff_pt"
-dh_enabled = true
-simulation_year = 1987
-ballpark_year = 1987
-ballpark = "Yankee Stadium"
-tier_max = "iron"
-live_mode = "all"
-_gui_title = "weekly_T-011-Imax-Y1987-DH"
-_gui_roster_name = "T-011-Imax-Y1987-DH"
-_gui_build_type = "pt_tournament"
-_gui_build_number = 11
-_gui_html_output = "outputs\\gui_t_011_imax_y1987_dh_20260703_171137.html"
-_gui_note = "Saturday Iron Warriors\r\nDate changed: 7/3/26"
-
 [tournament_presets.preset_003_t_003_bmax_y1955_nodh_c1275]
 base_profile = "playoff_pt"
 dh_enabled = false
@@ -473,3 +458,18 @@ _gui_build_type = "pt_tournament"
 _gui_build_number = 17
 _gui_html_output = "outputs\\gui_t_017_bmax_nl_scb_dh_20260720_180430.html"
 _gui_note = "Daily Return of the Bronze\r\nLast Updated: 7/20/2026"
+
+[tournament_presets.preset_011_t_011_imax_y1987_dh]
+base_profile = "playoff_pt"
+dh_enabled = true
+simulation_year = 1987
+ballpark_year = 1987
+ballpark = "Yankee Stadium"
+tier_max = "iron"
+live_mode = "all"
+_gui_title = "weekly_T-011-Imax-Y1987-DH"
+_gui_roster_name = "T-011-Imax-Y1987-DH"
+_gui_build_type = "pt_tournament"
+_gui_build_number = 11
+_gui_html_output = "outputs\\gui_t_011_imax_y1987_dh_20260703_171137.html"
+_gui_note = "Saturday Iron Warriors\r\nDate changed: 7/21/26"

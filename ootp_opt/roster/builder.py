@@ -3,12 +3,17 @@ from __future__ import annotations
 import pandas as pd
 from itertools import permutations
 
+from ootp_opt.domain.candidate_identity import (
+    normalize_person_keys,
+    person_key_for_row,
+)
 from ootp_opt.roster.models import HitterRoster, PitcherRoster
 from ootp_opt.roster.rules import Ruleset
 
 
 def player_unique_key(row) -> str:
-    return str(row.get("name", "")).strip().lower()
+    """Backward-compatible name for the canonical person-level identity."""
+    return person_key_for_row(row)
 
 
 def has_duplicate_players(rows) -> bool:
@@ -20,7 +25,7 @@ def selected_player_keys(df: pd.DataFrame) -> set[str]:
     if df.empty:
         return set()
 
-    return {str(name).strip().lower() for name in df["name"].dropna()}
+    return {player_unique_key(row) for _, row in df.iterrows()}
 
 
 def selected_hitter_roster_keys(hitter_roster: HitterRoster) -> set[str]:
@@ -34,12 +39,13 @@ def remove_players_by_name(
     df: pd.DataFrame,
     used_player_names: set[str],
 ) -> pd.DataFrame:
-    if not used_player_names:
+    blocked_keys = normalize_person_keys(used_player_names)
+    if not blocked_keys:
         return df.copy()
 
     return df.loc[
         ~df.apply(
-            lambda row: player_unique_key(row) in used_player_names,
+            lambda row: player_unique_key(row) in blocked_keys,
             axis=1,
         )
     ].copy()
@@ -190,7 +196,7 @@ def build_pitcher_roster(
     used_player_names: set[str] | None = None,
 ) -> PitcherRoster:
     remaining = df.copy()
-    used_player_names = set(used_player_names or set())
+    used_player_names = normalize_person_keys(used_player_names or set())
     remaining = remove_players_by_name(remaining, used_player_names)
 
     rotation, remaining = select_top_n(
@@ -313,7 +319,7 @@ def build_hitter_bench(
     selected_rows = []
 
     covered_by_bench: set[str] = set()
-    used_player_names = set(used_player_names or set())
+    used_player_names = normalize_person_keys(used_player_names or set())
 
     for role_name in ruleset.bench_roles:
         eligible_mask = remaining.apply(
