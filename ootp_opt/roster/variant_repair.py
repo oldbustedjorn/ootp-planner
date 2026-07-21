@@ -305,14 +305,24 @@ def find_variant_pitcher_options(
 
     pitcher_groups = [
         ("rotation", pitcher_roster.rotation, "SP", "starter_score_overall"),
-        ("bullpen", pitcher_roster.bullpen, "RP", "reliever_score_overall"),
+        (
+            "bullpen",
+            pitcher_roster.bullpen,
+            "Middle Relief",
+            "reliever_score_overall",
+        ),
         (
             "lefty_specialist",
             pitcher_roster.lefty_specialist,
             "LHP Specialist",
             "reliever_score_vs_lhb",
         ),
-        ("long_man", pitcher_roster.long_man, "Long Man", "starter_score_overall"),
+        (
+            "long_man",
+            pitcher_roster.long_man,
+            "Long Relief",
+            "starter_score_overall",
+        ),
     ]
 
     for slot_kind, group, group_name, score_col in pitcher_groups:
@@ -325,7 +335,7 @@ def find_variant_pitcher_options(
 
             role = (
                 f"{group_name}{slot_index + 1}"
-                if group_name in {"SP", "RP"}
+                if group_name == "SP"
                 else group_name
             )
 

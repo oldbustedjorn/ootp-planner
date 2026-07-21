@@ -33,10 +33,10 @@ def role_score(row: pd.Series, role: str) -> float:
             return float(row.get("batting_score_overall", 0.0))
         return float(row.get(f"score_{pos}_overall", 0.0))
 
-    if role.startswith("SP") or role.startswith("Long Man"):
+    if role.startswith("SP") or role.startswith(("Long Man", "Long Relief")):
         return float(row.get("starter_score_overall", 0.0))
 
-    if role.startswith("RP") or role.startswith("Bullpen"):
+    if role.startswith(("RP", "Bullpen", "Middle Relief")):
         return float(row.get("reliever_score_overall", 0.0))
 
     if role.startswith("LHP Specialist"):
@@ -61,13 +61,13 @@ def iter_roster_rows(
         rows.append((f"SP{idx}", row))
 
     for idx, (_, row) in enumerate(pitcher_roster.bullpen.iterrows(), start=1):
-        rows.append((f"RP{idx}", row))
+        rows.append((f"Middle Relief {idx}", row))
 
     for idx, (_, row) in enumerate(pitcher_roster.lefty_specialist.iterrows(), start=1):
         rows.append((f"LHP Specialist {idx}", row))
 
     for idx, (_, row) in enumerate(pitcher_roster.long_man.iterrows(), start=1):
-        rows.append((f"Long Man {idx}", row))
+        rows.append((f"Long Relief {idx}", row))
 
     return rows
 

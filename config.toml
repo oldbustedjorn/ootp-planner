@@ -249,11 +249,12 @@ dh_enabled = true
 platoons_allowed = false
 lineup_fill_order = ["C", "SS", "CF", "2B", "3B", "LF", "RF", "1B", "DH"]
 rotation_size = 5
-primary_rp_count = 6
-specialist_lhp_count = 1
-long_man_count = 1
+middle_relief_count = 6
+lefty_specialist_count = 1
+long_relief_count = 1
 
-# v1 bench-building approach:
+# Legacy greedy bench-building approach. The optimizer will instead derive the
+# bench independently for each split lineup and apply lineup coverage rules.
 # 1 backup C, 1 backup IF, 1 backup OF, 1 utility / gap-filler
 bench_roles = ["C", "IF", "OF", "UTIL"]
 
@@ -266,6 +267,18 @@ SS = 85
 LF = 65
 CF = 85
 RF = 65
+
+# Minimum qualified bench players available behind each position in each split
+# lineup. A versatile bench player may satisfy several coverage requirements.
+[roster_base_profiles.standard_pt.minimum_lineup_backup_coverage]
+C = 1
+1B = 1
+2B = 1
+3B = 1
+SS = 1
+LF = 1
+CF = 1
+RF = 1
 
 [roster_base_profiles.standard_pt.bench_role_requirements.C]
 required_positions = ["C"]
@@ -292,9 +305,9 @@ dh_enabled = true
 platoons_allowed = false
 lineup_fill_order = ["C", "SS", "CF", "2B", "3B", "LF", "RF", "1B", "DH"]
 rotation_size = 4
-primary_rp_count = 6
-specialist_lhp_count = 1
-long_man_count = 1
+middle_relief_count = 6
+lefty_specialist_count = 1
+long_relief_count = 1
 bench_roles = ["C", "IF", "OF", "UTIL", "UTIL"]
 
 [roster_base_profiles.playoff_pt.min_defense_by_position]
@@ -306,6 +319,16 @@ SS = 85
 LF = 65
 CF = 85
 RF = 65
+
+[roster_base_profiles.playoff_pt.minimum_lineup_backup_coverage]
+C = 1
+1B = 1
+2B = 1
+3B = 1
+SS = 1
+LF = 1
+CF = 1
+RF = 1
 
 [roster_base_profiles.playoff_pt.bench_role_requirements.C]
 required_positions = ["C"]

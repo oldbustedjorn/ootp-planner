@@ -220,7 +220,7 @@ def find_pitcher_upgrades(
         upgrade_rows.append(
             {
                 "type": "RP",
-                "slot": "Bullpen",
+                "slot": "Middle Relief",
                 "current_player": current_rp.get("name", ""),
                 "candidate": candidate.get("name", ""),
                 "candidate_tier": candidate.get("pt_tier", ""),

@@ -389,7 +389,7 @@ def find_pitcher_repair_options(
     options.extend(
         find_pitcher_group_repair_options(
             group=pitcher_roster.bullpen,
-            group_name="RP",
+            group_name="Middle Relief",
             slot_kind="bullpen",
             score_col="reliever_score_overall",
             eligible_pitchers=eligible_pitchers,
@@ -415,7 +415,7 @@ def find_pitcher_repair_options(
     options.extend(
         find_pitcher_group_repair_options(
             group=pitcher_roster.long_man,
-            group_name="Long Man",
+            group_name="Long Relief",
             slot_kind="long_man",
             score_col="starter_score_overall",
             eligible_pitchers=eligible_pitchers,
@@ -446,7 +446,7 @@ def find_pitcher_group_repair_options(
     for slot_index, (_, old_row) in enumerate(group.iterrows()):
         role = (
             f"{group_name}{slot_index + 1}"
-            if group_name in {"SP", "RP"}
+            if group_name == "SP"
             else group_name
         )
 

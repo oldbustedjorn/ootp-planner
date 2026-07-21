@@ -1,5 +1,10 @@
 # OOTP Planner — Roster Builder Spec v1
 
+> Historical heuristic-builder specification. Current architecture decisions
+> are tracked in `PROJECT_CONTEXT.md` and `CODE_MAP.md`. The optimizer model
+> uses split-specific lineup assignments and derives the bench separately for
+> each lineup. Defensive coverage is a lineup constraint, not a bench slot.
+
 ## Purpose
 
 Define a first-pass roster construction system that can:
@@ -158,19 +163,22 @@ Examples:
 
 ## CoverageTarget
 
-A coverage target defines what counts as acceptable backup coverage at a position.
+A coverage target defines what counts as acceptable bench coverage at a
+position for each split lineup.
 
 Fields:
 - `position`
 - `min_defense_score`
-- `required_count`
+- `required_bench_count`
 
 Example intent:
-- C needs 2 playable options above threshold X
-- SS needs 2 playable options above threshold Y
-- CF needs 2 playable options above threshold Z
+- each lineup needs a qualified catcher available on its bench
+- each lineup needs a qualified shortstop available on its bench
+- each lineup needs a qualified center fielder available on its bench
 
-For version 1, a standard roster should generally target at least 2 playable options at every field position.
+The same versatile bench player may satisfy several position requirements. A
+selected hitter who starts in one split may still provide bench coverage in the
+other split when not assigned there.
 
 ---
 
@@ -883,4 +891,3 @@ If a build looks imperfect, prefer to:
 - improve validation/diagnostics
 
 Only move toward swaps or search after the deterministic baseline works.
-

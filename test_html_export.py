@@ -2,8 +2,11 @@ import pandas as pd
 
 from ootp_opt.roster.html_export import (
     format_variant_flag,
+    render_build_summary,
     render_build_timing_summary,
 )
+from ootp_opt.config import load_config
+from ootp_opt.roster.rules import build_ruleset_from_base_profile
 
 
 def test_format_variant_flag_uses_normalized_boolean():
@@ -28,3 +31,20 @@ def test_render_build_timing_summary_shows_stage_rows():
     assert "Initial roster selection" in html
     assert "1.250 s" in html
     assert "Pre-export subtotal" in html
+
+
+def test_roster_html_includes_lineup_pitcher_and_coverage_summary():
+    cfg = load_config("config.toml")
+    ruleset = build_ruleset_from_base_profile(cfg, "standard_pt")
+
+    html = render_build_summary(
+        ruleset=ruleset,
+        eligibility_summary={},
+    )
+
+    assert "Lineup assignments" in html
+    assert "vs RHP: C, SS, CF, 2B, 3B, LF, RF, 1B, DH" in html
+    assert "Pitcher groups" in html
+    assert "Middle Relief x6" in html
+    assert "Lineup bench coverage" in html
+    assert "SS x1 per lineup (rating &gt;= 85)" in html

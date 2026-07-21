@@ -7,6 +7,14 @@ import pandas as pd
 from ootp_opt.roster.models import HitterRoster, PitcherRoster
 
 
+POOLED_ROLE_PREFIXES = {
+    "bench": ("Bench ",),
+    "middle_relief": ("Middle Relief ", "RP"),
+    "lefty_specialist": ("LHP Specialist ",),
+    "long_relief": ("Long Relief ", "Long Man "),
+}
+
+
 def build_roster_snapshot(
     hitter_roster: HitterRoster,
     pitcher_roster: PitcherRoster,
@@ -23,13 +31,13 @@ def build_roster_snapshot(
         snapshot[f"SP{idx}"] = card_identity(row)
 
     for idx, (_, row) in enumerate(pitcher_roster.bullpen.iterrows(), start=1):
-        snapshot[f"RP{idx}"] = card_identity(row)
+        snapshot[f"Middle Relief {idx}"] = card_identity(row)
 
     for idx, (_, row) in enumerate(pitcher_roster.lefty_specialist.iterrows(), start=1):
         snapshot[f"LHP Specialist {idx}"] = card_identity(row)
 
     for idx, (_, row) in enumerate(pitcher_roster.long_man.iterrows(), start=1):
-        snapshot[f"Long Man {idx}"] = card_identity(row)
+        snapshot[f"Long Relief {idx}"] = card_identity(row)
 
     return snapshot
 
@@ -87,6 +95,17 @@ def compare_snapshots(
     statuses: dict[str, str] = {}
 
     for role, new_identity in new_snapshot.items():
+        pool_key = pooled_role_key(role)
+        if pool_key is not None:
+            old_pool_identities = identities_for_pool(old_snapshot, pool_key)
+            if not old_pool_identities:
+                statuses[role] = "new"
+            elif new_identity in old_pool_identities:
+                statuses[role] = "unchanged"
+            else:
+                statuses[role] = "changed"
+            continue
+
         old_identity = old_snapshot.get(role)
 
         if old_identity is None:
@@ -97,3 +116,19 @@ def compare_snapshots(
             statuses[role] = "changed"
 
     return statuses
+
+
+def pooled_role_key(role: str) -> str | None:
+    for pool_key, prefixes in POOLED_ROLE_PREFIXES.items():
+        if any(role.startswith(prefix) for prefix in prefixes):
+            return pool_key
+    return None
+
+
+def identities_for_pool(snapshot: dict[str, str], pool_key: str) -> set[str]:
+    prefixes = POOLED_ROLE_PREFIXES[pool_key]
+    return {
+        identity
+        for role, identity in snapshot.items()
+        if any(role.startswith(prefix) for prefix in prefixes)
+    }

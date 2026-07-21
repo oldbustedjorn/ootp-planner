@@ -124,6 +124,12 @@ Important rule:
 - future role and slot definitions should be data-driven; adding or removing a
   specialist, closer, stopper, setup role, or long-relief role must not require
   new roster-model fields
+- configured rulesets expose a validated `RosterSlotPlan`
+- bench and middle relief are unordered allocation pools, not ordinal slots
+- defensive backup coverage is a roster-wide requirement; one versatile player
+  can satisfy multiple position requirements
+- the current greedy builder still uses legacy `bench_roles` as a temporary
+  selection heuristic, but those roles are not optimizer slot definitions
 
 ## Important Data Columns
 
@@ -318,8 +324,11 @@ Preset and history persistence is now reusable outside the web server through
 `ootp_opt.services.preset_service`, which prepares the project for a stronger web
 UI or a local desktop client.
 
-Candidate and person identities are now attached by `CandidatePool`. The next
-major architecture work is to define configurable roster slots, then add sparse
+Candidate and person identities are attached by `CandidatePool`. Configured
+rulesets now expose split-specific lineup assignments, configurable pitcher
+groups, and separate bench-coverage constraints for each lineup. Bench status
+is derived from selected hitters who are not assigned in that split; it is not
+a permanent scored role. The next major architecture work is to add sparse
 role-eligibility and score matrices before defining the structured optimization
 problem and usage model.
 

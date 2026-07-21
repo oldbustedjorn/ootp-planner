@@ -1,9 +1,14 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
-from dataclasses import replace
+from ootp_opt.roster.slots import (
+    LineupCoverageRequirement,
+    RosterSlotPlan,
+    build_current_roster_slot_plan,
+    build_lineup_coverage_requirements,
+)
 
 
 @dataclass(frozen=True)
@@ -32,6 +37,10 @@ class Ruleset:
     bench_roles: list[str]
     min_defense_by_position: dict[str, float]
     bench_role_requirements: dict[str, BenchRoleRequirement]
+
+    minimum_lineup_backup_coverage: dict[str, int] = field(default_factory=dict)
+    lineup_coverage_requirements: tuple[LineupCoverageRequirement, ...] = ()
+    slot_plan: RosterSlotPlan | None = None
 
     # Tournament / build override fields. These are generic values that can
     # later come from config, CLI flags, or a GUI.
@@ -179,9 +188,24 @@ def build_ruleset(profile_name: str, profile_cfg: dict[str, Any]) -> Ruleset:
     lineup_fill_order = [str(pos) for pos in profile_cfg.get("lineup_fill_order", [])]
 
     rotation_size = int(profile_cfg.get("rotation_size", 5))
-    primary_rp_count = int(profile_cfg.get("primary_rp_count", 6))
-    specialist_lhp_count = int(profile_cfg.get("specialist_lhp_count", 1))
-    long_man_count = int(profile_cfg.get("long_man_count", 1))
+    primary_rp_count = int(
+        profile_cfg.get(
+            "middle_relief_count",
+            profile_cfg.get("primary_rp_count", 6),
+        )
+    )
+    specialist_lhp_count = int(
+        profile_cfg.get(
+            "lefty_specialist_count",
+            profile_cfg.get("specialist_lhp_count", 1),
+        )
+    )
+    long_man_count = int(
+        profile_cfg.get(
+            "long_relief_count",
+            profile_cfg.get("long_man_count", 1),
+        )
+    )
 
     bench_roles = [str(role) for role in profile_cfg.get("bench_roles", [])]
 
@@ -203,6 +227,26 @@ def build_ruleset(profile_name: str, profile_cfg: dict[str, Any]) -> Ruleset:
 
     bench_role_requirements = parse_bench_role_requirements(
         profile_cfg.get("bench_role_requirements", {})
+    )
+
+    minimum_lineup_backup_coverage = parse_minimum_lineup_backup_coverage(
+        profile_cfg,
+        min_defense_by_position,
+    )
+    slot_plan = build_current_roster_slot_plan(
+        hitter_count=hitter_count,
+        pitcher_count=pitcher_count,
+        lineup_positions=lineup_fill_order,
+        rotation_size=rotation_size,
+        middle_relief_count=primary_rp_count,
+        lefty_specialist_count=specialist_lhp_count,
+        long_relief_count=long_man_count,
+        min_defense_by_position=min_defense_by_position,
+    )
+    lineup_coverage_requirements = build_lineup_coverage_requirements(
+        lineup_positions=lineup_fill_order,
+        min_defense_by_position=min_defense_by_position,
+        minimum_lineup_backup_coverage=minimum_lineup_backup_coverage,
     )
 
     tier_min = none_if_blank(profile_cfg.get("tier_min"))
@@ -248,6 +292,9 @@ def build_ruleset(profile_name: str, profile_cfg: dict[str, Any]) -> Ruleset:
         bench_roles=bench_roles,
         min_defense_by_position=min_defense_by_position,
         bench_role_requirements=bench_role_requirements,
+        minimum_lineup_backup_coverage=minimum_lineup_backup_coverage,
+        lineup_coverage_requirements=lineup_coverage_requirements,
+        slot_plan=slot_plan,
         tier_min=tier_min,
         tier_max=tier_max,
         card_value_min=card_value_min,
@@ -322,6 +369,51 @@ def parse_bench_role_requirements(
             ],
         )
 
+    return parsed
+
+
+def parse_minimum_lineup_backup_coverage(
+    profile_cfg: dict[str, Any],
+    min_defense_by_position: dict[str, float],
+) -> dict[str, int]:
+    raw_coverage = profile_cfg.get("minimum_lineup_backup_coverage")
+    legacy_roster_coverage = profile_cfg.get("minimum_roster_coverage")
+    if raw_coverage is None and legacy_roster_coverage is not None:
+        if not isinstance(legacy_roster_coverage, dict):
+            raise ValueError(
+                "minimum_roster_coverage must be a table/dict, "
+                f"got {type(legacy_roster_coverage).__name__}"
+            )
+        raw_coverage = {
+            position: max(int(count) - 1, 0)
+            for position, count in legacy_roster_coverage.items()
+        }
+    if raw_coverage is None:
+        return {position: 1 for position in min_defense_by_position}
+
+    if not isinstance(raw_coverage, dict):
+        raise ValueError(
+            "minimum_lineup_backup_coverage must be a table/dict, "
+            f"got {type(raw_coverage).__name__}"
+        )
+
+    unknown_positions = set(raw_coverage) - set(min_defense_by_position)
+    if unknown_positions:
+        raise ValueError(
+            "minimum_lineup_backup_coverage contains positions without defensive "
+            f"thresholds: {sorted(unknown_positions)}"
+        )
+
+    parsed: dict[str, int] = {}
+    for position, count in raw_coverage.items():
+        normalized_count = int(count)
+        if normalized_count < 0:
+            raise ValueError(
+                "minimum_lineup_backup_coverage counts cannot be negative: "
+                f"{position}={normalized_count}"
+            )
+        if normalized_count > 0:
+            parsed[str(position)] = normalized_count
     return parsed
 
 

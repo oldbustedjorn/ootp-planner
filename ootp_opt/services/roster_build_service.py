@@ -41,6 +41,7 @@ from ootp_opt.roster.rules import (
     build_ruleset_from_base_profile,
     build_ruleset_from_tournament_preset,
 )
+from ootp_opt.roster.slots import coverage_summary
 from ootp_opt.roster.tier_slot_repair import (
     TierSlotRepairResult,
     print_tier_slot_repair_result,
@@ -438,8 +439,7 @@ def build_output_name(ruleset: Ruleset, overrides: dict[str, Any]) -> str:
 
 
 def format_ruleset_summary(ruleset: Ruleset) -> str:
-    return "\n".join(
-        [
+    lines = [
             f"Base profile: {ruleset.name}",
             f"Hitters/Pitchers: {ruleset.hitter_count}/{ruleset.pitcher_count}",
             f"DH enabled: {ruleset.dh_enabled}",
@@ -455,8 +455,17 @@ def format_ruleset_summary(ruleset: Ruleset) -> str:
             f"Custom park factors: {ruleset.custom_park_factors or '-'}",
             f"Variant limit: {ruleset.variant_limit}",
             f"Scoring environment: {ruleset.scoring_environment or 'auto'}",
-        ]
-    )
+    ]
+    if ruleset.slot_plan is not None:
+        lines.extend(
+            [
+                f"Lineup assignments: {ruleset.slot_plan.lineup_summary()}",
+                f"Pitcher groups: {ruleset.slot_plan.pitcher_group_summary()}",
+                "Lineup bench coverage: "
+                f"{coverage_summary(ruleset.lineup_coverage_requirements)}",
+            ]
+        )
+    return "\n".join(lines)
 
 
 def format_simulation_context_summary(simulation_context: SimulationContext) -> str:
@@ -593,7 +602,7 @@ def add_roster_summary_sections(
     )
     add_text_section(
         report_sections,
-        "BULLPEN",
+        "MIDDLE RELIEF",
         pitcher_roster.bullpen[["name", "reliever_score_overall"]].to_string(
             index=False
         ),
@@ -607,7 +616,7 @@ def add_roster_summary_sections(
     )
     add_text_section(
         report_sections,
-        "LONG MAN",
+        "LONG RELIEF",
         pitcher_roster.long_man[["name", "starter_score_overall"]].to_string(
             index=False
         ),

@@ -394,6 +394,31 @@ Key functions:
 - `build_ruleset_from_base_profile(...)`
 - `build_ruleset_from_tournament_preset(...)`
 
+### `ootp_opt.roster.slots`
+
+Optimizer-facing lineup assignment and pitcher-allocation contracts.
+
+Responsibilities:
+
+- define separate position assignments for the vs-RHP and vs-LHP lineups
+- attach the correct split position score, or split batting score for DH
+- keep bench status derived from selection and each split lineup assignment
+- define split-specific bench coverage outside the slot plan
+- keep pitcher role groups configurable and validate them against roster size
+- allow future pitching groups such as setup, closer, or stopper
+
+Key classes:
+
+- `LineupAssignmentSlot`
+- `LineupCoverageRequirement`
+- `PitcherRoleGroup`
+- `RosterSlotPlan`
+
+Key function:
+
+- `build_current_roster_slot_plan(...)`
+- `build_lineup_coverage_requirements(...)`
+
 ### `ootp_opt.roster.eligibility`
 
 Filters scored players to cards legal for a ruleset.
@@ -421,8 +446,9 @@ Responsibilities:
 - select starters by position scores
 - optimize starter assignments among chosen hitters
 - select bench players by configured bench role requirements
-- select rotation, bullpen, lefty specialist, and long man
-- prevent duplicate player names
+- select rotation, middle relief, lefty specialist, and long relief
+- prevent duplicate people through canonical person keys
+- continue using legacy bench roles until optimizer selection derives the bench
 
 Key functions:
 
@@ -542,7 +568,9 @@ Key function:
 
 ### `ootp_opt.roster.roster_snapshot`
 
-Snapshot support for comparing current roster output against previous output.
+Roster comparison persistence. Bench, middle relief, lefty specialist, and long
+relief are compared by pool membership, while starting positions and rotation
+order remain assignment-sensitive. Old `RP1` snapshot keys remain compatible.
 
 Key functions:
 

@@ -72,6 +72,12 @@ Roster builds and store analysis resolve environment settings into one
 `candidate_id` identifies the selectable card or player record, while
 `person_key` prevents selecting multiple cards representing the same player.
 The same PT card receives the same candidate identity in owned and store data.
+Configured rulesets also expose a `RosterSlotPlan`. Each field position has a
+separate assignment for the vs-RHP and vs-LHP lineups, using its split position
+score; DH uses split batting score. Bench status is derived independently for
+each lineup from selected hitters who are not starting. Split-specific coverage
+constraints require qualified bench options while allowing one versatile player
+to cover multiple positions. Pitcher jobs remain configurable role groups.
 
 ## Local GUI
 
@@ -279,8 +285,9 @@ git push
 The current milestone is a usable roster builder with tournament-style filters,
 repairs, simulation-context scoring, a local UI, preset management, build
 history, store-upgrade actions, and shared build-context/candidate-pool
-contracts. The next architecture milestone is preparing sparse role eligibility
-and score matrices from configurable roster-slot definitions, then defining the
-input contract for a full optimizer. Pitching jobs such as specialist, long
-relief, closer, stopper, and setup roles should be configuration rather than new
-hard-coded roster fields.
+contracts. Candidate identities, split lineup assignments, separate lineup
+coverage constraints, and configurable pitcher groups are now in place. The
+next architecture milestone is preparing sparse role eligibility and score
+matrices, then defining the input contract for a full optimizer. Pitching jobs
+such as specialist, long relief, closer, stopper, and setup roles can be added
+as role groups rather than new hard-coded roster fields.

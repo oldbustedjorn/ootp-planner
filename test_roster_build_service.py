@@ -3,6 +3,7 @@ from ootp_opt.services.roster_build_service import (
     RosterBuildRequest,
     build_output_name,
     build_ruleset,
+    format_ruleset_summary,
 )
 
 
@@ -56,3 +57,19 @@ def test_build_output_name_reflects_key_filters():
         build_output_name(ruleset, overrides)
         == "outputs/roster_build_playoff_pt_no_dh_types_unh_snap_rs.html"
     )
+
+
+def test_ruleset_summary_includes_lineups_pitcher_groups_and_coverage():
+    cfg = load_config("config.toml")
+    ruleset = build_ruleset(
+        cfg,
+        RosterBuildRequest(base_profile="standard_pt"),
+    )
+
+    summary = format_ruleset_summary(ruleset)
+
+    assert "Lineup assignments:" in summary
+    assert "Pitcher groups:" in summary
+    assert "Middle Relief x6" in summary
+    assert "Lineup bench coverage:" in summary
+    assert "CF x1 per lineup (rating >= 85)" in summary

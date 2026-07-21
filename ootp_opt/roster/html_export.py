@@ -16,6 +16,7 @@ from ootp_opt.roster.lineup import (
 )
 from ootp_opt.roster.models import HitterRoster, PitcherRoster
 from ootp_opt.roster.rules import Ruleset
+from ootp_opt.roster.slots import coverage_summary
 from ootp_opt.roster.tier_slot_report import build_tier_slot_rows, normalize_tier_slots
 from ootp_opt.roster.tier_slot_repair import TierSlotRepairResult
 from ootp_opt.roster.variant_report import is_variant_card
@@ -162,6 +163,18 @@ def render_build_summary(
             "-" if ruleset.point_cap_total is None else str(ruleset.point_cap_total),
         ),
     ]
+
+    if ruleset.slot_plan is not None:
+        rows.extend(
+            [
+                ("Lineup assignments", ruleset.slot_plan.lineup_summary()),
+                ("Pitcher groups", ruleset.slot_plan.pitcher_group_summary()),
+                (
+                    "Lineup bench coverage",
+                    coverage_summary(ruleset.lineup_coverage_requirements),
+                ),
+            ]
+        )
 
     if scoring_environment is not None:
         rows.extend(scoring_environment.summary_rows())
@@ -498,12 +511,12 @@ def render_roster_checklist(
         )
 
     for idx, (_, row) in enumerate(hitter_roster.bench_players.iterrows(), start=1):
-        role = f"Bench {idx}"
+        status_key = f"Bench {idx}"
         rows.append(
             render_checklist_row(
                 row,
-                role=role,
-                status=change_statuses.get(role, ""),
+                role="Bench",
+                status=change_statuses.get(status_key, ""),
             )
         )
 
@@ -518,12 +531,12 @@ def render_roster_checklist(
         )
 
     for idx, (_, row) in enumerate(pitcher_roster.bullpen.iterrows(), start=1):
-        role = f"RP{idx}"
+        status_key = f"Middle Relief {idx}"
         rows.append(
             render_checklist_row(
                 row,
-                role=role,
-                status=change_statuses.get(role, ""),
+                role="Middle Relief",
+                status=change_statuses.get(status_key, ""),
             )
         )
 
@@ -538,12 +551,12 @@ def render_roster_checklist(
         )
 
     for idx, (_, row) in enumerate(pitcher_roster.long_man.iterrows(), start=1):
-        role = f"Long Man {idx}"
+        status_key = f"Long Relief {idx}"
         rows.append(
             render_checklist_row(
                 row,
-                role=role,
-                status=change_statuses.get(role, ""),
+                role="Long Relief",
+                status=change_statuses.get(status_key, ""),
             )
         )
 

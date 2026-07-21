@@ -431,13 +431,13 @@ def validate_no_duplicate_players(
         selected.append((f"SP{idx}", row))
 
     for idx, (_, row) in enumerate(pitcher_roster.bullpen.iterrows(), start=1):
-        selected.append((f"RP{idx}", row))
+        selected.append((f"Middle Relief {idx}", row))
 
     for idx, (_, row) in enumerate(pitcher_roster.lefty_specialist.iterrows(), start=1):
         selected.append((f"LHP Specialist {idx}", row))
 
     for idx, (_, row) in enumerate(pitcher_roster.long_man.iterrows(), start=1):
-        selected.append((f"Long Man {idx}", row))
+        selected.append((f"Long Relief {idx}", row))
 
     seen: dict[str, str] = {}
 
