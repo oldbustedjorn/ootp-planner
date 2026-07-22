@@ -9,6 +9,7 @@ from ootp_opt.config import load_config
 from ootp_opt.domain.simulation_context import SimulationContext
 from ootp_opt.domain.scoring_environment import ScoringEnvironment
 from ootp_opt.optimization.candidate_matrices import CandidateMatrices
+from ootp_opt.optimization.solver_input import SolverInput
 from ootp_opt.roster.builder import (
     build_hitter_roster,
     build_pitcher_roster,
@@ -81,6 +82,7 @@ class RosterBuildResult:
     context: BuildContext
     candidate_pool: CandidatePool
     candidate_matrices: CandidateMatrices
+    solver_input: SolverInput
     ruleset: Ruleset
     simulation_context: SimulationContext
     scoring_environment: ScoringEnvironment
@@ -182,14 +184,18 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
 
     candidate_pool.require_eligible_cards()
     candidate_matrices = candidate_pool.build_matrices()
-    matrix_summary = candidate_matrices.summary_rows()
-    eligibility_summary.update(dict(matrix_summary))
+    solver_input = candidate_pool.build_solver_input(candidate_matrices)
+    optimizer_summary = [
+        *candidate_matrices.summary_rows(),
+        *solver_input.summary_rows(),
+    ]
+    eligibility_summary.update(dict(optimizer_summary))
     add_text_section(
         report_sections,
-        "CANDIDATE MATRICES",
-        "\n".join(f"{label}: {value}" for label, value in matrix_summary),
+        "OPTIMIZER INPUT",
+        "\n".join(f"{label}: {value}" for label, value in optimizer_summary),
     )
-    timer.checkpoint("Candidate matrix construction")
+    timer.checkpoint("Optimizer input construction")
 
     hitter_roster = build_hitter_roster(eligible_hitters, ruleset)
     pitcher_roster = build_pitcher_roster(
@@ -387,6 +393,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         context=context,
         candidate_pool=candidate_pool,
         candidate_matrices=candidate_matrices,
+        solver_input=solver_input,
         ruleset=ruleset,
         simulation_context=simulation_context,
         scoring_environment=scoring_environment,

@@ -459,6 +459,30 @@ Key function:
 
 - `build_candidate_matrices(...)`
 
+### `ootp_opt.optimization.solver_input`
+
+Builds solver-neutral constraint vectors from a `CandidatePool`, its matrices,
+and the resolved ruleset.
+
+Responsibilities:
+
+- unify hitter and pitcher exports into one selectable-card universe
+- expose person membership for duplicate-player constraints
+- expose card value, variant, tier, and hitter/pitcher capability vectors
+- define split lineup, pitcher-group, and lineup-coverage requirements
+- translate tier slots into cumulative perfect-through-bronze limits
+- retain lineup split weights for the future objective
+- validate active constraint metadata and coarse roster feasibility
+
+Key classes:
+
+- `SolverInput`
+- `SolverLimits`
+
+Key function:
+
+- `build_solver_input(...)`
+
 ### `ootp_opt.roster.builder`
 
 Deterministic roster construction.

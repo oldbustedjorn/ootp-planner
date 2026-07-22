@@ -30,6 +30,7 @@ CandidateSource = Literal["owned", "store", "league"]
 
 if TYPE_CHECKING:
     from ootp_opt.optimization.candidate_matrices import CandidateMatrices
+    from ootp_opt.optimization.solver_input import SolverInput
 
 
 @dataclass(frozen=True)
@@ -71,6 +72,21 @@ class CandidatePool:
             eligible_hitters=self.eligible_hitters,
             eligible_pitchers=self.eligible_pitchers,
             ruleset=self.context.ruleset,
+        )
+
+    def build_solver_input(
+        self,
+        matrices: CandidateMatrices | None = None,
+    ) -> SolverInput:
+        from ootp_opt.optimization.solver_input import build_solver_input
+
+        resolved_matrices = matrices or self.build_matrices()
+        return build_solver_input(
+            eligible_hitters=self.eligible_hitters,
+            eligible_pitchers=self.eligible_pitchers,
+            ruleset=self.context.ruleset,
+            scoring_config=self.context.scoring_config,
+            matrices=resolved_matrices,
         )
 
 

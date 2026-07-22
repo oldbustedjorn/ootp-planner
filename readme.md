@@ -81,6 +81,9 @@ to cover multiple positions. Pitcher jobs remain configurable role groups.
 `CandidateMatrices` converts each eligible pool into sparse position-capability,
 lineup-assignment, hitter-utility, and pitcher-role edges. These are reported by
 roster builds but do not yet change the greedy selection algorithm.
+`SolverInput` then unifies each card's hitter and pitcher records and exposes
+solver-neutral person, cap, variant, cumulative tier-slot, lineup, coverage,
+pitcher-group, and split-weight constraint data.
 
 ## Local GUI
 
@@ -290,7 +293,9 @@ repairs, simulation-context scoring, a local UI, preset management, build
 history, store-upgrade actions, and shared build-context/candidate-pool
 contracts. Candidate identities, split lineup assignments, separate lineup
 coverage constraints, configurable pitcher groups, and sparse candidate
-matrices are now in place. The next architecture milestone is defining the
-solver variables, constraints, and objective for a full optimizer. Pitching
-jobs such as specialist, long relief, closer, stopper, and setup roles can be
-added as role groups rather than new hard-coded roster fields.
+matrices are now in place. A solver-neutral input contract also captures all
+currently modeled roster constraints. The next architecture milestone is
+translating that contract into binary variables, linear constraints, and a
+weighted objective. Pitching jobs such as specialist, long relief, closer,
+stopper, and setup roles can be added as role groups rather than new hard-coded
+roster fields.
