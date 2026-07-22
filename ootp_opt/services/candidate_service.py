@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import pandas as pd
 
@@ -27,6 +27,9 @@ from ootp_opt.roster.eligibility import (
 from ootp_opt.roster.rules import Ruleset
 
 CandidateSource = Literal["owned", "store", "league"]
+
+if TYPE_CHECKING:
+    from ootp_opt.optimization.candidate_matrices import CandidateMatrices
 
 
 @dataclass(frozen=True)
@@ -60,6 +63,15 @@ class CandidatePool:
             raise ValueError("No eligible hitters after applying filters.")
         if self.eligible_pitchers.empty:
             raise ValueError("No eligible pitchers after applying filters.")
+
+    def build_matrices(self) -> CandidateMatrices:
+        from ootp_opt.optimization.candidate_matrices import build_candidate_matrices
+
+        return build_candidate_matrices(
+            eligible_hitters=self.eligible_hitters,
+            eligible_pitchers=self.eligible_pitchers,
+            ruleset=self.context.ruleset,
+        )
 
 
 def resolve_build_context(

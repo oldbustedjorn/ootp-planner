@@ -437,6 +437,28 @@ Key functions:
 - `filter_eligible_pitchers(df, ruleset)`
 - `filter_eligible_players(df, ruleset)`
 
+### `ootp_opt.optimization.candidate_matrices`
+
+Builds sparse, solver-ready relations from the eligible `CandidatePool`.
+
+Responsibilities:
+
+- map each hitter to every defensive position where the configured starter
+  threshold is met
+- map qualified hitters to split-specific lineup assignments and scores
+- retain split pinch-hitting and pinch-running values as secondary utilities
+- map pitchers to configurable role groups using current role scores
+- validate identities, required score columns, duplicate edges, and empty roles
+- intentionally omit bench assignments; bench status is derived by the solver
+
+Key class:
+
+- `CandidateMatrices`
+
+Key function:
+
+- `build_candidate_matrices(...)`
+
 ### `ootp_opt.roster.builder`
 
 Deterministic roster construction.

@@ -78,6 +78,9 @@ score; DH uses split batting score. Bench status is derived independently for
 each lineup from selected hitters who are not starting. Split-specific coverage
 constraints require qualified bench options while allowing one versatile player
 to cover multiple positions. Pitcher jobs remain configurable role groups.
+`CandidateMatrices` converts each eligible pool into sparse position-capability,
+lineup-assignment, hitter-utility, and pitcher-role edges. These are reported by
+roster builds but do not yet change the greedy selection algorithm.
 
 ## Local GUI
 
@@ -286,8 +289,8 @@ The current milestone is a usable roster builder with tournament-style filters,
 repairs, simulation-context scoring, a local UI, preset management, build
 history, store-upgrade actions, and shared build-context/candidate-pool
 contracts. Candidate identities, split lineup assignments, separate lineup
-coverage constraints, and configurable pitcher groups are now in place. The
-next architecture milestone is preparing sparse role eligibility and score
-matrices, then defining the input contract for a full optimizer. Pitching jobs
-such as specialist, long relief, closer, stopper, and setup roles can be added
-as role groups rather than new hard-coded roster fields.
+coverage constraints, configurable pitcher groups, and sparse candidate
+matrices are now in place. The next architecture milestone is defining the
+solver variables, constraints, and objective for a full optimizer. Pitching
+jobs such as specialist, long relief, closer, stopper, and setup roles can be
+added as role groups rather than new hard-coded roster fields.

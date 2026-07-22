@@ -8,6 +8,7 @@ from typing import Any
 from ootp_opt.config import load_config
 from ootp_opt.domain.simulation_context import SimulationContext
 from ootp_opt.domain.scoring_environment import ScoringEnvironment
+from ootp_opt.optimization.candidate_matrices import CandidateMatrices
 from ootp_opt.roster.builder import (
     build_hitter_roster,
     build_pitcher_roster,
@@ -79,6 +80,7 @@ class RosterBuildResult:
     config: dict[str, Any]
     context: BuildContext
     candidate_pool: CandidatePool
+    candidate_matrices: CandidateMatrices
     ruleset: Ruleset
     simulation_context: SimulationContext
     scoring_environment: ScoringEnvironment
@@ -179,6 +181,15 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
     timer.checkpoint("Eligibility filtering")
 
     candidate_pool.require_eligible_cards()
+    candidate_matrices = candidate_pool.build_matrices()
+    matrix_summary = candidate_matrices.summary_rows()
+    eligibility_summary.update(dict(matrix_summary))
+    add_text_section(
+        report_sections,
+        "CANDIDATE MATRICES",
+        "\n".join(f"{label}: {value}" for label, value in matrix_summary),
+    )
+    timer.checkpoint("Candidate matrix construction")
 
     hitter_roster = build_hitter_roster(eligible_hitters, ruleset)
     pitcher_roster = build_pitcher_roster(
@@ -375,6 +386,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         config=cfg,
         context=context,
         candidate_pool=candidate_pool,
+        candidate_matrices=candidate_matrices,
         ruleset=ruleset,
         simulation_context=simulation_context,
         scoring_environment=scoring_environment,

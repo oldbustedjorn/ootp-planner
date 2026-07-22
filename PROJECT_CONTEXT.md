@@ -328,9 +328,11 @@ Candidate and person identities are attached by `CandidatePool`. Configured
 rulesets now expose split-specific lineup assignments, configurable pitcher
 groups, and separate bench-coverage constraints for each lineup. Bench status
 is derived from selected hitters who are not assigned in that split; it is not
-a permanent scored role. The next major architecture work is to add sparse
-role-eligibility and score matrices before defining the structured optimization
-problem and usage model.
+a permanent scored role. `CandidateMatrices` now materializes sparse defensive
+position capability, split lineup assignment scores, hitter bench utilities,
+and pitcher-role edges from an eligible pool. The current greedy builder does
+not consume these matrices yet. The next major architecture work is to define
+the structured optimization problem and its lineup/coverage usage model.
 
 Good starting questions:
 
