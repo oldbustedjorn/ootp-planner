@@ -1,1 +1,1 @@
-"""Contracts and data preparation for global roster optimization."""
+"""Contracts, data preparation, and models for global roster optimization."""
