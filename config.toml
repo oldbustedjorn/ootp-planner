@@ -196,6 +196,10 @@ avoid_k_midpoint = 115
 babip_midpoint = 122
 gap_midpoint = 106
 eye_midpoint = 105
+avoid_k_floor = 90
+avoid_k_floor_penalty = 2.0
+babip_floor = 75
+babip_floor_penalty = 1.5
 
 [roster]
 # Base roster shape used when no explicit base profile is requested.
@@ -352,11 +356,6 @@ preferred_positions = ["C", "SS", "CF", "2B", "3B", "LF", "RF", "1B"]
 # Simulation year and ballpark can be set independently. Tournament text may use
 # one simulation year with park factors from a different historical park year.
 
-[tournament_presets.preset_008_standard_pt_regular_season]
-base_profile = "standard_pt"
-dh_enabled = true
-_gui_title = "pt_reg_preset_008_standard_pt_regular_season"
-
 [tournament_presets.preset_015_t_015_dmax_dh]
 base_profile = "playoff_pt"
 dh_enabled = true
@@ -496,3 +495,9 @@ _gui_build_type = "pt_tournament"
 _gui_build_number = 11
 _gui_html_output = "outputs\\gui_t_011_imax_y1987_dh_20260703_171137.html"
 _gui_note = "Saturday Iron Warriors\r\nDate changed: 7/21/26"
+
+[tournament_presets.preset_008_standard_pt_regular_season]
+base_profile = "standard_pt"
+dh_enabled = true
+_gui_title = "pt_reg_preset_008_standard_pt_regular_season"
+build_method = "optimizer"

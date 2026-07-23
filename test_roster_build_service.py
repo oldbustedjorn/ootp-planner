@@ -4,6 +4,7 @@ from ootp_opt.services.roster_build_service import (
     build_output_name,
     build_ruleset,
     format_ruleset_summary,
+    resolve_build_method,
 )
 
 
@@ -73,3 +74,26 @@ def test_ruleset_summary_includes_lineups_pitcher_groups_and_coverage():
     assert "Middle Relief x6" in summary
     assert "Lineup bench coverage:" in summary
     assert "CF x1 per lineup (rating >= 85)" in summary
+
+
+def test_build_method_defaults_to_greedy_and_can_be_explicit():
+    cfg = load_config("config.toml")
+
+    assert resolve_build_method(cfg, RosterBuildRequest()) == "greedy"
+    assert (
+        resolve_build_method(cfg, RosterBuildRequest(build_method="optimizer"))
+        == "optimizer"
+    )
+
+
+def test_build_method_can_be_inherited_from_preset():
+    cfg = load_config("config.toml")
+    cfg["tournament_presets"]["optimizer_test"] = {
+        "base_profile": "playoff_pt",
+        "build_method": "optimizer",
+    }
+
+    assert (
+        resolve_build_method(cfg, RosterBuildRequest(preset="optimizer_test"))
+        == "optimizer"
+    )

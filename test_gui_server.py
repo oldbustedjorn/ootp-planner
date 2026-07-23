@@ -18,6 +18,7 @@ from ootp_opt.services.preset_service import (
     resolve_preset_build_metadata,
     slugify,
     update_preset_notes,
+    update_preset_build_method,
 )
 
 
@@ -41,6 +42,19 @@ def test_standard_pt_gui_request_uses_standard_profile():
     assert request.roster_request.base_profile == "standard_pt"
     assert request.roster_request.preset is None
     assert request.roster_request.overrides == {"simulation_year": 1965}
+    assert request.roster_request.build_method == "greedy"
+
+
+def test_gui_request_accepts_optimizer_build_method():
+    request = build_gui_request(
+        form(
+            roster_name="Optimized PT",
+            build_type="pt_standard",
+            build_method="optimizer",
+        )
+    )
+
+    assert request.roster_request.build_method == "optimizer"
 
 
 def test_blank_standard_pt_roster_name_is_auto_named():
@@ -250,6 +264,7 @@ base_profile = "playoff_pt"
                 "allowed_card_types": ["UnH", "Snap"],
                 "tier_slots": {"P": 1, "D": 1},
             },
+            "build_method": "optimizer",
         },
         preset_name="saved_from_history",
     )
@@ -260,6 +275,7 @@ base_profile = "playoff_pt"
     assert 'allowed_card_types = ["UnH", "Snap"]' in text
     assert "[tournament_presets.saved_from_history.tier_slots]" in text
     assert '_gui_roster_name = "T-006-Smax-Y1986-NoDH"' in text
+    assert 'build_method = "optimizer"' in text
 
 
 def test_saved_history_preset_metadata_reuses_original_roster_identity():
@@ -308,7 +324,10 @@ def test_legacy_history_preset_recovers_original_roster_identity_from_registry()
     assert metadata["roster_name"] == "Standard PT Regular Season"
     assert metadata["build_type"] == "pt_standard"
     assert metadata["build_number"] == 8
-    assert metadata["html_output"] == "outputs\\gui_standard_pt_regular_season_20260627_202711.html"
+    assert (
+        metadata["html_output"]
+        == "outputs\\gui_standard_pt_regular_season_20260627_202711.html"
+    )
 
 
 def test_update_preset_notes_writes_and_clears_metadata():
@@ -350,6 +369,26 @@ P = 1
     assert "_gui_title" not in text
     assert "_gui_note" not in text
     assert "[tournament_presets.keep]" in text
+
+
+def test_update_preset_build_method_persists_selection():
+    config_path = Path("outputs/test_update_preset_method_config.toml")
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        """
+[tournament_presets.keep]
+base_profile = "playoff_pt"
+tier_max = "gold"
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    update_preset_build_method(config_path, "keep", "optimizer")
+
+    text = config_path.read_text(encoding="utf-8")
+    assert 'build_method = "optimizer"' in text
+    assert 'tier_max = "gold"' in text
 
 
 def test_delete_preset_block_removes_main_and_nested_blocks():

@@ -26,6 +26,7 @@ from ootp_opt.services.preset_service import (
     preset_upgrade_output_path,
     resolve_preset_build_metadata,
     slugify,
+    update_preset_build_method,
     update_preset_notes,
 )
 from ootp_opt.services.roster_build_service import RosterBuildRequest, build_roster
@@ -36,7 +37,16 @@ from ootp_opt.services.store_upgrade_service import (
 
 CARD_TYPES = ["2026Live", "AS", "FL", "HaH", "Leg", "NeL", "RS", "Snap", "UnH", "VET"]
 TIERS = ["iron", "bronze", "silver", "gold", "diamond", "perfect"]
-SCORING_ENVIRONMENTS = ["auto", "iron", "bronze", "silver", "gold", "diamond", "open", "none"]
+SCORING_ENVIRONMENTS = [
+    "auto",
+    "iron",
+    "bronze",
+    "silver",
+    "gold",
+    "diamond",
+    "open",
+    "none",
+]
 TIER_SLOT_KEYS = ["P", "D", "G", "S", "B"]
 MAX_OOTP_ROSTER_NAME_LENGTH = 30
 GUI_PRESET_META_KEYS = {
@@ -154,6 +164,7 @@ def build_handler(config_path: str):
                     html_output=result.html_output,
                     snapshot_path=result.snapshot_path,
                     status="success",
+                    build_method=result.build_method,
                 )
                 self.respond_html(
                     render_home(
@@ -196,18 +207,31 @@ def build_handler(config_path: str):
                     preset_cfg=preset_cfg,
                     records=records,
                 )
-                build_number = metadata.get("build_number") or next_build_number(records)
-                build_type = metadata.get("build_type") or infer_build_type_from_base_profile(
-                    preset_cfg.get("base_profile")
+                build_number = metadata.get("build_number") or next_build_number(
+                    records
                 )
+                build_type = metadata.get(
+                    "build_type"
+                ) or infer_build_type_from_base_profile(preset_cfg.get("base_profile"))
                 roster_name = metadata.get("roster_name") or build_auto_roster_name(
                     build_type=build_type,
-                    base_profile=preset_cfg.get("base_profile") or BUILD_TYPES[build_type][1],
+                    base_profile=preset_cfg.get("base_profile")
+                    or BUILD_TYPES[build_type][1],
                     build_number=build_number,
                     preset_name=preset_name,
                     overrides={},
                 )
-                html_output = metadata.get("html_output") or preset_roster_output_path(preset_name)
+                html_output = metadata.get("html_output") or preset_roster_output_path(
+                    preset_name
+                )
+                build_method = text_value(form, "build_method") or str(
+                    preset_cfg.get("build_method") or "greedy"
+                )
+                update_preset_build_method(
+                    Path(config_path),
+                    preset_name,
+                    build_method,
+                )
                 gui_request = GuiBuildRequest(
                     roster_name=roster_name,
                     build_type=build_type,
@@ -217,6 +241,7 @@ def build_handler(config_path: str):
                         config_path=config_path,
                         preset=preset_name,
                         html_output=html_output,
+                        build_method=build_method,
                     ),
                 )
                 result = build_roster(gui_request.roster_request)
@@ -230,6 +255,7 @@ def build_handler(config_path: str):
                     html_output=result.html_output,
                     snapshot_path=result.snapshot_path,
                     status="success",
+                    build_method=result.build_method,
                 )
                 self.respond_html(
                     render_home(
@@ -307,7 +333,9 @@ def build_handler(config_path: str):
                 return
 
             try:
-                preset_name = text_value(form, "preset_name") or preset_name_from_record(record)
+                preset_name = text_value(
+                    form, "preset_name"
+                ) or preset_name_from_record(record)
                 append_history_record_as_preset(
                     config_path=Path(config_path),
                     record=record,
@@ -346,7 +374,9 @@ def build_handler(config_path: str):
             try:
                 deleted_files = delete_preset(Path(config_path), preset_name)
                 cleanup_suffix = (
-                    f" Removed {len(deleted_files)} output file(s)." if deleted_files else ""
+                    f" Removed {len(deleted_files)} output file(s)."
+                    if deleted_files
+                    else ""
                 )
                 self.respond_html(
                     render_home(
@@ -453,8 +483,11 @@ def build_gui_request(
         raise ValueError(f"Unknown build type: {build_type}")
 
     preset_name = text_value(form, "preset_name")
+    build_method = text_value(form, "build_method") or "greedy"
     base_profile = text_value(form, "base_profile") or BUILD_TYPES[build_type][1]
-    overrides = build_overrides_from_form(form, include_tournament=build_type == "pt_tournament")
+    overrides = build_overrides_from_form(
+        form, include_tournament=build_type == "pt_tournament"
+    )
     roster_name = text_value(form, "roster_name") or build_auto_roster_name(
         build_type=build_type,
         base_profile=base_profile,
@@ -476,6 +509,7 @@ def build_gui_request(
             overrides=overrides,
             html_output=html_output,
             debug=False,
+            build_method=build_method,
         ),
     )
 
@@ -562,7 +596,9 @@ def render_home(
 ) -> str:
     cfg = load_config(config_path)
     presets = sorted(cfg.get("tournament_presets", {}).keys())
-    selected_preset = selected_preset if selected_preset in presets else first_or_none(presets)
+    selected_preset = (
+        selected_preset if selected_preset in presets else first_or_none(presets)
+    )
     records = load_build_records()
 
     return f"""<!doctype html>
@@ -597,6 +633,7 @@ def render_home(
         <div class="grid two">
           {field_text("OOTP roster name", "roster_name", placeholder="Blank = auto-name, max 30 chars", maxlength=MAX_OOTP_ROSTER_NAME_LENGTH)}
           {field_select("Build type", "build_type", [(key, label) for key, (label, _) in BUILD_TYPES.items()], "pt_standard")}
+          {field_select("Build method", "build_method", [("greedy", "Current builder"), ("optimizer", "Full optimizer")], "greedy")}
           {field_select("Base shape", "base_profile", [("standard_pt", "Regular PT"), ("playoff_pt", "Playoff/Tournament")], "standard_pt")}
           {field_select("Start from preset", "preset_name", [("", "No preset")] + [(preset, preset) for preset in presets], "")}
         </div>
@@ -717,7 +754,9 @@ def render_preset_link(
 
 def render_preset_detail(preset_name: str | None, preset_cfg: dict[str, Any]) -> str:
     if not preset_name:
-        return '<div class="preset-detail"><p class="muted">No preset selected.</p></div>'
+        return (
+            '<div class="preset-detail"><p class="muted">No preset selected.</p></div>'
+        )
 
     roster_output = preset_roster_output_path(preset_name)
     upgrade_output = preset_upgrade_output_path(preset_name)
@@ -746,6 +785,7 @@ def render_preset_detail(preset_name: str | None, preset_cfg: dict[str, Any]) ->
   <div class="preset-actions">
     <form method="post" action="/preset-build">
       <input type="hidden" name="preset_name" value="{escape(preset_name)}">
+      {field_select("Build method", "build_method", [("greedy", "Current builder"), ("optimizer", "Full optimizer")], str(preset_cfg.get("build_method") or "greedy"))}
       <button type="submit">Build Roster</button>
     </form>
     <form method="post" action="/preset-upgrades">
@@ -773,13 +813,16 @@ def preset_display_title(preset_name: str, preset_cfg: dict[str, Any]) -> str:
 def render_preset_fields(preset_cfg: dict[str, Any]) -> str:
     rows = []
     for key, value in flatten_preset_summary(preset_cfg):
-        rows.append(f"<dt>{escape(key)}</dt><dd>{escape(format_preset_value(value))}</dd>")
+        rows.append(
+            f"<dt>{escape(key)}</dt><dd>{escape(format_preset_value(value))}</dd>"
+        )
     return "\n".join(rows)
 
 
 def flatten_preset_summary(preset_cfg: dict[str, Any]) -> list[tuple[str, Any]]:
     ordered_keys = [
         "base_profile",
+        "build_method",
         "dh_enabled",
         "tier_min",
         "tier_max",
@@ -803,10 +846,14 @@ def flatten_preset_summary(preset_cfg: dict[str, Any]) -> list[tuple[str, Any]]:
 
 def format_preset_badges(preset_cfg: dict[str, Any]) -> str:
     badges = []
+    if preset_cfg.get("build_method") == "optimizer":
+        badges.append("optimizer")
     if preset_cfg.get("base_profile"):
         badges.append(str(preset_cfg["base_profile"]))
     if preset_cfg.get("tier_min") or preset_cfg.get("tier_max"):
-        badges.append(format_range_badge(preset_cfg.get("tier_min"), preset_cfg.get("tier_max")))
+        badges.append(
+            format_range_badge(preset_cfg.get("tier_min"), preset_cfg.get("tier_max"))
+        )
     if preset_cfg.get("card_value_min") or preset_cfg.get("card_value_max"):
         badges.append(
             format_range_badge(
@@ -848,7 +895,9 @@ def format_preset_value(value: Any) -> str:
     return str(value)
 
 
-def render_history(records: list[dict[str, Any]], selected_record_id: str | None) -> str:
+def render_history(
+    records: list[dict[str, Any]], selected_record_id: str | None
+) -> str:
     if not records:
         return '<p class="muted">No GUI builds yet.</p>'
 
@@ -859,7 +908,7 @@ def render_history(records: list[dict[str, Any]], selected_record_id: str | None
         rows.append(
             f"""<article class="history-item{selected}">
   <div class="history-title">{escape(record["roster_name"])}</div>
-  <div class="history-meta">#{format_build_number(record.get("build_number"))} - {escape(record["build_type"])} - {escape(record["created_at"])}</div>
+  <div class="history-meta">#{format_build_number(record.get("build_number"))} - {escape(record["build_type"])} - {escape(str(record.get("build_method") or "greedy"))} - {escape(record["created_at"])}</div>
   <div class="history-actions">
     {report}
     {render_save_history_preset_form(record)}
@@ -904,10 +953,19 @@ def build_auto_roster_name(
     parts = [prefix, number]
 
     if overrides.get("tier_min") or overrides.get("tier_max"):
-        parts.append(tier_range_token(overrides.get("tier_min"), overrides.get("tier_max")))
+        parts.append(
+            tier_range_token(overrides.get("tier_min"), overrides.get("tier_max"))
+        )
 
-    if overrides.get("card_value_min") is not None or overrides.get("card_value_max") is not None:
-        parts.append(value_range_token(overrides.get("card_value_min"), overrides.get("card_value_max")))
+    if (
+        overrides.get("card_value_min") is not None
+        or overrides.get("card_value_max") is not None
+    ):
+        parts.append(
+            value_range_token(
+                overrides.get("card_value_min"), overrides.get("card_value_max")
+            )
+        )
 
     if overrides.get("live_mode") == "non_live":
         parts.append("NL")
@@ -925,8 +983,15 @@ def build_auto_roster_name(
     elif overrides.get("dh_enabled") is True and build_type == "pt_tournament":
         parts.append("DH")
 
-    if overrides.get("card_year_min") is not None or overrides.get("card_year_max") is not None:
-        parts.append(year_range_token(overrides.get("card_year_min"), overrides.get("card_year_max")))
+    if (
+        overrides.get("card_year_min") is not None
+        or overrides.get("card_year_max") is not None
+    ):
+        parts.append(
+            year_range_token(
+                overrides.get("card_year_min"), overrides.get("card_year_max")
+            )
+        )
 
     if overrides.get("point_cap_total") is not None:
         parts.append(f"C{overrides['point_cap_total']}")

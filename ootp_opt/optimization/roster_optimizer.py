@@ -19,7 +19,7 @@ class OptimizerSettings:
     num_workers: int = 0
     random_seed: int = 0
     score_scale: int = 100
-    bench_utility_weight: float = 0.01
+    bench_utility_weight: float = 0.10
     pinch_run_share: float = 0.10
 
 

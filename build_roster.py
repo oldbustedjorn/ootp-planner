@@ -15,6 +15,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", default="config.toml")
     parser.add_argument("--base-profile", default=None)
     parser.add_argument("--preset", default=None)
+    parser.add_argument(
+        "--build-method",
+        choices=["greedy", "optimizer"],
+        default=None,
+        help="Roster selection method. Defaults to greedy unless saved by a preset.",
+    )
 
     parser.add_argument("--tier-min", default=None)
     parser.add_argument("--tier-max", default=None)
@@ -186,6 +192,7 @@ def main() -> None:
             overrides=build_overrides(args),
             html_output=args.html_output,
             debug=args.debug,
+            build_method=args.build_method,
         )
     )
     print_report_sections(result.report_sections)

@@ -12,7 +12,7 @@ from ootp_opt.domain.scoring_environment import (
     resolve_scoring_environment,
 )
 from ootp_opt.roster.rules import build_ruleset_from_base_profile
-from ootp_opt.services.rating_service import build_pitcher_weights
+from ootp_opt.services.rating_service import build_hitter_weights, build_pitcher_weights
 
 
 def sample_config():
@@ -44,6 +44,12 @@ def sample_config():
                 }
             },
             "open": {
+                "hitters": {
+                    "avoid_k_floor": 90,
+                    "avoid_k_floor_penalty": 2.0,
+                    "babip_floor": 75,
+                    "babip_floor_penalty": 1.5,
+                },
                 "pitchers": {
                     "vs_rhb_weight": 0.50,
                     "vs_lhb_weight": 0.50,
@@ -327,6 +333,60 @@ def test_hitter_environment_midpoints_shift_component_curves():
     )
 
     assert hitter_score_gap(high_env) > hitter_score_gap(low_env)
+
+
+def test_hitter_rating_floors_penalize_catastrophic_weaknesses():
+    hitters = pd.DataFrame(
+        [
+            hitter("Adequate Ratings", 100),
+            hitter("Low Ratings", 100),
+        ]
+    )
+    low_row = hitters["name"] == "Low Ratings"
+    for column in ("avoid_k_vs_lhp", "avoid_k_vs_rhp"):
+        hitters.loc[low_row, column] = 40
+    for column in ("babip_vs_lhp", "babip_vs_rhp"):
+        hitters.loc[low_row, column] = 60
+
+    scored = add_hitter_and_position_scores(
+        hitters,
+        HitterRoleWeights(
+            power=0.0,
+            eye=0.0,
+            gap_power=0.0,
+            babip=0.0,
+            avoid_k=0.0,
+            avoid_k_floor=90,
+            avoid_k_floor_penalty=2.0,
+            babip_floor=75,
+            babip_floor_penalty=1.5,
+            min_pos_rating=0.0,
+        ),
+    ).set_index("name")
+
+    expected_penalty = (90 - 40) * 2.0 + (75 - 60) * 1.5
+    assert (
+        scored.loc["Adequate Ratings", "hitter_score_vs_rhp"]
+        - scored.loc["Low Ratings", "hitter_score_vs_rhp"]
+    ) == pytest.approx(expected_penalty)
+    assert (
+        scored.loc["Adequate Ratings", "hitter_score_vs_lhp"]
+        - scored.loc["Low Ratings", "hitter_score_vs_lhp"]
+    ) == pytest.approx(expected_penalty)
+
+
+def test_open_environment_hitter_floors_map_to_weights():
+    cfg = sample_config()
+    ruleset = build_ruleset_from_base_profile(cfg, "standard_pt")
+    environment = resolve_scoring_environment(cfg, ruleset)
+    adjusted = apply_scoring_environment_to_config(cfg, environment)
+
+    weights = build_hitter_weights(adjusted)
+
+    assert weights.avoid_k_floor == 90
+    assert weights.avoid_k_floor_penalty == 2.0
+    assert weights.babip_floor == 75
+    assert weights.babip_floor_penalty == 1.5
 
 
 def pitcher(

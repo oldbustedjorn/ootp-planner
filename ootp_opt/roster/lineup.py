@@ -216,8 +216,10 @@ def build_lineup_depth_rows(
     ruleset: Ruleset,
     split: str,
 ) -> list[dict[str, object]]:
+    starters = hitter_roster.starters_for_split(split)
+    bench = hitter_roster.bench_for_split(split)
     lineup = build_lineup_order(
-        hitter_roster.starters_by_position,
+        starters,
         split=split,
         smooth_handedness=True,
     )
@@ -227,7 +229,7 @@ def build_lineup_depth_rows(
     for spot, position, player in lineup:
         backups = assign_position_backups(
             position=position,
-            bench_players=hitter_roster.bench_players,
+            bench_players=bench,
             ruleset=ruleset,
             limit=2,
         )

@@ -31,6 +31,10 @@ class ScoringEnvironment:
                 "babip_midpoint",
                 "gap_midpoint",
                 "eye_midpoint",
+                "avoid_k_floor",
+                "avoid_k_floor_penalty",
+                "babip_floor",
+                "babip_floor_penalty",
             ]:
                 if key in hitter_cfg:
                     rows.append((f"Scoring hitter {key}", str(hitter_cfg[key])))

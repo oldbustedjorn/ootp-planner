@@ -390,6 +390,10 @@ class HitterRoleWeights:
     gap_midpoint: float | None = None
     babip_midpoint: float | None = None
     avoid_k_midpoint: float | None = None
+    babip_floor: float | None = None
+    babip_floor_penalty: float = 0.0
+    avoid_k_floor: float | None = None
+    avoid_k_floor_penalty: float = 0.0
 
     # small offensive baserunning bonus
     off_speed: float = 0.06
@@ -549,7 +553,7 @@ def add_hitter_and_position_scores(
             b = "babip" if prefix == "" else "babip" + prefix
             k = "avoid_k" if prefix == "" else "avoid_k" + prefix
 
-            return score_hitter_batting_components(
+            score = score_hitter_batting_components(
                 contact=scored[c],
                 power=scored[p],
                 eye=scored[e],
@@ -558,6 +562,17 @@ def add_hitter_and_position_scores(
                 avoid_k=scored[k],
                 weights=weights,
             )
+            score -= rating_floor_penalty(
+                scored[b],
+                floor=weights.babip_floor,
+                penalty=weights.babip_floor_penalty,
+            )
+            score -= rating_floor_penalty(
+                scored[k],
+                floor=weights.avoid_k_floor,
+                penalty=weights.avoid_k_floor_penalty,
+            )
+            return score
 
         scored["hitter_score_vs_lhp"] = hitter_score("_vs_lhp")
         scored["hitter_score_vs_rhp"] = hitter_score("_vs_rhp")
@@ -645,3 +660,14 @@ def add_hitter_and_position_scores(
         scored.loc[~pos_ok, f"score_{pos}_overall"] = -1_000_000_000.0
 
     return scored
+
+
+def rating_floor_penalty(
+    ratings: pd.Series,
+    *,
+    floor: float | None,
+    penalty: float,
+) -> pd.Series:
+    if floor is None or penalty <= 0:
+        return pd.Series(0.0, index=ratings.index)
+    return (float(floor) - ratings).clip(lower=0.0) * float(penalty)

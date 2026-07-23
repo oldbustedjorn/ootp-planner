@@ -3,12 +3,18 @@ from __future__ import annotations
 from contextlib import redirect_stdout
 from dataclasses import dataclass, field
 from io import StringIO
-from typing import Any
+from typing import Any, Literal
 
 from ootp_opt.config import load_config
 from ootp_opt.domain.simulation_context import SimulationContext
 from ootp_opt.domain.scoring_environment import ScoringEnvironment
 from ootp_opt.optimization.candidate_matrices import CandidateMatrices
+from ootp_opt.optimization.roster_optimizer import (
+    OptimizationSolution,
+    OptimizerSettings,
+    solve_roster_optimization,
+)
+from ootp_opt.optimization.solution_adapter import convert_optimization_solution
 from ootp_opt.optimization.solver_input import SolverInput
 from ootp_opt.roster.builder import (
     build_hitter_roster,
@@ -65,6 +71,9 @@ from ootp_opt.services.candidate_service import (
 )
 from ootp_opt.services.rating_service import rate_cards_service
 
+BuildMethod = Literal["greedy", "optimizer"]
+BUILD_METHODS = {"greedy", "optimizer"}
+
 
 @dataclass(frozen=True)
 class RosterBuildRequest:
@@ -74,6 +83,7 @@ class RosterBuildRequest:
     overrides: dict[str, Any] = field(default_factory=dict)
     html_output: str | None = None
     debug: bool = False
+    build_method: BuildMethod | None = None
 
 
 @dataclass(frozen=True)
@@ -93,6 +103,8 @@ class RosterBuildResult:
     snapshot_path: str
     report_sections: list[tuple[str, str]]
     build_timing: BuildTiming
+    build_method: BuildMethod
+    optimization_solution: OptimizationSolution | None = None
     variant_repair_result: VariantRepairResult | None = None
     tier_slot_repair_result: TierSlotRepairResult | None = None
     cap_repair_result: CapRepairResult | None = None
@@ -101,11 +113,16 @@ class RosterBuildResult:
 def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
     timer = BuildTimer()
     cfg = load_config(request.config_path)
+    build_method = resolve_build_method(cfg, request)
     ruleset = build_ruleset(cfg, request)
     context = resolve_build_context(cfg, ruleset)
     report_sections: list[tuple[str, str]] = []
 
-    add_text_section(report_sections, "BUILD RULESET", format_ruleset_summary(ruleset))
+    add_text_section(
+        report_sections,
+        "BUILD RULESET",
+        f"Build method: {build_method}\n{format_ruleset_summary(ruleset)}",
+    )
 
     scoring_environment = context.scoring_environment
     add_text_section(
@@ -163,6 +180,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
     eligible_pitchers = candidate_pool.eligible_pitchers
 
     eligibility_summary = {
+        "Build method": build_method,
         "Hitters scored": str(len(hitters_df)),
         "Hitters eligible": str(len(eligible_hitters)),
         "Pitchers scored": str(len(pitchers_df)),
@@ -197,14 +215,45 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
     )
     timer.checkpoint("Optimizer input construction")
 
-    hitter_roster = build_hitter_roster(eligible_hitters, ruleset)
-    pitcher_roster = build_pitcher_roster(
-        eligible_pitchers,
-        ruleset,
-        used_player_names=selected_hitter_roster_keys(hitter_roster),
-    )
+    optimization_solution = None
+    if build_method == "optimizer":
+        optimization_solution = solve_roster_optimization(
+            solver_input,
+            OptimizerSettings(),
+        )
+        if not optimization_solution.is_feasible:
+            raise ValueError(
+                "Roster optimizer did not find a feasible solution: "
+                f"{optimization_solution.status}."
+            )
+        converted = convert_optimization_solution(
+            solution=optimization_solution,
+            solver_input=solver_input,
+            eligible_hitters=eligible_hitters,
+            eligible_pitchers=eligible_pitchers,
+        )
+        hitter_roster = converted.hitter_roster
+        pitcher_roster = converted.pitcher_roster
+        optimizer_result_rows = optimization_solution_summary_rows(
+            optimization_solution
+        )
+        eligibility_summary.update(dict(optimizer_result_rows))
+        add_text_section(
+            report_sections,
+            "OPTIMIZER RESULT",
+            "\n".join(f"{label}: {value}" for label, value in optimizer_result_rows),
+        )
+        timer.checkpoint("Optimizer solve and conversion")
+    else:
+        hitter_roster = build_hitter_roster(eligible_hitters, ruleset)
+        pitcher_roster = build_pitcher_roster(
+            eligible_pitchers,
+            ruleset,
+            used_player_names=selected_hitter_roster_keys(hitter_roster),
+        )
+        timer.checkpoint("Initial roster selection")
+
     validate_no_duplicate_players(hitter_roster, pitcher_roster)
-    timer.checkpoint("Initial roster selection")
 
     add_captured_section(
         report_sections,
@@ -227,7 +276,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
     timer.checkpoint("Initial constraint diagnostics")
 
     variant_result = None
-    if ruleset.variant_limit is not None:
+    if build_method == "greedy" and ruleset.variant_limit is not None:
         variant_result = repair_roster_to_variant_limit(
             hitter_roster=hitter_roster,
             pitcher_roster=pitcher_roster,
@@ -255,7 +304,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
     timer.checkpoint("Variant repair")
 
     tier_slot_result = None
-    if ruleset.tier_slots:
+    if build_method == "greedy" and ruleset.tier_slots:
         tier_slot_result = repair_roster_to_tier_slots(
             hitter_roster=hitter_roster,
             pitcher_roster=pitcher_roster,
@@ -292,7 +341,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
     )
 
     cap_result = None
-    if ruleset.point_cap_total is not None:
+    if build_method == "greedy" and ruleset.point_cap_total is not None:
         cap_result = repair_roster_to_cap(
             hitter_roster=hitter_roster,
             pitcher_roster=pitcher_roster,
@@ -365,6 +414,11 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         build_timing_rows=timer.snapshot().summary_rows(
             total_label="Pre-export subtotal"
         ),
+        optimizer_summary_rows=(
+            optimization_solution_summary_rows(optimization_solution)
+            if optimization_solution is not None
+            else None
+        ),
     )
     write_snapshot(snapshot_path, new_snapshot)
     timer.checkpoint("HTML and snapshot export")
@@ -404,10 +458,58 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         snapshot_path=snapshot_path,
         report_sections=report_sections,
         build_timing=build_timing,
+        build_method=build_method,
+        optimization_solution=optimization_solution,
         variant_repair_result=variant_result,
         tier_slot_repair_result=tier_slot_result,
         cap_repair_result=cap_result,
     )
+
+
+def resolve_build_method(
+    cfg: dict[str, Any],
+    request: RosterBuildRequest,
+) -> BuildMethod:
+    value = request.build_method
+    if value is None and request.preset:
+        value = (
+            cfg.get("tournament_presets", {})
+            .get(request.preset, {})
+            .get("build_method")
+        )
+    value = value or "greedy"
+    if value not in BUILD_METHODS:
+        raise ValueError(
+            f"Unknown build method '{value}'. Expected one of: "
+            f"{', '.join(sorted(BUILD_METHODS))}."
+        )
+    return value
+
+
+def optimization_solution_summary_rows(
+    solution: OptimizationSolution,
+) -> list[tuple[str, str]]:
+    return [
+        ("Optimizer status", solution.status),
+        ("Optimizer optimal", "yes" if solution.is_optimal else "no"),
+        (
+            "Optimizer objective",
+            (
+                "-"
+                if solution.objective_value is None
+                else f"{solution.objective_value:.2f}"
+            ),
+        ),
+        (
+            "Optimizer best bound",
+            (
+                "-"
+                if solution.best_objective_bound is None
+                else f"{solution.best_objective_bound:.2f}"
+            ),
+        ),
+        ("Optimizer solve time", f"{solution.wall_time_seconds:.3f} s"),
+    ]
 
 
 def build_ruleset(cfg: dict[str, Any], request: RosterBuildRequest) -> Ruleset:
@@ -459,21 +561,21 @@ def build_output_name(ruleset: Ruleset, overrides: dict[str, Any]) -> str:
 
 def format_ruleset_summary(ruleset: Ruleset) -> str:
     lines = [
-            f"Base profile: {ruleset.name}",
-            f"Hitters/Pitchers: {ruleset.hitter_count}/{ruleset.pitcher_count}",
-            f"DH enabled: {ruleset.dh_enabled}",
-            f"Tier min/max: {ruleset.tier_min} / {ruleset.tier_max}",
-            f"Card value min/max: {ruleset.card_value_min} / {ruleset.card_value_max}",
-            f"Live mode: {ruleset.live_mode}",
-            f"Allowed card types: {ruleset.allowed_card_types or '-'}",
-            f"Excluded card types: {ruleset.excluded_card_types or '-'}",
-            f"Card year min/max: {ruleset.card_year_min} / {ruleset.card_year_max}",
-            f"Simulation year: {ruleset.simulation_year or '-'}",
-            f"Ballpark: {ruleset.ballpark or '-'}",
-            f"Ballpark year: {ruleset.ballpark_year or '-'}",
-            f"Custom park factors: {ruleset.custom_park_factors or '-'}",
-            f"Variant limit: {ruleset.variant_limit}",
-            f"Scoring environment: {ruleset.scoring_environment or 'auto'}",
+        f"Base profile: {ruleset.name}",
+        f"Hitters/Pitchers: {ruleset.hitter_count}/{ruleset.pitcher_count}",
+        f"DH enabled: {ruleset.dh_enabled}",
+        f"Tier min/max: {ruleset.tier_min} / {ruleset.tier_max}",
+        f"Card value min/max: {ruleset.card_value_min} / {ruleset.card_value_max}",
+        f"Live mode: {ruleset.live_mode}",
+        f"Allowed card types: {ruleset.allowed_card_types or '-'}",
+        f"Excluded card types: {ruleset.excluded_card_types or '-'}",
+        f"Card year min/max: {ruleset.card_year_min} / {ruleset.card_year_max}",
+        f"Simulation year: {ruleset.simulation_year or '-'}",
+        f"Ballpark: {ruleset.ballpark or '-'}",
+        f"Ballpark year: {ruleset.ballpark_year or '-'}",
+        f"Custom park factors: {ruleset.custom_park_factors or '-'}",
+        f"Variant limit: {ruleset.variant_limit}",
+        f"Scoring environment: {ruleset.scoring_environment or 'auto'}",
     ]
     if ruleset.slot_plan is not None:
         lines.extend(
@@ -560,22 +662,46 @@ def add_roster_summary_sections(
     pitcher_roster: PitcherRoster,
     ruleset: Ruleset,
 ) -> None:
-    lines = []
-    for position, row in hitter_roster.starters_by_position.items():
-        score_col = (
-            "batting_score_overall" if position == "DH" else f"score_{position}_overall"
-        )
-        lines.append(f"{position:>2}  {row['name']:<25}  {row[score_col]:.2f}")
-    add_text_section(report_sections, "STARTERS", "\n".join(lines))
+    if hitter_roster.starters_by_split:
+        for split, label in (("vs_rhp", "VS RHP"), ("vs_lhp", "VS LHP")):
+            starters = hitter_roster.starters_for_split(split)
+            lines = []
+            for position, row in starters.items():
+                score_col = (
+                    f"batting_score_{split}"
+                    if position == "DH"
+                    else f"score_{position}_{split}"
+                )
+                lines.append(f"{position:>2}  {row['name']:<25}  {row[score_col]:.2f}")
+            add_text_section(report_sections, f"STARTERS {label}", "\n".join(lines))
 
-    lines = []
-    for _, row in hitter_roster.bench_players.iterrows():
-        covered = sorted(get_player_covered_positions(row, ruleset))
-        lines.append(
-            f"{row['name']:<25}  bat={row['batting_score_overall']:.2f}  "
-            f"covers={covered}"
-        )
-    add_text_section(report_sections, "BENCH", "\n".join(lines))
+            lines = []
+            for _, row in hitter_roster.bench_for_split(split).iterrows():
+                covered = sorted(get_player_covered_positions(row, ruleset))
+                lines.append(
+                    f"{row['name']:<25}  bat={row[f'batting_score_{split}']:.2f}  "
+                    f"covers={covered}"
+                )
+            add_text_section(report_sections, f"BENCH {label}", "\n".join(lines))
+    else:
+        lines = []
+        for position, row in hitter_roster.starters_by_position.items():
+            score_col = (
+                "batting_score_overall"
+                if position == "DH"
+                else f"score_{position}_overall"
+            )
+            lines.append(f"{position:>2}  {row['name']:<25}  {row[score_col]:.2f}")
+        add_text_section(report_sections, "STARTERS", "\n".join(lines))
+
+        lines = []
+        for _, row in hitter_roster.bench_players.iterrows():
+            covered = sorted(get_player_covered_positions(row, ruleset))
+            lines.append(
+                f"{row['name']:<25}  bat={row['batting_score_overall']:.2f}  "
+                f"covers={covered}"
+            )
+        add_text_section(report_sections, "BENCH", "\n".join(lines))
 
     rhp_rows = build_lineup_depth_rows(hitter_roster, ruleset, split="vs_rhp")
     add_text_section(
@@ -591,21 +717,25 @@ def add_roster_summary_sections(
         format_lineup_depth_rows(lhp_rows),
     )
 
-    pinch_hitters_rhp = build_pinch_hitters(hitter_roster.bench_players, split="vs_rhp")
+    pinch_hitters_rhp = build_pinch_hitters(
+        hitter_roster.bench_for_split("vs_rhp"), split="vs_rhp"
+    )
     add_text_section(
         report_sections,
         "PINCH HITTERS VS RHP",
         format_ranked_rows(pinch_hitters_rhp, "batting_score_vs_rhp"),
     )
 
-    pinch_hitters_lhp = build_pinch_hitters(hitter_roster.bench_players, split="vs_lhp")
+    pinch_hitters_lhp = build_pinch_hitters(
+        hitter_roster.bench_for_split("vs_lhp"), split="vs_lhp"
+    )
     add_text_section(
         report_sections,
         "PINCH HITTERS VS LHP",
         format_ranked_rows(pinch_hitters_lhp, "batting_score_vs_lhp"),
     )
 
-    pinch_runners = build_pinch_runners(hitter_roster.bench_players)
+    pinch_runners = build_pinch_runners(hitter_roster.bench_for_split("vs_rhp"))
     add_text_section(
         report_sections,
         "PINCH RUNNERS",

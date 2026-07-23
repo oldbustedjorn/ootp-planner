@@ -20,6 +20,7 @@ def append_build_record(
     html_output: str,
     snapshot_path: str,
     status: str,
+    build_method: str = "greedy",
 ) -> dict[str, Any]:
     records = load_build_records()
     created_at = datetime.now().replace(microsecond=0).isoformat()
@@ -35,6 +36,7 @@ def append_build_record(
         "html_output": html_output,
         "snapshot_path": str(snapshot_path),
         "status": status,
+        "build_method": build_method,
     }
     records.insert(0, record)
     save_build_records(records)
@@ -54,7 +56,9 @@ def save_build_records(records: list[dict[str, Any]]) -> None:
     path.write_text(json.dumps(records, indent=2), encoding="utf-8")
 
 
-def find_record(records: list[dict[str, Any]], record_id: str | None) -> dict[str, Any] | None:
+def find_record(
+    records: list[dict[str, Any]], record_id: str | None
+) -> dict[str, Any] | None:
     if not record_id:
         return None
     return next((record for record in records if record.get("id") == record_id), None)
@@ -104,6 +108,7 @@ def preset_config_from_history_record(
         "base_profile": record.get("base_profile") or "playoff_pt"
     }
     preset_cfg.update(record.get("overrides") or {})
+    preset_cfg["build_method"] = str(record.get("build_method") or "greedy")
     preset_cfg["_gui_title"] = str(record.get("roster_name") or "")
     preset_cfg["_gui_roster_name"] = str(record.get("roster_name") or "")
     preset_cfg["_gui_build_type"] = str(record.get("build_type") or "")
@@ -135,7 +140,9 @@ def append_preset_block(
 
     text = config_path.read_text(encoding="utf-8")
     suffix = "\n" if text.endswith("\n") else "\n\n"
-    config_path.write_text(text + suffix + "\n".join(lines).strip() + "\n", encoding="utf-8")
+    config_path.write_text(
+        text + suffix + "\n".join(lines).strip() + "\n", encoding="utf-8"
+    )
 
 
 def delete_preset_block(config_path: Path, preset_name: str) -> None:
@@ -152,7 +159,9 @@ def delete_preset_block(config_path: Path, preset_name: str) -> None:
     if count == 0:
         raise ValueError(f"Could not find TOML block for preset '{preset_name}'.")
 
-    config_path.write_text(re.sub(r"\n{3,}", "\n\n", new_text).rstrip() + "\n", encoding="utf-8")
+    config_path.write_text(
+        re.sub(r"\n{3,}", "\n\n", new_text).rstrip() + "\n", encoding="utf-8"
+    )
 
 
 def delete_preset(config_path: Path, preset_name: str) -> list[Path]:
@@ -247,6 +256,26 @@ def update_preset_notes(
     else:
         preset_cfg.pop("_gui_note", None)
 
+    delete_preset_block(config_path, preset_name)
+    append_preset_block(config_path, preset_name, preset_cfg)
+
+
+def update_preset_build_method(
+    config_path: Path,
+    preset_name: str,
+    build_method: str,
+) -> None:
+    if build_method not in {"greedy", "optimizer"}:
+        raise ValueError(f"Unknown build method: {build_method}")
+
+    cfg = load_config(config_path)
+    preset_cfg = dict(cfg.get("tournament_presets", {}).get(preset_name) or {})
+    if not preset_cfg:
+        raise ValueError(f"Preset '{preset_name}' does not exist.")
+    if preset_cfg.get("build_method") == build_method:
+        return
+
+    preset_cfg["build_method"] = build_method
     delete_preset_block(config_path, preset_name)
     append_preset_block(config_path, preset_name, preset_cfg)
 

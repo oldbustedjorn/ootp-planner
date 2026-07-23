@@ -15,6 +15,10 @@ from ootp_opt.optimization.roster_optimizer import (
 from ootp_opt.optimization.solver_input import SolverInput, SolverLimits
 
 
+def test_optimizer_default_values_selected_bench_players():
+    assert OptimizerSettings().bench_utility_weight == 0.10
+
+
 def build_optimizer_fixture() -> SolverInput:
     hitter_specs = {
         "h1": ("catcher_right", "Catcher Right", {"C"}, 120.0, 80.0),

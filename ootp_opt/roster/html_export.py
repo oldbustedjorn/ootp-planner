@@ -35,6 +35,7 @@ def export_roster_html(
     simulation_context: SimulationContext | None = None,
     scoring_environment: ScoringEnvironment | None = None,
     build_timing_rows: list[tuple[str, str]] | None = None,
+    optimizer_summary_rows: list[tuple[str, str]] | None = None,
 ) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -49,6 +50,7 @@ def export_roster_html(
         simulation_context=simulation_context,
         scoring_environment=scoring_environment,
         build_timing_rows=build_timing_rows,
+        optimizer_summary_rows=optimizer_summary_rows,
     )
 
     path.write_text(html, encoding="utf-8")
@@ -64,6 +66,7 @@ def build_roster_html(
     simulation_context: SimulationContext | None = None,
     scoring_environment: ScoringEnvironment | None = None,
     build_timing_rows: list[tuple[str, str]] | None = None,
+    optimizer_summary_rows: list[tuple[str, str]] | None = None,
 ) -> str:
     return f"""<!doctype html>
 <html>
@@ -78,6 +81,7 @@ def build_roster_html(
   <h1>OOTP Roster Build: {escape(ruleset.name)}</h1>
 
   {render_build_summary(ruleset, eligibility_summary, simulation_context, scoring_environment)}
+  {render_optimizer_summary(optimizer_summary_rows)}
   {render_build_timing_summary(build_timing_rows)}
   {render_tier_slot_summary(ruleset, hitter_roster, pitcher_roster)}
   {render_tier_slot_repair_summary(tier_slot_repair_result)}
@@ -90,13 +94,13 @@ def build_roster_html(
 
   <section class="screen lineup-screen">
     {render_lineup_panel(hitter_roster, split="vs_rhp", title="Lineup vs. RHP")}
-    {render_depth_chart_panel(hitter_roster, ruleset, title="Depth Chart vs. RHP")}
+    {render_depth_chart_panel(hitter_roster, ruleset, split="vs_rhp", title="Depth Chart vs. RHP")}
     {render_side_panel(hitter_roster, split="vs_rhp")}
   </section>
 
   <section class="screen lineup-screen">
     {render_lineup_panel(hitter_roster, split="vs_lhp", title="Lineup vs. LHP")}
-    {render_depth_chart_panel(hitter_roster, ruleset, title="Depth Chart vs. LHP")}
+    {render_depth_chart_panel(hitter_roster, ruleset, split="vs_lhp", title="Depth Chart vs. LHP")}
     {render_side_panel(hitter_roster, split="vs_lhp")}
   </section>
 </body>
@@ -241,6 +245,26 @@ def render_build_timing_summary(
 """
 
 
+def render_optimizer_summary(
+    rows: list[tuple[str, str]] | None,
+) -> str:
+    if not rows:
+        return ""
+
+    body = "".join(
+        f"<tr><th>{escape(label)}</th><td>{escape(value)}</td></tr>"
+        for label, value in rows
+    )
+    return f"""
+<section class="screen">
+  <div class="panel">
+    <div class="panel-title">Optimizer Result</div>
+    <table><tbody>{body}</tbody></table>
+  </div>
+</section>
+"""
+
+
 def render_tier_slot_summary(
     ruleset: Ruleset,
     hitter_roster: HitterRoster,
@@ -323,8 +347,12 @@ def render_tier_slot_repair_summary(
 
     if not result.steps:
         status = "Successful" if result.success else "Incomplete"
-        detail = "No tier slot repair needed." if result.success else (
-            f"No tier slot repair steps were available; still over {result.final_over_tier}."
+        detail = (
+            "No tier slot repair needed."
+            if result.success
+            else (
+                f"No tier slot repair steps were available; still over {result.final_over_tier}."
+            )
         )
         return f"""
 <section class="screen">
@@ -461,7 +489,7 @@ def render_lineup_panel(
     title: str,
 ) -> str:
     lineup = build_lineup_order(
-        hitter_roster.starters_by_position,
+        hitter_roster.starters_for_split(split),
         split=split,
         smooth_handedness=True,
     )
@@ -615,18 +643,21 @@ def format_variant_flag(row: pd.Series) -> str:
 def render_depth_chart_panel(
     hitter_roster: HitterRoster,
     ruleset: Ruleset,
+    split: str,
     title: str,
 ) -> str:
     rows = []
+    starters = hitter_roster.starters_for_split(split)
+    bench = hitter_roster.bench_for_split(split)
 
     for position in DEPTH_ORDER:
-        starter = hitter_roster.starters_by_position.get(position)
+        starter = starters.get(position)
         if starter is None:
             continue
 
         backups = assign_position_backups(
             position=position,
-            bench_players=hitter_roster.bench_players,
+            bench_players=bench,
             ruleset=ruleset,
             limit=2,
         )
@@ -666,10 +697,9 @@ def render_side_panel(
     hitter_roster: HitterRoster,
     split: str,
 ) -> str:
-    pinch_hitters = build_pinch_hitters(
-        hitter_roster.bench_players, split=split, limit=4
-    )
-    pinch_runners = build_pinch_runners(hitter_roster.bench_players, limit=4)
+    bench = hitter_roster.bench_for_split(split)
+    pinch_hitters = build_pinch_hitters(bench, split=split, limit=4)
+    pinch_runners = build_pinch_runners(bench, limit=4)
 
     ph_rows = "".join(
         f"<tr><td>{idx}</td><td>{escape(str(row.get('name', '')))}</td></tr>"
