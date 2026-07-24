@@ -218,6 +218,9 @@ def test_render_presets_panel_includes_actions():
     assert 'action="/preset-delete"' in html
     assert "Build Roster" in html
     assert "Find Upgrades" in html
+    assert 'name="exact_results"' in html
+    assert 'name="max_price"' in html
+    assert 'name="require_sell_order"' in html
     assert "Save Notes" in html
     assert "Delete Preset" in html
     assert "&lt;=bronze" in html

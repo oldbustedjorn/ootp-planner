@@ -296,6 +296,11 @@ def build_handler(config_path: str):
                         config_path=config_path,
                         preset=preset_name,
                         min_gain=float_value(form, "min_gain") or 5.0,
+                        exact_results=int(float_value(form, "exact_results") or 0),
+                        max_price=int_value(form, "max_price"),
+                        require_sell_order=(
+                            text_value(form, "require_sell_order") is not None
+                        ),
                         html_output=preset_upgrade_output_path(preset_name),
                     )
                 )
@@ -790,7 +795,10 @@ def render_preset_detail(preset_name: str | None, preset_cfg: dict[str, Any]) ->
     </form>
     <form method="post" action="/preset-upgrades">
       <input type="hidden" name="preset_name" value="{escape(preset_name)}">
-      <label class="inline-field"><span>Min gain</span><input type="number" step="0.1" name="min_gain" value="5"></label>
+      <label class="inline-field"><span>Min estimated gain</span><input type="number" step="0.1" name="min_gain" value="5"></label>
+      <label class="inline-field"><span>Max price</span><input type="number" min="0" step="1000" name="max_price" placeholder="No limit"></label>
+      <label class="inline-field"><span>Exact checks</span><input type="number" min="0" max="10" step="1" name="exact_results" value="0"></label>
+      <label class="check"><input type="checkbox" name="require_sell_order" value="1" checked><span>Listed only</span></label>
       <button type="submit">Find Upgrades</button>
     </form>
     <form method="post" action="/preset-delete">

@@ -10,13 +10,52 @@ from ootp_opt.optimization.candidate_matrices import CandidateMatrices
 from ootp_opt.optimization.roster_optimizer import (
     OptimizerSettings,
     build_optimization_model,
+    solve_optimization_model,
     solve_roster_optimization,
 )
 from ootp_opt.optimization.solver_input import SolverInput, SolverLimits
+from ootp_opt.optimization.upgrade_search import enumerate_single_purchase_upgrades
 
 
 def test_optimizer_default_values_selected_bench_players():
     assert OptimizerSettings().bench_utility_weight == 0.10
+
+
+def test_upgrade_enumeration_measures_single_purchase_against_baseline():
+    solver_input = build_optimizer_fixture()
+    hitter_assignments = solver_input.matrices.hitter_assignments.copy()
+    hitter_assignments.loc[
+        hitter_assignments[CANDIDATE_ID_COLUMN].eq("h5"), "score"
+    ] = 300.0
+    hitter_utilities = solver_input.matrices.hitter_utilities.copy()
+    hitter_utilities.loc[
+        hitter_utilities[CANDIDATE_ID_COLUMN].eq("h5"),
+        ["batting_score_vs_rhp", "batting_score_vs_lhp"],
+    ] = 300.0
+    augmented_input = replace(
+        solver_input,
+        matrices=replace(
+            solver_input.matrices,
+            hitter_assignments=hitter_assignments,
+            hitter_utilities=hitter_utilities,
+        ),
+    )
+    baseline_model = build_optimization_model(augmented_input)
+    baseline_model.model.add(baseline_model.hitter_selected["h5"] == 0)
+    baseline = solve_optimization_model(augmented_input, baseline_model)
+
+    upgrades = enumerate_single_purchase_upgrades(
+        solver_input=augmented_input,
+        store_candidate_ids=["h5"],
+        baseline_solution=baseline,
+        min_gain=1.0,
+        max_results=5,
+    )
+
+    assert len(upgrades) == 1
+    assert upgrades[0].candidate_id == "h5"
+    assert upgrades[0].objective_gain > 0
+    assert "h5" in upgrades[0].solution.selected_hitter_ids
 
 
 def build_optimizer_fixture() -> SolverInput:

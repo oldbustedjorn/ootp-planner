@@ -97,7 +97,7 @@ def render_table(df: pd.DataFrame) -> str:
 
 
 def format_value(value: object) -> str:
-    if value is None:
+    if value is None or pd.isna(value):
         return ""
 
     if isinstance(value, int):

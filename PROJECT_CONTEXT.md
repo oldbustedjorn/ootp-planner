@@ -6,7 +6,7 @@ OOTP Planner is a Python tool for OOTP Perfect Team roster planning.
 
 It ingests local OOTP exports, normalizes card metadata and ratings, scores hitters and pitchers, builds roster candidates from configurable rules, repairs common tournament constraints, and writes human-readable reports.
 
-The project is intentionally still heuristic. It is not a full optimizer yet.
+The project supports both the original greedy builder and a CP-SAT full-roster optimizer.
 
 ## Current Status
 
@@ -33,6 +33,10 @@ Current working capabilities:
 - browse configured tournament presets in the local UI
 - rebuild preset rosters and run preset store-upgrade reports from the UI
 - label presets with GUI-only display titles and notes while keeping stable preset IDs
+- optimize split lineups, bench coverage, pitcher groups, duplicate-player limits,
+  caps, variants, and cumulative tier slots as one roster decision
+- scan store cards against optimizer-selected split assignments, rank practical
+  purchases by price efficiency, and optionally validate candidates with full re-solves
 
 Recent milestone:
 
@@ -87,6 +91,12 @@ Run store upgrade search:
 .\.venv\Scripts\python.exe find_store_upgrades.py --base-profile playoff_pt --tier-max gold --min-gain 5 --html-output outputs\store_upgrades_gold.html
 ```
 
+An optimizer preset automatically uses the optimizer-aware upgrade finder:
+
+```powershell
+.\.venv\Scripts\python.exe find_store_upgrades.py --preset my_optimizer_preset --max-price 50000 --exact-results 2
+```
+
 Run focused validation:
 
 ```powershell
@@ -102,7 +112,7 @@ UI / scripts -> services -> domain -> ingest/export adapters
 
 Roster preparation now follows:
 
-Request -> BuildContext -> scored CandidatePool -> roster selection / upgrade analysis
+Request -> BuildContext -> scored CandidatePool -> SolverInput -> roster optimization / upgrade analysis
 
 Important rule:
 
@@ -115,7 +125,7 @@ Important rule:
   stage timings exposed by `RosterBuildResult.build_timing`
 - scoring environment, simulation context, and final scoring config should be
   passed together as `BuildContext`
-- selection and future optimization should consume `CandidatePool` rather than
+- selection and optimization should consume `CandidatePool` rather than
   independently loading, scoring, or filtering card exports
 - selectable assets use `candidate_id`; duplicate-player constraints use
   `person_key`
@@ -303,15 +313,19 @@ Store upgrades:
 
 - `find_store_upgrades.py` mirrors the useful roster-build filters and simulation context
 - store candidates are filtered by tier/card value/year/live/card type
-- cap and tier-slot replacement legality is intentionally not modeled yet
+- greedy presets use isolated role comparisons
+- optimizer presets solve an owned baseline and broadly compare store cards against
+  the selected split lineups and pitching groups
+- reports default to currently listed cards and rank by purchase price per estimated gain
+- optional exact checks add whole-roster objective gain and assignment changes
 
 ## Current Pain Points
 
 1. Simulation context multipliers need validation and tuning.
 2. Scoring weights need a deeper review.
-3. Greedy roster construction can spend scarce resources in the wrong roles.
-4. Tier slot repair works, but a full optimizer would make better global tradeoffs.
-5. Cap, tier slot, and variant constraints can interact in ways greedy repair cannot fully optimize.
+3. Greedy construction remains less reliable than optimizer builds for coupled constraints.
+4. Exact optimizer upgrade checks can take roughly one normal optimizer solve per card.
+5. Broad direct-role upgrade gains are estimates until an exact check is requested.
 6. HTML diagnostics are useful but still utilitarian.
 7. Command-line roster building is too slow to operate manually for frequent tournament entry.
 
@@ -332,10 +346,10 @@ a permanent scored role. `CandidateMatrices` now materializes sparse defensive
 position capability, split lineup assignment scores, hitter bench utilities,
 and pitcher-role edges from an eligible pool. `SolverInput` unifies the hitter
 and pitcher views of each card and supplies person, cap, variant, cumulative
-tier-slot, lineup, coverage, pitcher-group, and split-weight vectors. The
-current greedy builder does not consume these objects yet. The next major
-architecture work is to translate this contract into binary decision variables,
-linear constraints, and a weighted objective.
+tier-slot, lineup, coverage, pitcher-group, and split-weight vectors. The CP-SAT
+optimizer translates this contract into binary selection and assignment variables.
+The optimizer-aware upgrade finder uses assignment-level comparisons for the broad
+shopping report and reuses the model with a one-store-card limit for optional checks.
 
 Good starting questions:
 
@@ -346,7 +360,8 @@ Good starting questions:
 - Are stamina and pitch-depth gates too harsh or too lenient?
 - Are era and park multipliers changing rosters in believable ways?
 
-Do not jump to a full optimizer until scoring feels more trustworthy.
+Treat surprising optimizer choices first as scoring or constraint diagnostics; keep
+the optimizer objective shared by roster builds and upgrade analysis.
 
 ## Notes for Future Chats
 

@@ -164,13 +164,31 @@ Find store upgrades with the same filters and simulation context used by roster 
 .\.venv\Scripts\python.exe find_store_upgrades.py --base-profile playoff_pt --tier-max gold --min-gain 5 --html-output outputs\store_upgrades_gold.html
 ```
 
+For presets saved with `build_method = "optimizer"`, the finder builds an owned-card
+optimizer baseline and compares every available store card against its actual split
+lineups and pitching groups. The broad report is sorted by current purchase price per
+estimated objective gain. Active sell orders are required by default.
+
+Use a price ceiling for practical shopping and optionally validate the first few
+cost-efficient candidates with full roster re-solves:
+
+```powershell
+.\.venv\Scripts\python.exe find_store_upgrades.py --preset my_optimizer_preset --max-price 50000 --exact-results 2
+```
+
+Exact checks annotate the broad rows with whole-roster objective gain, cards removed
+and added, acquired-card usage in both lineups, and assignment changes. Use
+`--include-unlisted` to include cards without an active sell order.
+
 Simulation context works the same way:
 
 ```powershell
 .\.venv\Scripts\python.exe find_store_upgrades.py --base-profile playoff_pt --tier-max gold --simulation-year 1919 --ballpark "Swampoodle Grounds" --ballpark-year 1886 --park-ba-lh 0.975 --park-ba-rh 0.975 --park-hr-lh 0.975 --park-hr-rh 0.975 --park-2b 1.000 --park-3b 1.000
 ```
 
-Upgrade legality currently focuses on base eligibility filters such as tier, card value, card year, live mode, and card type. It does not enforce changing cap or tier-slot constraints for each candidate replacement.
+Exact optimizer checks enforce the preset's roster-wide cap, variant, and tier-slot
+constraints. Broad comparisons are estimates against current assignments; greedy
+presets retain the original isolated role comparison.
 
 ## Tournament Presets
 
@@ -223,6 +241,7 @@ Common preset fields:
 - `point_cap_total`
 - `variant_limit`
 - `tier_slots`
+- `build_method`: `greedy` or `optimizer`
 
 Card type codes:
 
@@ -237,9 +256,11 @@ Card type codes:
 - `UnH`: Unsung Heroes
 - `VET`: Veteran Presence
 
-## Repair Behavior
+## Build Behavior
 
-Roster construction is still heuristic, not a full optimizer.
+`build_method = "optimizer"` selects the best combined split lineups, bench coverage,
+pitcher groups, and legal roster under the configured constraints. The `greedy` method
+remains available for quick builds and uses the repair passes below.
 
 After the initial build, the script can repair:
 

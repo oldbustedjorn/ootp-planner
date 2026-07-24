@@ -17,6 +17,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", default="config.toml")
     parser.add_argument("--base-profile", default=None)
     parser.add_argument("--preset", default=None)
+    parser.add_argument(
+        "--build-method",
+        choices=["greedy", "optimizer"],
+        default=None,
+        help="Override the preset's roster build method.",
+    )
 
     parser.add_argument("--tier-min", default=None)
     parser.add_argument("--tier-max", default=None)
@@ -48,7 +54,7 @@ def parse_args() -> argparse.Namespace:
         "--min-gain",
         type=float,
         default=5.0,
-        help="Minimum score gain required for an upgrade row.",
+        help="Minimum estimated objective gain required for an upgrade row.",
     )
     parser.add_argument(
         "--include-owned",
@@ -60,6 +66,23 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=25,
         help="Number of top rows to print for hitters and pitchers.",
+    )
+    parser.add_argument(
+        "--exact-results",
+        type=int,
+        default=0,
+        help="Cost-efficient candidates to validate with full optimizer re-solves.",
+    )
+    parser.add_argument(
+        "--max-price",
+        type=int,
+        default=None,
+        help="Maximum estimated purchase price.",
+    )
+    parser.add_argument(
+        "--include-unlisted",
+        action="store_true",
+        help="Include cards without an active sell order.",
     )
     parser.add_argument("--html-output", default=None)
 
@@ -129,12 +152,17 @@ def main() -> None:
             min_gain=args.min_gain,
             include_owned=args.include_owned,
             html_output=args.html_output,
+            build_method=args.build_method,
+            exact_results=args.exact_results,
+            max_price=args.max_price,
+            require_sell_order=not args.include_unlisted,
         )
     )
     ruleset = result.ruleset
 
     print("\n=== STORE UPGRADE RULESET ===")
     print(f"Ruleset: {ruleset.name}")
+    print(f"Build method: {result.build_method}")
     print(f"Tier min/max: {ruleset.tier_min} / {ruleset.tier_max}")
     print(f"Card value min/max: {ruleset.card_value_min} / {ruleset.card_value_max}")
     print(f"Live mode: {ruleset.live_mode}")
@@ -143,6 +171,9 @@ def main() -> None:
     print(f"Card year min/max: {ruleset.card_year_min} / {ruleset.card_year_max}")
     print(f"Scoring environment: {result.scoring_environment.name}")
     print(f"Min gain: {args.min_gain}")
+    print(f"Max price: {args.max_price or '-'}")
+    print(f"Active sell order required: {not args.include_unlisted}")
+    print(f"Exact checks: {args.exact_results}")
     print(f"Include owned store cards: {args.include_owned}")
 
     print("\n=== SIMULATION CONTEXT ===")
@@ -158,6 +189,11 @@ def main() -> None:
     print(f"Owned pitchers eligible: {result.eligibility_summary['owned_pitchers_eligible']}")
     print(f"Store hitters eligible: {result.eligibility_summary['store_hitters_eligible']}")
     print(f"Store pitchers eligible: {result.eligibility_summary['store_pitchers_eligible']}")
+
+    if result.optimization_summary:
+        print("\n=== OPTIMIZER UPGRADE SEARCH ===")
+        for label, value in result.optimization_summary.items():
+            print(f"{label}: {value}")
 
     print("\n=== TOP HITTER UPGRADES ===")
     print_top_rows(result.hitter_upgrades, args.top)

@@ -154,6 +154,20 @@ def solve_roster_optimization(
 ) -> OptimizationSolution:
     settings = settings or OptimizerSettings()
     optimization_model = build_optimization_model(solver_input, settings)
+    return solve_optimization_model(
+        solver_input,
+        optimization_model,
+        settings,
+    )
+
+
+def solve_optimization_model(
+    solver_input: SolverInput,
+    optimization_model: RosterOptimizationModel,
+    settings: OptimizerSettings | None = None,
+) -> OptimizationSolution:
+    settings = settings or OptimizerSettings()
+    validate_settings(settings)
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = settings.time_limit_seconds
     solver.parameters.random_seed = settings.random_seed

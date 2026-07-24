@@ -501,3 +501,21 @@ base_profile = "standard_pt"
 dh_enabled = true
 _gui_title = "pt_reg_preset_008_standard_pt_regular_season"
 build_method = "optimizer"
+
+[tournament_presets.preset_018_t_018_smax_y1986_scs_nodh]
+base_profile = "playoff_pt"
+dh_enabled = false
+simulation_year = 1986
+ballpark_year = 1984
+ballpark = "Jack Murphy Stadium"
+scoring_environment = "silver"
+tier_max = "silver"
+card_year_min = 1930
+card_year_max = 1989
+build_method = "optimizer"
+_gui_title = "daily_T-018-Smax-Y1986-ScS-NoDH"
+_gui_roster_name = "T-018-Smax-Y1986-ScS-NoDH"
+_gui_build_type = "pt_tournament"
+_gui_build_number = 18
+_gui_html_output = "outputs\\gui_t_018_smax_y1986_scs_nodh_20260724_121214.html"
+_gui_note = "Daily Silver Heart"
