@@ -356,25 +356,77 @@ preferred_positions = ["C", "SS", "CF", "2B", "3B", "LF", "RF", "1B"]
 # Simulation year and ballpark can be set independently. Tournament text may use
 # one simulation year with park factors from a different historical park year.
 
-[tournament_presets.preset_015_t_015_dmax_dh]
+[tournament_presets.preset_008_standard_pt_regular_season]
+base_profile = "standard_pt"
+dh_enabled = true
+_gui_title = "pt_reg_preset_008_standard_pt_regular_season"
+build_method = "optimizer"
+
+[tournament_presets.daily_017_t_017_bmax_nl_scb_dh]
 base_profile = "playoff_pt"
 dh_enabled = true
-tier_max = "diamond"
-variant_limit = 5
-_gui_title = "weekly_T-015-Dmax-DH"
-_gui_roster_name = "T-015-Dmax-DH"
+scoring_environment = "bronze"
+tier_max = "bronze"
+live_mode = "non_live"
+variant_limit = 0
+_gui_title = "daily_return_bronze_T-017-Bmax-NL-ScB-DH"
+_gui_roster_name = "T-017-Bmax-NL-ScB-DH"
 _gui_build_type = "pt_tournament"
-_gui_build_number = 15
-_gui_html_output = "outputs\\gui_t_015_dmax_dh_20260707_145018.html"
-_gui_note = "Wednesday Ice to See You\r\nLast Changed: 7/7/26"
+_gui_build_number = 17
+_gui_html_output = "outputs\\gui_t_017_bmax_nl_scb_dh_20260720_180430.html"
+_gui_note = "Daily Return of the Bronze"
+build_method = "optimizer"
 
-[tournament_presets.preset_015_t_015_dmax_dh.custom_park_factors]
-ba_lh = 1.02
-ba_rh = 1.01
-hr_lh = 1.09
-hr_rh = 1.1
-doubles_overall = 0.97
-triples_overall = 1.038
+[tournament_presets.daily_diamond_heart_1958_no_dh]
+base_profile = "playoff_pt"
+tier_max = "diamond"
+card_year_min = 1930
+card_year_max = 1989
+simulation_year = 1958
+ballpark = "Fenway Park"
+ballpark_year = 1955
+dh_enabled = false
+build_method = "optimizer"
+
+[tournament_presets.daily_diamond_heart_1958_no_dh.custom_park_factors]
+ba_lh = 1.05
+ba_rh = 0.95
+hr_lh = 0.964
+hr_rh = 0.99
+doubles_overall = 1.132
+triples_overall = 0.85
+
+[tournament_presets.goldmax_nonlive_1580cap_variantmax10_DH]
+base_profile = "playoff_pt"
+tier_max = "gold"
+live_mode = "non_live"
+point_cap_total = 1580
+variant_limit = 10
+dh_enabled = true
+_gui_title = "daily_gold_cap_nonlive_1580cap_variantmax10_DH"
+_gui_note = "Daily Gold Cap\r\nLast updated: 7/17/26"
+build_method = "optimizer"
+
+[tournament_presets.preset_002_t_002_b_g_y1993_dh_c1858]
+base_profile = "playoff_pt"
+dh_enabled = true
+simulation_year = 1993
+tier_min = "bronze"
+tier_max = "gold"
+live_mode = "all"
+point_cap_total = 1858
+variant_limit = 8
+_gui_title = "weekly_tuesday_sporer_sandlot_T_002_b_g_y1993_dh_c1858"
+_gui_note = "Tuesday Sporer's Sandlot"
+build_method = "optimizer"
+
+[tournament_presets.preset_002_t_002_b_g_y1993_dh_c1858.custom_park_factors]
+ba_lh = 1.05
+ba_rh = 1.05
+hr_lh = 1.22
+hr_rh = 0.78
+doubles_overall = 1.03
+triples_overall = 0.98
 
 [tournament_presets.preset_003_t_003_bmax_y1955_nodh_c1275]
 base_profile = "playoff_pt"
@@ -386,49 +438,17 @@ tier_max = "bronze"
 live_mode = "all"
 point_cap_total = 1275
 variant_limit = 10
-_gui_title = "daily_preset_003_t_003_bmax_y1955_nodh_c1275"
-_gui_note = "Daily Bronze Cap\r\nLast changed: 6/22/26"
+_gui_title = "daily_bronze_cap_T_003_bmax_y1955_nodh_c1275"
+_gui_note = "Daily Bronze Cap\r\nLast changed: 8/2/2026"
+build_method = "optimizer"
 
-[tournament_presets.preset_006_t_006_smax_y1986_nodh]
+[tournament_presets.preset_005_t_005_smax_dh]
 base_profile = "playoff_pt"
-dh_enabled = false
-simulation_year = 1986
-ballpark_year = 1984
-ballpark = "Jack Murphy Stadium"
-tier_max = "silver"
-card_year_min = 1930
-card_year_max = 1989
-_gui_title = "daily_preset_006_t_006_smax_y1986_nodh"
-_gui_note = "Daily Silver Heart\r\nLast changed: 7/17/26"
-
-[tournament_presets.goldmax_nonlive_1580cap_variantmax10_DH]
-base_profile = "playoff_pt"
-tier_max = "gold"
-live_mode = "non_live"
-point_cap_total = 1580
-variant_limit = 10
 dh_enabled = true
-_gui_title = "daily_goldmax_nonlive_1580cap_variantmax10_DH"
-_gui_note = "Daily Gold Cap\r\nLast updated: 7/17/26"
-
-[tournament_presets.daily_diamond_heart_1958_no_dh]
-base_profile = "playoff_pt"
-tier_max = "diamond"
-card_year_min = 1930
-card_year_max = 1989
-simulation_year = 1958
-ballpark = "Fenway Park"
-ballpark_year = 1955
-dh_enabled = false
-_gui_note = "Last updated 7/17/2026"
-
-[tournament_presets.daily_diamond_heart_1958_no_dh.custom_park_factors]
-ba_lh = 1.05
-ba_rh = 0.95
-hr_lh = 0.964
-hr_rh = 0.99
-doubles_overall = 1.132
-triples_overall = 0.85
+tier_max = "silver"
+variant_limit = 10
+_gui_title = "quick_silver_T_005_smax_dh"
+build_method = "optimizer"
 
 [tournament_presets.q_lowg_unh_snap_rs_1999_dh]
 base_profile = "playoff_pt"
@@ -436,50 +456,8 @@ card_value_max = 84
 allowed_card_types = ["UnH", "Snap", "RS"]
 simulation_year = 1999
 dh_enabled = true
-_gui_title = "quick_lowg_unh_snap_rs_1999_dh"
-_gui_note = "Last changed: 7/18/26"
-
-[tournament_presets.preset_002_t_002_b_g_y1993_dh_c1858]
-base_profile = "playoff_pt"
-dh_enabled = true
-simulation_year = 1993
-tier_min = "bronze"
-tier_max = "gold"
-live_mode = "all"
-point_cap_total = 1858
-variant_limit = 8
-_gui_title = "weekly_preset_002_t_002_b_g_y1993_dh_c1858"
-_gui_note = "Tuesday Sporer's Sandlot\r\nLast changed: 7/20/26"
-
-[tournament_presets.preset_002_t_002_b_g_y1993_dh_c1858.custom_park_factors]
-ba_lh = 1.05
-ba_rh = 1.05
-hr_lh = 1.22
-hr_rh = 0.78
-doubles_overall = 1.03
-triples_overall = 0.98
-
-[tournament_presets.preset_005_t_005_smax_dh]
-base_profile = "playoff_pt"
-dh_enabled = true
-tier_max = "silver"
-variant_limit = 10
-_gui_title = "quick_preset_005_t_005_smax_dh"
-_gui_note = "Last updated: 7/20/26"
-
-[tournament_presets.daily_017_t_017_bmax_nl_scb_dh]
-base_profile = "playoff_pt"
-dh_enabled = true
-scoring_environment = "bronze"
-tier_max = "bronze"
-live_mode = "non_live"
-variant_limit = 0
-_gui_title = "daily_T-017-Bmax-NL-ScB-DH"
-_gui_roster_name = "T-017-Bmax-NL-ScB-DH"
-_gui_build_type = "pt_tournament"
-_gui_build_number = 17
-_gui_html_output = "outputs\\gui_t_017_bmax_nl_scb_dh_20260720_180430.html"
-_gui_note = "Daily Return of the Bronze\r\nLast Updated: 7/20/2026"
+_gui_title = "quick_lowgold_unh_snap_rs_1999_dh"
+build_method = "optimizer"
 
 [tournament_presets.preset_011_t_011_imax_y1987_dh]
 base_profile = "playoff_pt"
@@ -489,18 +467,34 @@ ballpark_year = 1987
 ballpark = "Yankee Stadium"
 tier_max = "iron"
 live_mode = "all"
-_gui_title = "weekly_T-011-Imax-Y1987-DH"
+_gui_title = "weekly_sat_iron_warriors_T-011-Imax-Y1987-DH"
 _gui_roster_name = "T-011-Imax-Y1987-DH"
 _gui_build_type = "pt_tournament"
 _gui_build_number = 11
 _gui_html_output = "outputs\\gui_t_011_imax_y1987_dh_20260703_171137.html"
-_gui_note = "Saturday Iron Warriors\r\nDate changed: 7/21/26"
-
-[tournament_presets.preset_008_standard_pt_regular_season]
-base_profile = "standard_pt"
-dh_enabled = true
-_gui_title = "pt_reg_preset_008_standard_pt_regular_season"
+_gui_note = "Saturday Iron Warriors"
 build_method = "optimizer"
+
+[tournament_presets.preset_015_t_015_dmax_dh]
+base_profile = "playoff_pt"
+dh_enabled = true
+tier_max = "diamond"
+variant_limit = 5
+_gui_title = "weekly_wed_ice_to_see_you_T-015"
+_gui_roster_name = "T-015-Dmax-DH"
+_gui_build_type = "pt_tournament"
+_gui_build_number = 15
+_gui_html_output = "outputs\\gui_t_015_dmax_dh_20260707_145018.html"
+_gui_note = "Wednesday Ice to See You"
+build_method = "optimizer"
+
+[tournament_presets.preset_015_t_015_dmax_dh.custom_park_factors]
+ba_lh = 1.02
+ba_rh = 1.01
+hr_lh = 1.09
+hr_rh = 1.1
+doubles_overall = 0.97
+triples_overall = 1.038
 
 [tournament_presets.preset_018_t_018_smax_y1986_scs_nodh]
 base_profile = "playoff_pt"
@@ -513,9 +507,25 @@ tier_max = "silver"
 card_year_min = 1930
 card_year_max = 1989
 build_method = "optimizer"
-_gui_title = "daily_T-018-Smax-Y1986-ScS-NoDH"
+_gui_title = "daily_silver_heart_T-018-Smax-Y1986-ScS-NoDH"
 _gui_roster_name = "T-018-Smax-Y1986-ScS-NoDH"
 _gui_build_type = "pt_tournament"
 _gui_build_number = 18
 _gui_html_output = "outputs\\gui_t_018_smax_y1986_scs_nodh_20260724_121214.html"
 _gui_note = "Daily Silver Heart"
+
+[tournament_presets.preset_020_t_020_smax_nl_y1929_scs_nodh]
+base_profile = "playoff_pt"
+dh_enabled = false
+simulation_year = 1929
+ballpark_year = 1912
+ballpark = "Robison Field"
+scoring_environment = "silver"
+tier_max = "silver"
+live_mode = "non_live"
+build_method = "optimizer"
+_gui_title = "daily_late_silver_T-020-Smax-NL-Y1929-ScS-NoDH"
+_gui_roster_name = "T-020-Smax-NL-Y1929-ScS-NoDH"
+_gui_build_type = "pt_tournament"
+_gui_build_number = 20
+_gui_html_output = "outputs\\gui_t_020_smax_nl_y1929_scs_nodh_20260804_151546.html"
