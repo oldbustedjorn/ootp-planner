@@ -529,3 +529,6 @@ _gui_roster_name = "T-020-Smax-NL-Y1929-ScS-NoDH"
 _gui_build_type = "pt_tournament"
 _gui_build_number = 20
 _gui_html_output = "outputs\\gui_t_020_smax_nl_y1929_scs_nodh_20260804_151546.html"
+
+[storage]
+database_path = "state/ootp_planner.sqlite3"

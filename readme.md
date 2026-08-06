@@ -40,6 +40,86 @@ OOTP export paths live in `config.toml` under `[paths]`:
 
 These point at local OOTP files and may need to be changed per machine.
 
+Local application state will use SQLite at the configured `[storage]` path:
+
+```toml
+[storage]
+database_path = "state/ootp_planner.sqlite3"
+```
+
+The database file is local and ignored by Git. SQLite schema initialization and
+numbered migrations are available through `ootp_opt.storage`, but current roster
+builds, presets, and GUI history still use `config.toml` and the existing JSON
+registry until the storage integration is completed.
+
+Preview the current presets and GUI build history before any future import:
+
+```powershell
+.\.venv\Scripts\python.exe preview_storage_import.py
+```
+
+Add `--details` to list every candidate preset and build. The preview validates
+records, reports legacy duplicate IDs and deleted-preset references, checks roster
+report/snapshot availability, and generates deterministic future database IDs.
+It never initializes or writes the configured SQLite database.
+
+Preview cleanup of legacy history and artifacts:
+
+```powershell
+.\.venv\Scripts\python.exe cleanup_legacy_history.py
+```
+
+The cleanup retains the newest successful build for every active preset and only
+targets artifacts referenced exclusively by removed history records. Use
+`--details` to list every proposed deletion. Nothing changes without `--apply`.
+
+```powershell
+.\.venv\Scripts\python.exe cleanup_legacy_history.py --apply
+```
+
+Apply mode verifies that the previewed sources have not changed, creates and
+validates a timestamped ZIP under `state/backups/`, atomically rewrites the JSON
+registry, and then removes approved orphan files. The backup contains the full
+original config, history registry, affected artifacts, and a cleanup manifest.
+The local backup directory is ignored by Git.
+
+Import the previewed presets and retained build history into SQLite:
+
+```powershell
+.\.venv\Scripts\python.exe import_storage.py --apply
+```
+
+The importer creates and verifies a pre-import backup first, initializes schema
+migrations, inserts all application rows in one transaction, verifies counts,
+identities, foreign keys, and database integrity, and rolls back application rows
+if verification fails. It rejects a nonempty target rather than merging silently.
+`config.toml` and the JSON registry remain unchanged and authoritative.
+
+Verify the committed import independently:
+
+```powershell
+.\.venv\Scripts\python.exe import_storage.py --verify
+```
+
+Create and verify general storage backups:
+
+```powershell
+.\.venv\Scripts\python.exe manage_storage_backup.py backup
+.\.venv\Scripts\python.exe manage_storage_backup.py verify state\backups\BACKUP.zip
+```
+
+Restore preview is non-writing. Add `--apply` to restore the archived database;
+add `--include-sources` only when the archived config and JSON history should also
+replace current files. Every applied restore first creates another safety backup.
+
+```powershell
+.\.venv\Scripts\python.exe manage_storage_backup.py restore state\backups\BACKUP.zip
+.\.venv\Scripts\python.exe manage_storage_backup.py restore state\backups\BACKUP.zip --apply
+```
+
+Database capture and restore use SQLite's online backup API and run integrity
+checks instead of copying a potentially active database file directly.
+
 Simulation data lives in package data files:
 
 - `ootp_opt/data/year_era_factors.csv`
@@ -309,14 +389,8 @@ git push
 
 ## Current Direction
 
-The current milestone is a usable roster builder with tournament-style filters,
-repairs, simulation-context scoring, a local UI, preset management, build
-history, store-upgrade actions, and shared build-context/candidate-pool
-contracts. Candidate identities, split lineup assignments, separate lineup
-coverage constraints, configurable pitcher groups, and sparse candidate
-matrices are now in place. A solver-neutral input contract also captures all
-currently modeled roster constraints. The next architecture milestone is
-translating that contract into binary variables, linear constraints, and a
-weighted objective. Pitching jobs such as specialist, long relief, closer,
-stopper, and setup roles can be added as role groups rather than new hard-coded
-roster fields.
+The current milestone is a usable optimizer-backed roster builder with
+tournament filters, simulation-context scoring, preset management, build
+history, store-upgrade analysis, and a functional local web UI. SQLite storage
+scaffolding is now available for the next architecture milestone: durable build
+snapshots and feedback data followed by a more capable application interface.

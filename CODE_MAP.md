@@ -73,6 +73,76 @@ Key function:
 
 - `load_config(path)`
 
+## Package: `ootp_opt.storage`
+
+### `ootp_opt.storage.database`
+
+Configures SQLite connections and resolves the optional `[storage]` database path.
+The storage layer is not yet used by roster builds or the GUI.
+
+Key functions:
+
+- `connect_database(path)`
+- `initialize_database(path)`
+- `database_path_from_config(config)`
+
+### `ootp_opt.storage.migrator`
+
+Discovers and transactionally applies numbered SQL migrations from
+`ootp_opt/storage/migrations/`. Applied versions are recorded in
+`schema_migrations`, and databases newer than the running code are rejected.
+
+### `ootp_opt.storage.repositories`
+
+Defines typed preset and build repository protocols and their SQLite
+implementations. Repository methods do not commit transactions; callers retain
+transaction ownership for atomic imports and application operations.
+
+### `ootp_opt.storage.import_preview`
+
+Reads current TOML presets and JSON GUI history into typed import candidates
+without opening the configured database. It preserves repeated legacy roster IDs
+as source metadata while assigning deterministic unique database identities.
+
+### `preview_storage_import.py`
+
+Command-line wrapper for the read-only storage import preview.
+
+### `ootp_opt.storage.legacy_cleanup`
+
+Plans legacy-history retention using current preset identity rules. Apply mode
+guards against stale previews, creates and verifies a ZIP backup, atomically
+rewrites history, and deletes only unshared artifacts referenced by removed rows.
+
+### `cleanup_legacy_history.py`
+
+Defaults to a read-only cleanup preview. The explicit `--apply` option performs
+the backed-up cleanup.
+
+### `ootp_opt.storage.backup`
+
+Creates versioned ZIP archives containing config, JSON history, and an optional
+consistent SQLite snapshot produced by the online backup API. Manifests contain
+member hashes and sizes. Restore verifies the archive and creates a pre-restore
+safety backup before changing the database or optional source files.
+
+### `ootp_opt.storage.importer`
+
+Imports previewed presets, builds, and artifact references in one transaction.
+It automatically backs up all source state and any existing database, rejects
+nonempty targets, verifies identities/counts/foreign keys/integrity before commit,
+and supports independent read-only post-import verification.
+
+### `import_storage.py`
+
+Defaults to the read-only import preview. Use `--apply` for the guarded import or
+`--verify` to compare an existing database with current authoritative sources.
+
+### `manage_storage_backup.py`
+
+CLI for creating, verifying, previewing restore, and explicitly applying storage
+backup archives.
+
 ### `ootp_opt/cli.py`
 
 Original ratings/shortlist CLI.

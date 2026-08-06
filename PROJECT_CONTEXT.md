@@ -338,6 +338,35 @@ Preset and history persistence is now reusable outside the web server through
 `ootp_opt.services.preset_service`, which prepares the project for a stronger web
 UI or a local desktop client.
 
+SQLite storage scaffolding now lives in `ootp_opt.storage`. It provides configured
+connections, foreign-key enforcement, WAL mode, schema-version tracking, and
+transactional numbered migrations. The initial schema can represent presets,
+reproducible build snapshots, selected and eligible cards, assignments, and
+artifacts. Existing TOML presets and JSON history remain authoritative until a
+separate import and repository integration milestone.
+
+Typed SQLite repositories now exist for presets and builds, but runtime services
+do not use them yet. `preview_storage_import.py` performs a read-only conversion
+preview of current TOML presets and JSON history, reports invalid/orphaned records
+and missing artifacts, and assigns deterministic unique IDs without creating a
+database. Legacy history IDs are retained as source metadata because rebuilds
+intentionally reuse them.
+
+`cleanup_legacy_history.py` previews retaining the newest successful record for
+each active preset. Its explicit apply mode verifies unchanged inputs, creates a
+validated ZIP backup with a manifest, rewrites history atomically, and removes
+only existing output artifacts referenced exclusively by discarded records.
+Unrelated output files and artifacts shared with active presets are never scanned
+for deletion.
+
+General storage archives use SQLite's online backup API and contain hashed copies
+of config, JSON history, and the database when present. Restore is guarded by a
+new pre-restore safety backup and can optionally restore source files. The legacy
+importer creates a pre-import archive, writes presets/builds/artifact references
+in one transaction, verifies counts and deterministic identities plus foreign-key
+and integrity checks, and rejects nonempty targets. TOML and JSON remain the live
+authoritative stores until runtime services are switched explicitly.
+
 Candidate and person identities are attached by `CandidatePool`. Configured
 rulesets now expose split-specific lineup assignments, configurable pitcher
 groups, and separate bench-coverage constraints for each lineup. Bench status
