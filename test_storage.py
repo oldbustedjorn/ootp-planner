@@ -1,4 +1,5 @@
 import sqlite3
+from dataclasses import replace
 
 import pytest
 
@@ -191,9 +192,24 @@ def test_sqlite_repositories_round_trip_typed_records():
 
         assert presets.get_by_command_name("gold_test") == preset
         assert presets.list_all() == [preset]
+        updated = presets.update(
+            replace(
+                preset,
+                display_title="Updated Gold Test",
+                rules={"tier_max": "diamond"},
+            )
+        )
+        assert updated.display_title == "Updated Gold Test"
+        assert updated.rules == {"tier_max": "diamond"}
         assert builds.get("build-id") == build
         assert builds.list_all(limit=1) == [build]
         with pytest.raises(ValueError, match="cannot be negative"):
             builds.list_all(limit=-1)
+
+        presets.delete(preset.id)
+        assert presets.get(preset.id) is None
+        assert builds.get("build-id").preset_id is None
+        with pytest.raises(KeyError, match="does not exist"):
+            presets.delete(preset.id)
     finally:
         connection.close()

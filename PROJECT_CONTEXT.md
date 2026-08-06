@@ -119,8 +119,9 @@ Important rule:
 - downstream tools should reuse normalized ingest and domain scoring
 - do not duplicate scoring logic inside roster repair, upgrade search, or future UI layers
 - future UI code should call service functions instead of shelling out to scripts
-- preset and build-history persistence belongs in `ootp_opt.services.preset_service`,
-  not in an HTTP or desktop-client adapter
+- current preset and build-history persistence belongs in
+  `ootp_opt.services.application_state_service`, not in an HTTP or desktop-client
+  adapter
 - roster build performance changes should be compared against the structured
   stage timings exposed by `RosterBuildResult.build_timing`
 - scoring environment, simulation context, and final scoring config should be
@@ -334,23 +335,20 @@ Store upgrades:
 The local UI supports standard Perfect Team, playoff-style Perfect Team, and
 Perfect Team tournament roster builds, including build history, saved presets,
 preset rebuilds, store upgrades, display notes, and stable OOTP roster identity.
-Preset and history persistence is now reusable outside the web server through
-`ootp_opt.services.preset_service`, which prepares the project for a stronger web
-UI or a local desktop client.
+Preset and history persistence is reusable outside the web server through
+`ootp_opt.services.application_state_service`, which prepares the project for a
+stronger web UI or a local desktop client.
 
-SQLite storage scaffolding now lives in `ootp_opt.storage`. It provides configured
-connections, foreign-key enforcement, WAL mode, schema-version tracking, and
-transactional numbered migrations. The initial schema can represent presets,
-reproducible build snapshots, selected and eligible cards, assignments, and
-artifacts. Existing TOML presets and JSON history remain authoritative until a
-separate import and repository integration milestone.
+SQLite storage lives in `ootp_opt.storage`. It provides configured connections,
+foreign-key enforcement, WAL mode, schema-version tracking, and transactional
+numbered migrations. The schema can represent presets, reproducible build
+snapshots, selected and eligible cards, assignments, and artifacts.
 
-Typed SQLite repositories now exist for presets and builds, but runtime services
-do not use them yet. `preview_storage_import.py` performs a read-only conversion
-preview of current TOML presets and JSON history, reports invalid/orphaned records
-and missing artifacts, and assigns deterministic unique IDs without creating a
-database. Legacy history IDs are retained as source metadata because rebuilds
-intentionally reuse them.
+The GUI and named-preset resolution now use the typed SQLite repositories through
+`application_state_service`. SQLite is authoritative for editable presets and
+build history; TOML remains authoritative for paths, scoring, base profiles, and
+other static configuration. `preview_storage_import.py` still provides a
+read-only conversion preview for legacy TOML presets and JSON history.
 
 `cleanup_legacy_history.py` previews retaining the newest successful record for
 each active preset. Its explicit apply mode verifies unchanged inputs, creates a
@@ -364,8 +362,8 @@ of config, JSON history, and the database when present. Restore is guarded by a
 new pre-restore safety backup and can optionally restore source files. The legacy
 importer creates a pre-import archive, writes presets/builds/artifact references
 in one transaction, verifies counts and deterministic identities plus foreign-key
-and integrity checks, and rejects nonempty targets. TOML and JSON remain the live
-authoritative stores until runtime services are switched explicitly.
+and integrity checks, and rejects nonempty targets. TOML and JSON remain migration
+sources and are not modified by normal GUI operations.
 
 Candidate and person identities are attached by `CandidatePool`. Configured
 rulesets now expose split-specific lineup assignments, configurable pitcher

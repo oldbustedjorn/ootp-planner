@@ -16,6 +16,10 @@ class PresetRepository(Protocol):
 
     def add(self, preset: PresetRecord) -> PresetRecord: ...
 
+    def update(self, preset: PresetRecord) -> PresetRecord: ...
+
+    def delete(self, preset_id: str) -> None: ...
+
 
 class BuildRepository(Protocol):
     def list_all(self, *, limit: int | None = None) -> list[BuildRecord]: ...
@@ -84,6 +88,40 @@ class SqlitePresetRepository:
         if stored is None:
             raise RuntimeError(f"Preset {preset.id} was not stored.")
         return stored
+
+    def update(self, preset: PresetRecord) -> PresetRecord:
+        cursor = self.connection.execute(
+            """
+            UPDATE presets
+            SET command_name = ?, display_title = ?, note = ?, base_profile = ?,
+                build_method = ?, rules_json = ?, source = ?,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?
+            """,
+            (
+                preset.command_name,
+                preset.display_title,
+                preset.note,
+                preset.base_profile,
+                preset.build_method,
+                _encode_json(preset.rules),
+                preset.source,
+                preset.id,
+            ),
+        )
+        if cursor.rowcount != 1:
+            raise KeyError(f"Preset {preset.id} does not exist.")
+        stored = self.get(preset.id)
+        if stored is None:
+            raise RuntimeError(f"Preset {preset.id} was not updated.")
+        return stored
+
+    def delete(self, preset_id: str) -> None:
+        cursor = self.connection.execute(
+            "DELETE FROM presets WHERE id = ?", (preset_id,)
+        )
+        if cursor.rowcount != 1:
+            raise KeyError(f"Preset {preset_id} does not exist.")
 
 
 class SqliteBuildRepository:

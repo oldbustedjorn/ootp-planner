@@ -47,10 +47,11 @@ Local application state will use SQLite at the configured `[storage]` path:
 database_path = "state/ootp_planner.sqlite3"
 ```
 
-The database file is local and ignored by Git. SQLite schema initialization and
-numbered migrations are available through `ootp_opt.storage`, but current roster
-builds, presets, and GUI history still use `config.toml` and the existing JSON
-registry until the storage integration is completed.
+The database file is local and ignored by Git. It is the authoritative store for
+GUI presets and build history. `config.toml` remains authoritative for static
+settings such as paths, scoring, base profiles, and storage location. When the
+database exists, roster builds and store-upgrade analysis resolve named presets
+from SQLite; the legacy TOML preset blocks are ignored.
 
 Preview the current presets and GUI build history before any future import:
 
@@ -93,7 +94,8 @@ The importer creates and verifies a pre-import backup first, initializes schema
 migrations, inserts all application rows in one transaction, verifies counts,
 identities, foreign keys, and database integrity, and rolls back application rows
 if verification fails. It rejects a nonempty target rather than merging silently.
-`config.toml` and the JSON registry remain unchanged and authoritative.
+`config.toml` and the JSON registry remain unchanged as migration sources. After
+import, SQLite becomes authoritative for presets and build history.
 
 Verify the committed import independently:
 
@@ -144,8 +146,10 @@ Typical outputs:
 Roster builds are implemented through `ootp_opt.services.roster_build_service`.
 The `build_roster.py` script is a thin command-line wrapper around that service.
 The GUI calls the service directly rather than shelling out to the script.
-Preset and build-history persistence is provided separately by
-`ootp_opt.services.preset_service` so another web or desktop UI can reuse it.
+SQLite preset and build-history persistence is provided by
+`ootp_opt.services.application_state_service` so another web or desktop UI can
+reuse it. Legacy naming, report-path, and migration helpers remain in
+`ootp_opt.services.preset_service`.
 Roster builds and store analysis resolve environment settings into one
 `BuildContext`, then expose scored and ruleset-eligible cards through reusable
 `CandidatePool` objects. Candidate pools attach two identities before filtering:
@@ -179,16 +183,18 @@ Then open:
 http://127.0.0.1:8765
 ```
 
-The first GUI pass supports standard Perfect Team, playoff-style Perfect Team,
-and Perfect Team tournament roster builds. It writes generated reports to
-`outputs/` and tracks GUI-launched builds in `outputs/roster_build_registry.json`.
+The GUI supports standard Perfect Team, playoff-style Perfect Team, and Perfect
+Team tournament roster builds. It writes generated reports to `outputs/` and
+tracks GUI-launched builds in the configured SQLite database. The GUI requires
+an imported database and reports the restore/import command at startup if it is
+missing.
 Leave the OOTP roster name blank to generate a deterministic name capped at the
 game's 30-character roster-name limit. Generated names include a three-digit
 planner reference, such as `T-042-Gmax-v84-NL`, so the full build details can be
 looked up in the GUI history.
 
-The Presets panel lists configured tournament presets from `config.toml`. Selecting
-a preset shows the saved requirements and can:
+The Presets panel lists tournament presets from SQLite. Selecting a preset shows
+the saved requirements and can:
 
 - rebuild the roster to a stable preset report path
 - run store upgrade analysis for that preset

@@ -11,23 +11,26 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
-from ootp_opt.config import load_config
 from ootp_opt.services.preset_service import (
-    append_build_record,
-    append_history_record_as_preset,
-    delete_preset,
     find_record,
     format_build_number,
     infer_build_type_from_base_profile,
-    load_build_records,
     next_build_number,
     preset_name_from_record,
     preset_roster_output_path,
     preset_upgrade_output_path,
     resolve_preset_build_metadata,
     slugify,
-    update_preset_build_method,
-    update_preset_notes,
+)
+from ootp_opt.services.application_state_service import (
+    ApplicationStateError,
+    add_application_preset_from_build,
+    append_application_build_record,
+    delete_application_preset,
+    load_application_build_records,
+    load_runtime_config,
+    update_application_preset_build_method,
+    update_application_preset_notes,
 )
 from ootp_opt.services.roster_build_service import RosterBuildRequest, build_roster
 from ootp_opt.services.store_upgrade_service import (
@@ -80,6 +83,10 @@ def main() -> None:
     parser.add_argument("--config", default="config.toml")
     args = parser.parse_args()
 
+    try:
+        load_application_build_records(args.config)
+    except ApplicationStateError as exc:
+        parser.error(str(exc))
     handler_cls = build_handler(config_path=args.config)
     server = ThreadingHTTPServer((args.host, args.port), handler_cls)
     print(f"OOTP Planner UI running at http://{args.host}:{args.port}")
@@ -147,14 +154,17 @@ def build_handler(config_path: str):
         ) -> None:
             form = form or self.read_form()
             try:
-                build_number = next_build_number(load_build_records())
+                build_number = next_build_number(
+                    load_application_build_records(config_path)
+                )
                 gui_request = build_gui_request(
                     form,
                     config_path=config_path,
                     build_number=build_number,
                 )
                 result = build_roster(gui_request.roster_request)
-                record = append_build_record(
+                record = append_application_build_record(
+                    config_path=config_path,
                     build_number=gui_request.build_number,
                     roster_name=gui_request.roster_name,
                     build_type=gui_request.build_type,
@@ -165,6 +175,14 @@ def build_handler(config_path: str):
                     snapshot_path=result.snapshot_path,
                     status="success",
                     build_method=result.build_method,
+                    objective_score=(
+                        result.optimization_solution.objective_value
+                        if result.optimization_solution is not None
+                        else None
+                    ),
+                    diagnostics={
+                        "total_seconds": result.build_timing.total_seconds,
+                    },
                 )
                 self.respond_html(
                     render_home(
@@ -199,8 +217,8 @@ def build_handler(config_path: str):
                 return
 
             try:
-                cfg = load_config(config_path)
-                records = load_build_records()
+                cfg = load_runtime_config(config_path)
+                records = load_application_build_records(config_path)
                 preset_cfg = cfg.get("tournament_presets", {}).get(preset_name, {})
                 metadata = resolve_preset_build_metadata(
                     preset_name=preset_name,
@@ -227,10 +245,10 @@ def build_handler(config_path: str):
                 build_method = text_value(form, "build_method") or str(
                     preset_cfg.get("build_method") or "greedy"
                 )
-                update_preset_build_method(
-                    Path(config_path),
-                    preset_name,
-                    build_method,
+                update_application_preset_build_method(
+                    config_path=config_path,
+                    preset_name=preset_name,
+                    build_method=build_method,
                 )
                 gui_request = GuiBuildRequest(
                     roster_name=roster_name,
@@ -245,7 +263,8 @@ def build_handler(config_path: str):
                     ),
                 )
                 result = build_roster(gui_request.roster_request)
-                record = append_build_record(
+                record = append_application_build_record(
+                    config_path=config_path,
                     build_number=gui_request.build_number,
                     roster_name=gui_request.roster_name,
                     build_type=gui_request.build_type,
@@ -256,6 +275,14 @@ def build_handler(config_path: str):
                     snapshot_path=result.snapshot_path,
                     status="success",
                     build_method=result.build_method,
+                    objective_score=(
+                        result.optimization_solution.objective_value
+                        if result.optimization_solution is not None
+                        else None
+                    ),
+                    diagnostics={
+                        "total_seconds": result.build_timing.total_seconds,
+                    },
                 )
                 self.respond_html(
                     render_home(
@@ -331,7 +358,7 @@ def build_handler(config_path: str):
         ) -> None:
             form = form or self.read_form()
             record_id = text_value(form, "record_id")
-            records = load_build_records()
+            records = load_application_build_records(config_path)
             record = find_record(records, record_id)
             if record is None:
                 self.respond_text("History record not found", HTTPStatus.NOT_FOUND)
@@ -341,7 +368,7 @@ def build_handler(config_path: str):
                 preset_name = text_value(
                     form, "preset_name"
                 ) or preset_name_from_record(record)
-                append_history_record_as_preset(
+                add_application_preset_from_build(
                     config_path=Path(config_path),
                     record=record,
                     preset_name=preset_name,
@@ -377,7 +404,10 @@ def build_handler(config_path: str):
                 return
 
             try:
-                deleted_files = delete_preset(Path(config_path), preset_name)
+                deleted_files = delete_application_preset(
+                    config_path=config_path,
+                    preset_name=preset_name,
+                )
                 cleanup_suffix = (
                     f" Removed {len(deleted_files)} output file(s)."
                     if deleted_files
@@ -411,8 +441,8 @@ def build_handler(config_path: str):
                 return
 
             try:
-                update_preset_notes(
-                    config_path=Path(config_path),
+                update_application_preset_notes(
+                    config_path=config_path,
                     preset_name=preset_name,
                     title=text_value(form, "title"),
                     note=text_value(form, "note"),
@@ -599,12 +629,12 @@ def render_home(
     selected_record_id: str | None = None,
     selected_preset: str | None = None,
 ) -> str:
-    cfg = load_config(config_path)
+    cfg = load_runtime_config(config_path)
     presets = sorted(cfg.get("tournament_presets", {}).keys())
     selected_preset = (
         selected_preset if selected_preset in presets else first_or_none(presets)
     )
-    records = load_build_records()
+    records = load_application_build_records(config_path)
 
     return f"""<!doctype html>
 <html lang="en">

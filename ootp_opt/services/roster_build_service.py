@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from io import StringIO
 from typing import Any, Literal
 
-from ootp_opt.config import load_config
 from ootp_opt.domain.simulation_context import SimulationContext
 from ootp_opt.domain.scoring_environment import ScoringEnvironment
 from ootp_opt.optimization.candidate_matrices import CandidateMatrices
@@ -63,6 +62,7 @@ from ootp_opt.roster.variant_repair import (
 )
 from ootp_opt.roster.variant_report import print_variant_report
 from ootp_opt.services.build_timing import BuildTimer, BuildTiming
+from ootp_opt.services.application_state_service import load_runtime_config
 from ootp_opt.services.candidate_service import (
     BuildContext,
     CandidatePool,
@@ -112,7 +112,7 @@ class RosterBuildResult:
 
 def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
     timer = BuildTimer()
-    cfg = load_config(request.config_path)
+    cfg = load_runtime_config(request.config_path)
     build_method = resolve_build_method(cfg, request)
     ruleset = build_ruleset(cfg, request)
     context = resolve_build_context(cfg, ruleset)

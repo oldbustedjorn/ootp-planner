@@ -78,7 +78,8 @@ Key function:
 ### `ootp_opt.storage.database`
 
 Configures SQLite connections and resolves the optional `[storage]` database path.
-The storage layer is not yet used by roster builds or the GUI.
+The GUI uses this database for presets and build history. Roster and upgrade
+services use SQLite when resolving named presets from an initialized database.
 
 Key functions:
 
@@ -161,7 +162,7 @@ Responsibilities:
 - map form fields into `RosterBuildRequest`
 - support standard PT, playoff-style PT, and PT tournament builds
 - list configured tournament presets and show preset details
-- delegate preset and build-history persistence to `preset_service`
+- delegate preset and build-history persistence to `application_state_service`
 - call `ootp_opt.services.roster_build_service.build_roster`
 - call `ootp_opt.services.store_upgrade_service.find_store_upgrades`
 - serve generated HTML reports from `outputs/`
@@ -328,15 +329,35 @@ Key classes:
 - `BuildTiming`
 - `BuildTimingStage`
 
-### `ootp_opt.services.preset_service`
+### `ootp_opt.services.application_state_service`
 
-Reusable preset and build-history persistence layer.
+Current SQLite application-state boundary.
 
 Responsibilities:
 
-- record and load GUI build history
-- create presets from build-history records
-- update preset display titles and notes while preserving stable preset IDs
+- overlay SQLite presets onto static TOML configuration for runtime requests
+- list and append GUI build history with unique build IDs and artifact references
+- create, edit, and delete presets transactionally
+- keep normal GUI operations from modifying legacy TOML/JSON migration sources
+- fail clearly when the GUI database has not been imported or restored
+
+Key functions:
+
+- `load_runtime_config(...)`
+- `load_application_build_records(...)`
+- `append_application_build_record(...)`
+- `add_application_preset_from_build(...)`
+- `update_application_preset_notes(...)`
+- `delete_application_preset(...)`
+
+### `ootp_opt.services.preset_service`
+
+Legacy persistence plus reusable preset identity and output-path helpers.
+
+Responsibilities:
+
+- read and migrate legacy JSON GUI build history
+- create and edit legacy TOML presets for migration compatibility
 - resolve the roster identity and report path used when rebuilding a preset
 - delete preset TOML blocks and their owned output files
 - provide stable preset roster and upgrade report paths

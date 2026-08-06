@@ -6,7 +6,6 @@ from typing import Any, Literal
 
 import pandas as pd
 
-from ootp_opt.config import load_config
 from ootp_opt.domain.candidate_identity import CANDIDATE_ID_COLUMN
 from ootp_opt.domain.simulation_context import SimulationContext
 from ootp_opt.domain.scoring_environment import ScoringEnvironment
@@ -50,6 +49,7 @@ from ootp_opt.services.candidate_service import (
     build_candidate_pool,
     resolve_build_context,
 )
+from ootp_opt.services.application_state_service import load_runtime_config
 from ootp_opt.services.rating_service import rate_hitters_df, rate_pitchers_df
 
 
@@ -96,7 +96,7 @@ class UpgradeComputation:
 
 
 def find_store_upgrades(request: StoreUpgradeRequest) -> StoreUpgradeResult:
-    cfg = load_config(request.config_path)
+    cfg = load_runtime_config(request.config_path)
     ruleset = build_ruleset(cfg, request)
     build_method = resolve_upgrade_build_method(cfg, request)
     context = resolve_build_context(cfg, ruleset)
