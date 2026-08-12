@@ -100,10 +100,13 @@ build_method = "optimizer"
 
     preview = preview_existing_state(config_path, history_path)
 
-    assert [preset.command_name for preset in preview.presets] == ["valid"]
+    assert preview.presets[0].command_name == "valid"
+    assert len(preview.presets) == 2
+    assert preview.presets[1].command_name.startswith("roster_")
     assert [candidate.record.source_record_id for candidate in preview.builds] == [
         "orphan"
     ]
+    assert preview.builds[0].record.preset_id == preview.presets[1].id
     assert preview.error_count == 2
     assert preview.warning_count == 1
 

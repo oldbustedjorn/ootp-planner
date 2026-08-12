@@ -6,9 +6,16 @@ from ootp_opt.services.application_state_service import (
     ApplicationStateError,
     add_application_preset_from_build,
     append_application_build_record,
+    archive_application_roster_plan,
+    create_application_roster_plan,
     delete_application_preset,
+    get_application_roster_plan,
+    list_application_roster_plans,
+    list_base_profile_templates,
     load_application_build_records,
     load_runtime_config,
+    rename_application_roster_plan,
+    update_application_roster_plan,
     update_application_preset_build_method,
     update_application_preset_notes,
 )
@@ -32,6 +39,21 @@ output_dir = "outputs"
 
 [roster_base_profiles.playoff_pt]
 mode = "playoff_pt"
+hitter_count = 14
+pitcher_count = 12
+dh_enabled = true
+platoons_allowed = true
+lineup_fill_order = ["C"]
+rotation_size = 4
+primary_rp_count = 6
+specialist_lhp_count = 1
+long_man_count = 1
+bench_roles = []
+
+[roster_base_profiles.playoff_pt.bench_role_requirements.UTIL]
+required_positions_any = ["C"]
+required_positions = []
+preferred_positions = ["C"]
 
 [tournament_presets.stale_toml]
 base_profile = "playoff_pt"
@@ -80,6 +102,8 @@ def test_runtime_config_uses_sqlite_presets_and_keeps_static_toml(tmp_path):
         "build_method": "optimizer",
         "_gui_title": "SQLite Gold",
         "_gui_note": "Stored in SQLite",
+        "_roster_plan_status": "active",
+        "_roster_plan_type": "pt_tournament",
     }
 
 
@@ -137,7 +161,7 @@ def test_preset_edits_and_build_history_write_only_to_sqlite(tmp_path):
     assert load_application_build_records(config_path)[0]["id"] == record["id"]
 
 
-def test_add_and_delete_application_preset_preserves_build_history(tmp_path):
+def test_delete_application_roster_plan_removes_its_build_history(tmp_path):
     config_path = write_config(tmp_path)
     database_path = tmp_path / "planner.sqlite3"
     initialize_database(database_path)
@@ -186,5 +210,80 @@ def test_add_and_delete_application_preset_preserves_build_history(tmp_path):
     assert deleted_files == []
     assert load_runtime_config(config_path)["tournament_presets"] == {}
     builds = load_application_build_records(config_path)
-    assert len(builds) == 1
-    assert builds[0]["preset_name"] == "saved_silver"
+    assert builds == []
+
+
+def test_roster_plan_lifecycle_preserves_invalid_draft_and_stable_id(tmp_path):
+    config_path = write_config(tmp_path)
+    initialize_database(tmp_path / "planner.sqlite3")
+
+    draft = create_application_roster_plan(
+        config_path=config_path,
+        plan_key="new diamond roster",
+        display_title="Daily Diamond",
+        plan_type="pt_tournament",
+        base_profile="playoff_pt",
+        build_method="optimizer",
+        rules={"ballpark": "Not A Real Park", "ballpark_year": 1955},
+    )
+
+    assert draft.lifecycle_status == "draft"
+    assert "ballpark" in draft.validation_errors
+    original_id = draft.id
+
+    corrected, validation = update_application_roster_plan(
+        config_path=config_path,
+        plan_name=draft.command_name,
+        base_profile="playoff_pt",
+        plan_type="pt_tournament",
+        build_method="optimizer",
+        rules={"tier_max": "diamond"},
+    )
+    renamed = rename_application_roster_plan(
+        config_path=config_path,
+        plan_name=draft.command_name,
+        display_title="Diamond Quick",
+    )
+
+    assert validation.is_valid
+    assert corrected.id == original_id
+    assert corrected.validation_errors == {}
+    assert renamed.id == original_id
+    assert renamed.display_title == "Diamond Quick"
+    assert set(list_base_profile_templates(config_path)) == {"playoff_pt"}
+
+    archived = archive_application_roster_plan(
+        config_path=config_path,
+        plan_name=draft.command_name,
+    )
+    assert archived.lifecycle_status == "archived"
+    assert list_application_roster_plans(config_path) == []
+    assert len(list_application_roster_plans(config_path, include_archived=True)) == 1
+    assert draft.command_name not in load_runtime_config(config_path)[
+        "tournament_presets"
+    ]
+
+
+def test_planless_build_run_automatically_creates_roster_plan(tmp_path):
+    config_path = write_config(tmp_path)
+    initialize_database(tmp_path / "planner.sqlite3")
+
+    record = append_application_build_record(
+        config_path=config_path,
+        build_number=31,
+        roster_name="T-031-Gmax",
+        build_type="pt_tournament",
+        preset_name=None,
+        base_profile="playoff_pt",
+        overrides={"tier_max": "gold"},
+        html_output="outputs/roster.html",
+        snapshot_path="outputs/roster.snapshot.json",
+        status="success",
+        build_method="optimizer",
+    )
+
+    assert record["preset_name"].startswith("roster_031_")
+    plan = get_application_roster_plan(config_path, record["preset_name"])
+    assert plan.lifecycle_status == "active"
+    assert plan.rules["tier_max"] == "gold"
+    assert load_application_build_records(config_path)[0]["preset_name"] == plan.command_name

@@ -76,7 +76,7 @@ def preview_existing_state(
     presets = _preview_presets(config, issues)
     preset_by_name = {preset.command_name: preset for preset in presets}
     raw_history = _load_history(history_path, issues)
-    builds = _preview_builds(raw_history, preset_by_name, issues)
+    builds = _preview_builds(raw_history, preset_by_name, presets, issues)
 
     return ImportPreview(
         config_path=config_path,
@@ -230,6 +230,7 @@ def _load_history(
 def _preview_builds(
     raw_history: list[Any],
     preset_by_name: dict[str, PresetRecord],
+    presets: list[PresetRecord],
     issues: list[ImportIssue],
 ) -> list[BuildImportCandidate]:
     source_ids = [
@@ -307,6 +308,37 @@ def _preview_builds(
         overrides = raw_build.get("overrides")
         if not isinstance(overrides, dict):
             overrides = {}
+        build_number = _optional_int(raw_build.get("build_number"))
+        if preset is None:
+            adopted_name = (
+                f"roster_{build_number:03d}_{database_id[:8]}"
+                if build_number is not None
+                else f"roster_{database_id[:8]}"
+            )
+            adopted_rules = {
+                "base_profile": raw_build.get("base_profile") or "playoff_pt",
+                **overrides,
+                "build_method": build_method,
+                "_gui_title": roster_name,
+                "_gui_roster_name": roster_name,
+                "_gui_build_type": build_type,
+            }
+            if build_number is not None:
+                adopted_rules["_gui_build_number"] = build_number
+            preset = PresetRecord(
+                id=str(uuid5(IMPORT_NAMESPACE, f"plan:{database_id}")),
+                command_name=adopted_name,
+                display_title=roster_name,
+                note="Created automatically from legacy build history.",
+                base_profile=str(raw_build.get("base_profile") or "playoff_pt"),
+                build_method=_build_method(build_method),
+                rules=adopted_rules,
+                plan_type=build_type,
+                source="legacy-build-adoption",
+            )
+            presets.append(preset)
+            preset_by_name[adopted_name] = preset
+            preset_name = adopted_name
         request = {
             "base_profile": raw_build.get("base_profile"),
             "preset_name": preset_name,
@@ -324,7 +356,7 @@ def _preview_builds(
                 record=BuildRecord(
                     id=database_id,
                     source_record_id=source_record_id,
-                    build_number=_optional_int(raw_build.get("build_number")),
+                    build_number=build_number,
                     preset_id=preset.id if preset else None,
                     roster_name=roster_name,
                     build_type=build_type,

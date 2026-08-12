@@ -371,6 +371,8 @@ DIRECT_UPGRADE_REPORT_COLUMNS = [
     "candidate",
     "candidate_tier",
     "candidate_value",
+    "card_title",
+    "is_clubhouse_card",
     "best_role",
     "current_player",
     "current_score",
@@ -399,6 +401,8 @@ EXACT_UPGRADE_COLUMNS = [
     "candidate",
     "candidate_tier",
     "candidate_value",
+    "card_title",
+    "is_clubhouse_card",
     "exact_objective_gain",
     "exact_removed_from_roster",
     "exact_other_owned_added",
@@ -471,6 +475,10 @@ def build_direct_upgrade_rows(
                 "candidate": card.get("name", ""),
                 "candidate_tier": card.get("pt_tier", ""),
                 "candidate_value": int(card.get("card_value", 0) or 0),
+                "card_title": card.get("card_title", ""),
+                "is_clubhouse_card": bool(
+                    card.get("is_clubhouse_card", False)
+                ),
                 "best_role": best["role"],
                 "current_player": best["current_player"],
                 "current_score": round(float(best["current_score"]), 2),
@@ -617,6 +625,10 @@ def build_optimizer_upgrade_rows(
                 "candidate": row.get("name", names[upgrade.candidate_id]),
                 "candidate_tier": row.get("pt_tier", ""),
                 "candidate_value": int(row.get("card_value", 0) or 0),
+                "card_title": row.get("card_title", ""),
+                "is_clubhouse_card": bool(
+                    row.get("is_clubhouse_card", False)
+                ),
                 "exact_objective_gain": round(upgrade.objective_gain, 2),
                 "exact_removed_from_roster": removed_names,
                 "exact_other_owned_added": other_added_names,

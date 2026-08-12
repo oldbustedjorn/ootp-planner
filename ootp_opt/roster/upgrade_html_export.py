@@ -100,6 +100,9 @@ def format_value(value: object) -> str:
     if value is None or pd.isna(value):
         return ""
 
+    if isinstance(value, bool) or type(value).__name__ == "bool_":
+        return "Yes" if value else "No"
+
     if isinstance(value, int):
         return escape(f"{value:,}")
 

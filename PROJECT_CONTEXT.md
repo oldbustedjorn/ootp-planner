@@ -119,7 +119,7 @@ Important rule:
 - downstream tools should reuse normalized ingest and domain scoring
 - do not duplicate scoring logic inside roster repair, upgrade search, or future UI layers
 - future UI code should call service functions instead of shelling out to scripts
-- current preset and build-history persistence belongs in
+- current roster-plan and build-run persistence belongs in
   `ootp_opt.services.application_state_service`, not in an HTTP or desktop-client
   adapter
 - roster build performance changes should be compared against the structured
@@ -206,7 +206,11 @@ Base profiles define roster shape:
 - `standard_pt`: 13 hitters, 13 pitchers
 - `playoff_pt`: 14 hitters, 12 pitchers, 4-man rotation, extra bench slot
 
-Tournament presets are named build recipes, not tournament names. They wrap a base profile and add filters/constraints.
+Base profiles are reusable roster-shape templates. Roster plans are persistent
+configured rosters that wrap a base profile and add filters, constraints,
+simulation context, display metadata, and stable identity. A build run is one
+execution of a roster plan. The CLI retains the legacy `--preset` name for roster
+plan lookup compatibility.
 
 Supported preset fields include:
 
@@ -319,6 +323,7 @@ Store upgrades:
   the selected split lineups and pitching groups
 - reports default to currently listed cards and rank by purchase price per estimated gain
 - optional exact checks add whole-roster objective gain and assignment changes
+- reports include card title and Clubhouse Card status derived from the title
 
 ## Current Pain Points
 
@@ -332,23 +337,33 @@ Store upgrades:
 
 ## Next Priority
 
-The local UI supports standard Perfect Team, playoff-style Perfect Team, and
-Perfect Team tournament roster builds, including build history, saved presets,
-preset rebuilds, store upgrades, display notes, and stable OOTP roster identity.
-Preset and history persistence is reusable outside the web server through
-`ootp_opt.services.application_state_service`, which prepares the project for a
-stronger web UI or a local desktop client.
+The next major phase is a stronger web UI or local desktop client. The UI should
+present roster plans as persistent objects: New creates a draft immediately,
+editing preserves entered values when validation fails, and Build creates a run
+under the same stable plan. Plans can be renamed, validated, archived, rebuilt,
+or deleted. Base profiles remain templates rather than user roster records.
+
+The current local UI supports standard Perfect Team, playoff-style Perfect Team,
+and Perfect Team tournament roster builds, including build runs, roster-plan
+rebuilds, store upgrades, display notes, and stable OOTP roster identity. The
+application-state service exposes this lifecycle independently of the web server.
 
 SQLite storage lives in `ootp_opt.storage`. It provides configured connections,
 foreign-key enforcement, WAL mode, schema-version tracking, and transactional
-numbered migrations. The schema can represent presets, reproducible build
+numbered migrations. The schema can represent roster plans, reproducible build
 snapshots, selected and eligible cards, assignments, and artifacts.
 
-The GUI and named-preset resolution now use the typed SQLite repositories through
-`application_state_service`. SQLite is authoritative for editable presets and
-build history; TOML remains authoritative for paths, scoring, base profiles, and
+The GUI and named-plan resolution now use the typed SQLite repositories through
+`application_state_service`. SQLite is authoritative for editable roster plans
+and build runs; TOML remains authoritative for paths, scoring, base profiles, and
 other static configuration. `preview_storage_import.py` still provides a
 read-only conversion preview for legacy TOML presets and JSON history.
+
+Migration 002 adds roster-plan type, lifecycle status, and stored validation
+errors while preserving legacy tables and command names for compatibility. It
+also creates semantic `roster_plans` and `build_runs` views and adopts every
+legacy planless run into a generated plan. Service operations enforce that all
+new runs have a roster plan.
 
 `cleanup_legacy_history.py` previews retaining the newest successful record for
 each active preset. Its explicit apply mode verifies unchanged inputs, creates a

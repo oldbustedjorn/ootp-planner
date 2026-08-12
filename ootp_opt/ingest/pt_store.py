@@ -299,6 +299,12 @@ def load_pt_store_csv(path: str | Path) -> pd.DataFrame:
 
     df["pt_on_active"] = False
     df["pt_title"] = df.get("card_title", "")
+    df["is_clubhouse_card"] = (
+        df["card_title"]
+        .fillna("")
+        .astype(str)
+        .str.contains("clubhouse", case=False, regex=False)
+    )
 
     df["has_buy_order"] = get_numeric_series(df, "buy_order_high") > 0
     df["has_sell_order"] = get_numeric_series(df, "sell_order_low") > 0

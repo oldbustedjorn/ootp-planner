@@ -152,6 +152,8 @@ def test_direct_upgrade_rows_apply_listing_and_price_filters():
                 "sell_order_low": 1200,
                 "buy_order_high": 800,
                 "last_10_price": 1000,
+                "card_title": "Clubhouse Collection Reward - Listed Card",
+                "is_clubhouse_card": True,
             },
             {
                 CANDIDATE_ID_COLUMN: "unlisted",
@@ -177,3 +179,5 @@ def test_direct_upgrade_rows_apply_listing_and_price_filters():
     assert list(rows["candidate"]) == ["Listed Card"]
     assert rows.iloc[0]["purchase_price"] == 1200
     assert rows.iloc[0]["cost_per_gain"] == 85.71
+    assert rows.iloc[0]["card_title"].startswith("Clubhouse")
+    assert bool(rows.iloc[0]["is_clubhouse_card"])

@@ -115,6 +115,7 @@ def find_hitter_upgrades(
                     "candidate": candidate.get("name", ""),
                     "candidate_tier": candidate.get("pt_tier", ""),
                     "candidate_value": candidate.get("card_value", 0),
+                    **upgrade_card_metadata(candidate),
                     "current_score": round(current_score, 2),
                     "candidate_score": round(candidate_score, 2),
                     "gain": round(gain, 2),
@@ -192,6 +193,7 @@ def find_pitcher_upgrades(
                 "candidate": candidate.get("name", ""),
                 "candidate_tier": candidate.get("pt_tier", ""),
                 "candidate_value": candidate.get("card_value", 0),
+                **upgrade_card_metadata(candidate),
                 "current_score": round(current_sp_score, 2),
                 "candidate_score": round(candidate_score, 2),
                 "gain": round(gain, 2),
@@ -225,6 +227,7 @@ def find_pitcher_upgrades(
                 "candidate": candidate.get("name", ""),
                 "candidate_tier": candidate.get("pt_tier", ""),
                 "candidate_value": candidate.get("card_value", 0),
+                **upgrade_card_metadata(candidate),
                 "current_score": round(current_rp_score, 2),
                 "candidate_score": round(candidate_score, 2),
                 "gain": round(gain, 2),
@@ -258,6 +261,7 @@ def find_pitcher_upgrades(
                 "candidate": candidate.get("name", ""),
                 "candidate_tier": candidate.get("pt_tier", ""),
                 "candidate_value": candidate.get("card_value", 0),
+                **upgrade_card_metadata(candidate),
                 "current_score": round(current_lhp_score, 2),
                 "candidate_score": round(candidate_score, 2),
                 "gain": round(gain, 2),
@@ -278,6 +282,13 @@ def find_pitcher_upgrades(
         ascending=[True, False],
         na_position="last",
     ).reset_index(drop=True)
+
+
+def upgrade_card_metadata(candidate: pd.Series) -> dict[str, Any]:
+    return {
+        "card_title": candidate.get("card_title", ""),
+        "is_clubhouse_card": bool(candidate.get("is_clubhouse_card", False)),
+    }
 
 
 def selected_roster_player_keys_from_hitters(hitter_roster: HitterRoster) -> set[str]:

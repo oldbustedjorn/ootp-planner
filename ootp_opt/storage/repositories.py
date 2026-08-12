@@ -10,6 +10,8 @@ from ootp_opt.storage.models import BuildRecord, PresetRecord
 class PresetRepository(Protocol):
     def list_all(self) -> list[PresetRecord]: ...
 
+    def list_active(self) -> list[PresetRecord]: ...
+
     def get(self, preset_id: str) -> PresetRecord | None: ...
 
     def get_by_command_name(self, command_name: str) -> PresetRecord | None: ...
@@ -28,6 +30,8 @@ class BuildRepository(Protocol):
 
     def add(self, build: BuildRecord) -> BuildRecord: ...
 
+    def delete_for_roster_plan(self, roster_plan_id: str) -> int: ...
+
 
 class SqlitePresetRepository:
     def __init__(self, connection: sqlite3.Connection) -> None:
@@ -36,6 +40,16 @@ class SqlitePresetRepository:
     def list_all(self) -> list[PresetRecord]:
         rows = self.connection.execute(
             "SELECT * FROM presets ORDER BY command_name"
+        ).fetchall()
+        return [_preset_from_row(row) for row in rows]
+
+    def list_active(self) -> list[PresetRecord]:
+        rows = self.connection.execute(
+            """
+            SELECT * FROM presets
+            WHERE lifecycle_status != 'archived'
+            ORDER BY command_name
+            """
         ).fetchall()
         return [_preset_from_row(row) for row in rows]
 
@@ -61,6 +75,9 @@ class SqlitePresetRepository:
             "build_method",
             "rules_json",
             "source",
+            "plan_type",
+            "lifecycle_status",
+            "validation_errors_json",
         ]
         values: list[Any] = [
             preset.id,
@@ -71,6 +88,9 @@ class SqlitePresetRepository:
             preset.build_method,
             _encode_json(preset.rules),
             preset.source,
+            preset.plan_type,
+            preset.lifecycle_status,
+            _encode_json(preset.validation_errors),
         ]
         if preset.created_at is not None:
             columns.append("created_at")
@@ -94,7 +114,8 @@ class SqlitePresetRepository:
             """
             UPDATE presets
             SET command_name = ?, display_title = ?, note = ?, base_profile = ?,
-                build_method = ?, rules_json = ?, source = ?,
+                build_method = ?, rules_json = ?, source = ?, plan_type = ?,
+                lifecycle_status = ?, validation_errors_json = ?,
                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
             WHERE id = ?
             """,
@@ -106,6 +127,9 @@ class SqlitePresetRepository:
                 preset.build_method,
                 _encode_json(preset.rules),
                 preset.source,
+                preset.plan_type,
+                preset.lifecycle_status,
+                _encode_json(preset.validation_errors),
                 preset.id,
             ),
         )
@@ -192,6 +216,12 @@ class SqliteBuildRepository:
             raise RuntimeError(f"Build {build.id} was not stored.")
         return stored
 
+    def delete_for_roster_plan(self, roster_plan_id: str) -> int:
+        cursor = self.connection.execute(
+            "DELETE FROM builds WHERE preset_id = ?", (roster_plan_id,)
+        )
+        return cursor.rowcount
+
 
 def _preset_from_row(row: sqlite3.Row) -> PresetRecord:
     return PresetRecord(
@@ -199,6 +229,9 @@ def _preset_from_row(row: sqlite3.Row) -> PresetRecord:
         command_name=str(row["command_name"]),
         display_title=row["display_title"],
         note=row["note"],
+        plan_type=str(row["plan_type"]),
+        lifecycle_status=row["lifecycle_status"],
+        validation_errors=_decode_json(row["validation_errors_json"]),
         base_profile=str(row["base_profile"]),
         build_method=row["build_method"],
         rules=_decode_json(row["rules_json"]),
@@ -237,3 +270,10 @@ def _decode_json(value: str) -> dict[str, Any]:
     if not isinstance(decoded, dict):
         raise ValueError("Stored JSON payload must be an object.")
     return decoded
+
+
+# Canonical names for new application code; old names remain compatible.
+RosterPlanRepository = PresetRepository
+BuildRunRepository = BuildRepository
+SqliteRosterPlanRepository = SqlitePresetRepository
+SqliteBuildRunRepository = SqliteBuildRepository

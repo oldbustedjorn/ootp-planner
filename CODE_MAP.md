@@ -78,8 +78,8 @@ Key function:
 ### `ootp_opt.storage.database`
 
 Configures SQLite connections and resolves the optional `[storage]` database path.
-The GUI uses this database for presets and build history. Roster and upgrade
-services use SQLite when resolving named presets from an initialized database.
+The GUI uses this database for roster plans and build runs. Roster and upgrade
+services use SQLite when resolving named plans from an initialized database.
 
 Key functions:
 
@@ -95,9 +95,14 @@ Discovers and transactionally applies numbered SQL migrations from
 
 ### `ootp_opt.storage.repositories`
 
-Defines typed preset and build repository protocols and their SQLite
+Defines typed roster-plan and build-run repository protocols and their SQLite
 implementations. Repository methods do not commit transactions; callers retain
 transaction ownership for atomic imports and application operations.
+
+Canonical records and repositories use `RosterPlan` and `BuildRun` names. Legacy
+`Preset` and `Build` aliases remain available while CLI and migration code are
+transitioned. Migration 002 adds plan lifecycle and validation fields, adopts
+orphaned history, and exposes semantic `roster_plans` and `build_runs` views.
 
 ### `ootp_opt.storage.import_preview`
 
@@ -161,8 +166,9 @@ Responsibilities:
 - render a roster-build form
 - map form fields into `RosterBuildRequest`
 - support standard PT, playoff-style PT, and PT tournament builds
-- list configured tournament presets and show preset details
-- delegate preset and build-history persistence to `application_state_service`
+- list persistent roster plans and show plan details
+- create a draft plan before running a new build
+- delegate roster-plan and build-run persistence to `application_state_service`
 - call `ootp_opt.services.roster_build_service.build_roster`
 - call `ootp_opt.services.store_upgrade_service.find_store_upgrades`
 - serve generated HTML reports from `outputs/`
@@ -212,6 +218,7 @@ Responsibilities:
 - map numeric store `Card Type` codes to owned-card `pt_type` codes
 - preserve raw store classification fields as debug columns
 - normalize handedness, prices, ownership, tiers, and trainability flags
+- derive `is_clubhouse_card` from `Card Title`
 
 Key functions:
 
@@ -335,9 +342,11 @@ Current SQLite application-state boundary.
 
 Responsibilities:
 
-- overlay SQLite presets onto static TOML configuration for runtime requests
-- list and append GUI build history with unique build IDs and artifact references
-- create, edit, and delete presets transactionally
+- overlay active SQLite roster plans onto static TOML configuration for runtime requests
+- list and append build runs with unique IDs and artifact references
+- create, validate, rename, archive, update, and delete roster plans transactionally
+- persist draft plans and field-level validation errors before a build succeeds
+- ensure every new build run belongs to a roster plan
 - keep normal GUI operations from modifying legacy TOML/JSON migration sources
 - fail clearly when the GUI database has not been imported or restored
 
@@ -346,6 +355,12 @@ Key functions:
 - `load_runtime_config(...)`
 - `load_application_build_records(...)`
 - `append_application_build_record(...)`
+- `create_application_roster_plan(...)`
+- `list_application_roster_plans(...)`
+- `update_application_roster_plan(...)`
+- `rename_application_roster_plan(...)`
+- `archive_application_roster_plan(...)`
+- `validate_application_roster_plan(...)`
 - `add_application_preset_from_build(...)`
 - `update_application_preset_notes(...)`
 - `delete_application_preset(...)`

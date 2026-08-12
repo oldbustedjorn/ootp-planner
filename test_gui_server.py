@@ -222,7 +222,8 @@ def test_render_presets_panel_includes_actions():
     assert 'name="max_price"' in html
     assert 'name="require_sell_order"' in html
     assert "Save Notes" in html
-    assert "Delete Preset" in html
+    assert "Roster Plans" in html
+    assert "Delete Roster Plan" in html
     assert "&lt;=bronze" in html
 
 

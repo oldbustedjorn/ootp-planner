@@ -48,10 +48,24 @@ database_path = "state/ootp_planner.sqlite3"
 ```
 
 The database file is local and ignored by Git. It is the authoritative store for
-GUI presets and build history. `config.toml` remains authoritative for static
+roster plans and build runs. `config.toml` remains authoritative for static
 settings such as paths, scoring, base profiles, and storage location. When the
 database exists, roster builds and store-upgrade analysis resolve named presets
-from SQLite; the legacy TOML preset blocks are ignored.
+from SQLite; the legacy TOML preset blocks are ignored. The `--preset` command
+line option remains as a compatibility name for selecting a roster plan.
+
+Application objects use these meanings:
+
+- a base profile is a reusable roster-shape template
+- a roster plan is a persistent configured roster, including drafts that have
+  validation errors and have not completed a build
+- a build run is one execution of a roster plan and contains its historical
+  result and artifacts
+
+Roster plans have stable IDs and can be renamed, validated, archived, rebuilt,
+or deleted without changing their identity. Every build run belongs to a roster
+plan. The schema migration automatically adopts legacy planless history into
+generated roster plans so existing runs remain accessible.
 
 Preview the current presets and GUI build history before any future import:
 
@@ -146,7 +160,7 @@ Typical outputs:
 Roster builds are implemented through `ootp_opt.services.roster_build_service`.
 The `build_roster.py` script is a thin command-line wrapper around that service.
 The GUI calls the service directly rather than shelling out to the script.
-SQLite preset and build-history persistence is provided by
+SQLite roster-plan and build-run persistence is provided by
 `ootp_opt.services.application_state_service` so another web or desktop UI can
 reuse it. Legacy naming, report-path, and migration helpers remain in
 `ootp_opt.services.preset_service`.
@@ -193,14 +207,14 @@ game's 30-character roster-name limit. Generated names include a three-digit
 planner reference, such as `T-042-Gmax-v84-NL`, so the full build details can be
 looked up in the GUI history.
 
-The Presets panel lists tournament presets from SQLite. Selecting a preset shows
-the saved requirements and can:
+The Roster Plans panel lists persistent builds from SQLite. Selecting a plan
+shows the saved requirements and can:
 
-- rebuild the roster to a stable preset report path
-- run store upgrade analysis for that preset
-- reopen the latest preset roster and upgrade reports
+- rebuild the roster to a stable plan report path
+- run store upgrade analysis for that plan
+- reopen the latest plan roster and upgrade reports
 - save a display title and note, such as the in-game tournament name, without
-  changing the stable preset ID used by commands and report paths
+  changing the stable plan ID used by commands and report paths
 
 Completed GUI builds show their total elapsed time. Generated roster HTML also
 includes a Build Timings section covering ingest and scoring, eligibility,
@@ -275,6 +289,9 @@ Simulation context works the same way:
 Exact optimizer checks enforce the preset's roster-wide cap, variant, and tier-slot
 constraints. Broad comparisons are estimates against current assignments; greedy
 presets retain the original isolated role comparison.
+
+Upgrade reports include the store card title and a `Clubhouse Card` Yes/No
+column. Clubhouse status is detected from `Card Title`.
 
 ## Tournament Presets
 

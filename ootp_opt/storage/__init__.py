@@ -26,12 +26,22 @@ from ootp_opt.storage.migrator import (
     current_schema_version,
     migrate_database,
 )
-from ootp_opt.storage.models import BuildRecord, PresetRecord
+from ootp_opt.storage.models import (
+    BuildRecord,
+    BuildRunRecord,
+    PresetRecord,
+    RosterPlanRecord,
+    RosterPlanStatus,
+)
 from ootp_opt.storage.repositories import (
     BuildRepository,
+    BuildRunRepository,
     PresetRepository,
+    RosterPlanRepository,
     SqliteBuildRepository,
+    SqliteBuildRunRepository,
     SqlitePresetRepository,
+    SqliteRosterPlanRepository,
 )
 
 __all__ = [
@@ -45,10 +55,17 @@ __all__ = [
     "StorageImportResult",
     "BuildRecord",
     "BuildRepository",
+    "BuildRunRecord",
+    "BuildRunRepository",
     "PresetRecord",
     "PresetRepository",
+    "RosterPlanRecord",
+    "RosterPlanRepository",
+    "RosterPlanStatus",
     "SqliteBuildRepository",
+    "SqliteBuildRunRepository",
     "SqlitePresetRepository",
+    "SqliteRosterPlanRepository",
     "connect_database",
     "create_storage_backup",
     "current_schema_version",

@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import html
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -26,9 +26,11 @@ from ootp_opt.services.application_state_service import (
     ApplicationStateError,
     add_application_preset_from_build,
     append_application_build_record,
+    create_application_roster_plan,
     delete_application_preset,
     load_application_build_records,
     load_runtime_config,
+    record_application_roster_plan_error,
     update_application_preset_build_method,
     update_application_preset_notes,
 )
@@ -153,6 +155,7 @@ def build_handler(config_path: str):
             config_path: str,
         ) -> None:
             form = form or self.read_form()
+            plan_name = text_value(form, "preset_name")
             try:
                 build_number = next_build_number(
                     load_application_build_records(config_path)
@@ -162,6 +165,39 @@ def build_handler(config_path: str):
                     config_path=config_path,
                     build_number=build_number,
                 )
+                if gui_request.preset_name is None:
+                    plan_name = safe_roster_plan_key(
+                        gui_request.build_number,
+                        gui_request.roster_name,
+                    )
+                    html_output = preset_roster_output_path(plan_name)
+                    plan = create_application_roster_plan(
+                        config_path=config_path,
+                        plan_key=plan_name,
+                        display_title=gui_request.roster_name,
+                        plan_type=gui_request.build_type,
+                        base_profile=gui_request.roster_request.base_profile
+                        or BUILD_TYPES[gui_request.build_type][1],
+                        build_method=gui_request.roster_request.build_method,
+                        rules={
+                            **gui_request.roster_request.overrides,
+                            "_gui_build_number": gui_request.build_number,
+                            "_gui_html_output": html_output,
+                        },
+                        source="gui-new",
+                    )
+                    if plan.validation_errors:
+                        raise ValueError(next(iter(plan.validation_errors.values())))
+                    gui_request = replace(
+                        gui_request,
+                        preset_name=plan_name,
+                        roster_request=RosterBuildRequest(
+                            config_path=config_path,
+                            preset=plan_name,
+                            html_output=html_output,
+                            build_method=gui_request.roster_request.build_method,
+                        ),
+                    )
                 result = build_roster(gui_request.roster_request)
                 record = append_application_build_record(
                     config_path=config_path,
@@ -197,10 +233,20 @@ def build_handler(config_path: str):
                     )
                 )
             except Exception as exc:
+                if plan_name:
+                    try:
+                        record_application_roster_plan_error(
+                            config_path=config_path,
+                            plan_name=plan_name,
+                            error=exc,
+                        )
+                    except Exception:
+                        pass
                 self.respond_html(
                     render_home(
                         config_path=config_path,
                         error=escape(f"{type(exc).__name__}: {exc}"),
+                        selected_preset=plan_name,
                     ),
                     HTTPStatus.BAD_REQUEST,
                 )
@@ -670,7 +716,7 @@ def render_home(
           {field_select("Build type", "build_type", [(key, label) for key, (label, _) in BUILD_TYPES.items()], "pt_standard")}
           {field_select("Build method", "build_method", [("greedy", "Current builder"), ("optimizer", "Full optimizer")], "greedy")}
           {field_select("Base shape", "base_profile", [("standard_pt", "Regular PT"), ("playoff_pt", "Playoff/Tournament")], "standard_pt")}
-          {field_select("Start from preset", "preset_name", [("", "No preset")] + [(preset, preset) for preset in presets], "")}
+          {field_select("Start from roster plan", "preset_name", [("", "New roster plan")] + [(preset, preset) for preset in presets], "")}
         </div>
 
         <div class="section-heading small">
@@ -761,7 +807,7 @@ def render_presets_panel(
     return f"""
 <section class="preset-panel">
   <div class="section-heading">
-    <h2>Presets</h2>
+    <h2>Roster Plans</h2>
   </div>
   <div class="preset-layout">
     <nav class="preset-list">{preset_links}</nav>
@@ -790,7 +836,7 @@ def render_preset_link(
 def render_preset_detail(preset_name: str | None, preset_cfg: dict[str, Any]) -> str:
     if not preset_name:
         return (
-            '<div class="preset-detail"><p class="muted">No preset selected.</p></div>'
+            '<div class="preset-detail"><p class="muted">No roster plan selected.</p></div>'
         )
 
     roster_output = preset_roster_output_path(preset_name)
@@ -798,6 +844,7 @@ def render_preset_detail(preset_name: str | None, preset_cfg: dict[str, Any]) ->
     title = preset_display_title(preset_name, preset_cfg)
     note = str(preset_cfg.get("_gui_note") or "")
     note_html = f'<p class="preset-note">{escape(note)}</p>' if note else ""
+    validation_html = render_plan_validation_errors(preset_cfg)
 
     return f"""
 <div class="preset-detail">
@@ -808,6 +855,7 @@ def render_preset_detail(preset_name: str | None, preset_cfg: dict[str, Any]) ->
     </div>
   </div>
   {note_html}
+  {validation_html}
   <dl class="preset-fields">
     {render_preset_fields(preset_cfg)}
   </dl>
@@ -833,7 +881,7 @@ def render_preset_detail(preset_name: str | None, preset_cfg: dict[str, Any]) ->
     </form>
     <form method="post" action="/preset-delete">
       <input type="hidden" name="preset_name" value="{escape(preset_name)}">
-      <button type="submit" class="danger">Delete Preset</button>
+      <button type="submit" class="danger">Delete Roster Plan</button>
     </form>
     <div class="preset-report-links">
       {report_link(roster_output, "Open roster") if Path(roster_output).exists() else '<span class="muted">No roster report yet</span>'}
@@ -914,7 +962,7 @@ def format_preset_badges(preset_cfg: dict[str, Any]) -> str:
         badges.append(f"var {preset_cfg['variant_limit']}")
     if preset_cfg.get("tier_slots"):
         badges.append("slots")
-    return " | ".join(badges) or "Preset"
+    return " | ".join(badges) or "Roster plan"
 
 
 def format_range_badge(value_min: Any, value_max: Any, prefix: str = "") -> str:
@@ -958,16 +1006,31 @@ def render_history(
 
 def render_save_history_preset_form(record: dict[str, Any]) -> str:
     if record.get("preset_name"):
-        return '<span class="muted">Preset build</span>'
+        return '<span class="muted">Roster plan run</span>'
 
     suggested = preset_name_from_record(record)
     return f"""
 <form method="post" action="/history-save-preset" class="inline-action">
   <input type="hidden" name="record_id" value="{escape(record.get('id', ''))}">
-  <input type="text" name="preset_name" value="{escape(suggested)}" aria-label="Preset name">
-  <button type="submit">Save as Preset</button>
+  <input type="text" name="preset_name" value="{escape(suggested)}" aria-label="Roster plan name">
+  <button type="submit">Adopt as Roster Plan</button>
 </form>
 """
+
+
+def render_plan_validation_errors(preset_cfg: dict[str, Any]) -> str:
+    errors = preset_cfg.get("_validation_errors") or {}
+    if not errors:
+        return ""
+    items = "".join(
+        f"<li><strong>{escape(field)}</strong>: {escape(message)}</li>"
+        for field, message in errors.items()
+    )
+    return f'<div class="alert error"><strong>Plan needs attention</strong><ul>{items}</ul></div>'
+
+
+def safe_roster_plan_key(build_number: int, roster_name: str) -> str:
+    return f"roster_{build_number:03d}_{slugify(roster_name)}"
 
 
 def build_html_output_path(roster_name: str) -> str:

@@ -16,6 +16,7 @@ from ootp_opt.storage import (
     initialize_database,
     migrate_database,
 )
+from ootp_opt.storage.migrator import MIGRATIONS
 
 
 def test_database_path_uses_default_and_config_override():
@@ -65,6 +66,58 @@ def test_migrations_are_idempotent(tmp_path):
             "SELECT COUNT(*) FROM schema_migrations"
         ).fetchone()[0]
         assert migration_count == LATEST_SCHEMA_VERSION
+    finally:
+        connection.close()
+
+
+def test_roster_plan_migration_adopts_orphan_builds_and_adds_views():
+    connection = connect_database(":memory:")
+    try:
+        connection.executescript(MIGRATIONS[0].sql)
+        connection.execute(
+            """
+            CREATE TABLE schema_migrations (
+                version INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        connection.execute(
+            "INSERT INTO schema_migrations (version, name) VALUES (1, 'core_storage')"
+        )
+        connection.execute(
+            """
+            INSERT INTO builds (
+                id, build_number, roster_name, build_type, build_method, status,
+                model_version, request_json, ruleset_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "orphan-build",
+                22,
+                "T-022-Gmax",
+                "pt_tournament",
+                "optimizer",
+                "success",
+                "legacy",
+                '{"base_profile":"playoff_pt","overrides":{"tier_max":"gold"}}',
+                '{}',
+            ),
+        )
+        connection.commit()
+
+        assert migrate_database(connection) == LATEST_SCHEMA_VERSION
+
+        plan = connection.execute(
+            "SELECT * FROM roster_plans WHERE plan_key LIKE 'roster_022_%'"
+        ).fetchone()
+        run = connection.execute(
+            "SELECT * FROM build_runs WHERE id = 'orphan-build'"
+        ).fetchone()
+        assert plan is not None
+        assert plan["lifecycle_status"] == "active"
+        assert run["roster_plan_id"] == plan["id"]
     finally:
         connection.close()
 
@@ -206,9 +259,10 @@ def test_sqlite_repositories_round_trip_typed_records():
         with pytest.raises(ValueError, match="cannot be negative"):
             builds.list_all(limit=-1)
 
+        assert builds.delete_for_roster_plan(preset.id) == 1
         presets.delete(preset.id)
         assert presets.get(preset.id) is None
-        assert builds.get("build-id").preset_id is None
+        assert builds.get("build-id") is None
         with pytest.raises(KeyError, match="does not exist"):
             presets.delete(preset.id)
     finally:
