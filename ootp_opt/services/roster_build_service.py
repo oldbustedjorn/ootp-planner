@@ -22,6 +22,7 @@ from ootp_opt.roster.builder import (
     selected_hitter_roster_keys,
     validate_no_duplicate_players,
 )
+from ootp_opt.roster.bullpen_usage import assign_middle_relief_usage
 from ootp_opt.roster.cap_repair import (
     CapRepairResult,
     print_cap_repair_result,
@@ -37,9 +38,11 @@ from ootp_opt.roster.lineup import (
 )
 from ootp_opt.roster.models import HitterRoster, PitcherRoster
 from ootp_opt.roster.roster_snapshot import (
+    RemovedRosterCard,
     build_roster_snapshot,
     compare_snapshots,
     load_snapshot,
+    removed_roster_cards,
     snapshot_path_for_html,
     write_snapshot,
 )
@@ -104,6 +107,7 @@ class RosterBuildResult:
     report_sections: list[tuple[str, str]]
     build_timing: BuildTiming
     build_method: BuildMethod
+    removed_cards: list[RemovedRosterCard] = field(default_factory=list)
     optimization_solution: OptimizationSolution | None = None
     variant_repair_result: VariantRepairResult | None = None
     tier_slot_repair_result: TierSlotRepairResult | None = None
@@ -399,6 +403,10 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         old_snapshot=old_snapshot,
         new_snapshot=new_snapshot,
     )
+    removed_cards = removed_roster_cards(
+        old_snapshot=old_snapshot,
+        new_snapshot=new_snapshot,
+    )
     timer.checkpoint("Snapshot comparison")
 
     export_roster_html(
@@ -408,6 +416,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         pitcher_roster=pitcher_roster,
         eligibility_summary=eligibility_summary,
         change_statuses=change_statuses,
+        removed_cards=removed_cards,
         tier_slot_repair_result=tier_slot_result,
         simulation_context=simulation_context,
         scoring_environment=scoring_environment,
@@ -459,6 +468,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         report_sections=report_sections,
         build_timing=build_timing,
         build_method=build_method,
+        removed_cards=removed_cards,
         optimization_solution=optimization_solution,
         variant_repair_result=variant_result,
         tier_slot_repair_result=tier_slot_result,
@@ -752,9 +762,9 @@ def add_roster_summary_sections(
     add_text_section(
         report_sections,
         "MIDDLE RELIEF",
-        pitcher_roster.bullpen[["name", "reliever_score_overall"]].to_string(
-            index=False
-        ),
+        assign_middle_relief_usage(pitcher_roster.bullpen)[
+            ["name", "usage_option", "reliever_score_overall"]
+        ].to_string(index=False),
     )
     add_text_section(
         report_sections,

@@ -298,6 +298,7 @@ def load_pt_store_csv(path: str | Path) -> pd.DataFrame:
         df["pt_tier"] = ""
 
     df["pt_on_active"] = False
+    df["is_variant"] = False
     df["pt_title"] = df.get("card_title", "")
     df["is_clubhouse_card"] = (
         df["card_title"]
@@ -335,9 +336,47 @@ def split_store_hitters_pitchers(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Dat
 
 def load_pt_store_hitters_pitchers(
     path: str | Path,
+    clubhouse_shop_path: str | Path | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     df = load_pt_store_csv(path)
+    if clubhouse_shop_path:
+        df = attach_clubhouse_shop_data(df, clubhouse_shop_path)
     return split_store_hitters_pitchers(df)
+
+
+def load_clubhouse_shop_csv(path: str | Path) -> pd.DataFrame:
+    shop = pd.read_csv(path, dtype={"as_of_date": "string"})
+    required = ["player_id", "clubhouse_star_cost", "as_of_date"]
+    missing = [column for column in required if column not in shop.columns]
+    if missing:
+        raise ValueError(f"Clubhouse shop data missing required columns: {missing}")
+
+    shop = shop.copy()
+    shop["player_id"] = pd.to_numeric(shop["player_id"], errors="raise").astype(int)
+    shop["clubhouse_star_cost"] = pd.to_numeric(
+        shop["clubhouse_star_cost"], errors="raise"
+    ).astype(int)
+    if shop["player_id"].duplicated().any():
+        duplicate_ids = sorted(shop.loc[shop["player_id"].duplicated(), "player_id"])
+        raise ValueError(f"Clubhouse shop data has duplicate player IDs: {duplicate_ids}")
+    if (shop["clubhouse_star_cost"] <= 0).any():
+        raise ValueError("Clubhouse Star costs must be positive integers.")
+    if shop["as_of_date"].fillna("").str.strip().eq("").any():
+        raise ValueError("Clubhouse shop data requires an as_of_date for every card.")
+
+    return shop
+
+
+def attach_clubhouse_shop_data(
+    cards: pd.DataFrame,
+    clubhouse_shop_path: str | Path,
+) -> pd.DataFrame:
+    shop = load_clubhouse_shop_csv(clubhouse_shop_path)
+    columns = ["player_id", "clubhouse_star_cost", "as_of_date"]
+    enriched = cards.merge(shop[columns], on="player_id", how="left", validate="one_to_one")
+    enriched = enriched.rename(columns={"as_of_date": "clubhouse_shop_as_of"})
+    enriched["clubhouse_star_cost"] = enriched["clubhouse_star_cost"].astype("Int64")
+    return enriched
 
 
 def build_name(df: pd.DataFrame) -> pd.Series:

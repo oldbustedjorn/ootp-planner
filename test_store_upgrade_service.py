@@ -7,6 +7,7 @@ from ootp_opt.services.store_upgrade_service import (
     build_output_name,
     build_ruleset,
     resolve_upgrade_build_method,
+    summarize_clubhouse_shop_dates,
 )
 
 
@@ -154,6 +155,8 @@ def test_direct_upgrade_rows_apply_listing_and_price_filters():
                 "last_10_price": 1000,
                 "card_title": "Clubhouse Collection Reward - Listed Card",
                 "is_clubhouse_card": True,
+                "clubhouse_star_cost": 50,
+                "clubhouse_shop_as_of": "2026-09-16",
             },
             {
                 CANDIDATE_ID_COLUMN: "unlisted",
@@ -181,3 +184,17 @@ def test_direct_upgrade_rows_apply_listing_and_price_filters():
     assert rows.iloc[0]["cost_per_gain"] == 85.71
     assert rows.iloc[0]["card_title"].startswith("Clubhouse")
     assert bool(rows.iloc[0]["is_clubhouse_card"])
+    assert rows.iloc[0]["clubhouse_star_cost"] == 50
+    assert rows.iloc[0]["pp_per_clubhouse_star"] == 24.0
+
+
+def test_clubhouse_shop_summary_reports_unique_dates():
+    hitters = pd.DataFrame(
+        {"clubhouse_shop_as_of": ["2026-09-16", "2026-09-16", None]}
+    )
+    pitchers = pd.DataFrame({"clubhouse_shop_as_of": ["2026-09-09"]})
+
+    assert (
+        summarize_clubhouse_shop_dates(hitters, pitchers)
+        == "2026-09-09, 2026-09-16"
+    )

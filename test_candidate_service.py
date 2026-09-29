@@ -89,3 +89,36 @@ def test_candidate_pool_rejects_missing_eligible_group():
         pool.require_eligible_cards()
 
     assert str(exc_info.value) == "No eligible hitters after applying filters."
+
+
+def test_owned_candidate_pool_collapses_duplicate_card_copies():
+    cfg = load_config("config.toml")
+    ruleset = build_ruleset_from_base_profile(cfg, base_profile_name="playoff_pt")
+    context = resolve_build_context(cfg, ruleset)
+    identity = {
+        "pt_title": "Snapshot  SS Duplicate Card  ABC  1999",
+        "pt_year": 1999,
+        "card_value": 88,
+        "pt_type": "Snapshot",
+        "pt_subtype": "-",
+        "pt_series": "",
+        "is_variant": False,
+    }
+    hitters = pd.DataFrame(
+        [
+            {"player_id": 100, "name": "Duplicate Card", **identity},
+            {"player_id": 101, "name": "Duplicate Card", **identity},
+        ]
+    )
+    pitchers = pd.DataFrame(
+        [{"player_id": 200, "name": "Pitcher", **identity}]
+    )
+
+    pool = build_candidate_pool(
+        source="owned",
+        context=context,
+        scored_hitters=hitters,
+        scored_pitchers=pitchers,
+    )
+
+    assert pool.scored_counts == (1, 1)

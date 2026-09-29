@@ -22,6 +22,8 @@ def test_upgrade_html_includes_store_card_metadata_columns(tmp_path):
             {
                 "card_title": "Clubhouse - Snapshot Example",
                 "is_clubhouse_card": True,
+                "clubhouse_star_cost": 50,
+                "pp_per_clubhouse_star": 1234.5,
             }
         ]
     )
@@ -30,5 +32,8 @@ def test_upgrade_html_includes_store_card_metadata_columns(tmp_path):
 
     html = output.read_text(encoding="utf-8")
     assert "card_title" in html
-    assert "is_clubhouse_card" in html
+    assert "Clubhouse Card" in html
+    assert "Clubhouse Stars" in html
+    assert "PP / Clubhouse Star" in html
+    assert "1,234.50" in html
     assert ">Yes<" in html

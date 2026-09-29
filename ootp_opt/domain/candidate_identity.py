@@ -5,7 +5,7 @@ from hashlib import sha256
 import json
 import math
 import re
-from typing import Any, Iterable
+from typing import Any, Iterable, Literal
 from urllib.parse import quote
 
 import pandas as pd
@@ -14,6 +14,7 @@ import pandas as pd
 CANDIDATE_ID_COLUMN = "candidate_id"
 PERSON_KEY_COLUMN = "person_key"
 SOURCE_RECORD_ID_COLUMN = "source_record_id"
+DuplicateCandidatePolicy = Literal["error", "collapse"]
 
 
 @dataclass(frozen=True)
@@ -38,13 +39,17 @@ PT_CARD_IDENTITY_SCHEMA = CandidateIdentitySchema(
     source_id_column="player_id",
     name_column="name",
     # Owned-export ID and store Card ID use different number ranges. These
-    # normalized card attributes are shared and unique in the current data.
+    # attributes identify the same card version across both exports. An owned
+    # export may still contain multiple interchangeable inventory copies.
     shared_identity_columns=(
         "name",
+        "pt_title",
         "pt_year",
         "card_value",
         "pt_type",
+        "pt_subtype",
         "pt_series",
+        "is_variant",
     ),
     fallback_columns=(
         "name",
@@ -83,8 +88,17 @@ def build_base_game_identity_schema(save_key: str) -> CandidateIdentitySchema:
 def attach_candidate_identities(
     df: pd.DataFrame,
     schema: CandidateIdentitySchema,
+    *,
+    duplicate_policy: DuplicateCandidatePolicy = "error",
 ) -> pd.DataFrame:
-    """Return a copy with canonical candidate_id and person_key columns."""
+    """Return a copy with canonical candidate_id and person_key columns.
+
+    The owned-card pipeline collapses interchangeable inventory copies after
+    identities are attached. Other sources retain strict duplicate checking.
+    """
+    if duplicate_policy not in {"error", "collapse"}:
+        raise ValueError(f"Unknown duplicate candidate policy '{duplicate_policy}'.")
+
     identified = df.copy()
 
     source_ids = source_identifier_series(identified, schema)
@@ -115,6 +129,11 @@ def attach_candidate_identities(
         CANDIDATE_ID_COLUMN,
     ].drop_duplicates()
     if not duplicate_ids.empty:
+        if duplicate_policy == "collapse":
+            return identified.drop_duplicates(
+                subset=CANDIDATE_ID_COLUMN,
+                keep="first",
+            ).copy()
         examples = ", ".join(duplicate_ids.head(5).astype(str))
         raise ValueError(
             "Candidate identity is not unique within the dataset. "

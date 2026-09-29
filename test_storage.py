@@ -49,6 +49,7 @@ def test_initialize_database_applies_all_migrations(tmp_path):
             "build_players",
             "build_assignments",
             "build_artifacts",
+            "application_counters",
         } <= tables
         assert current_schema_version(connection) == LATEST_SCHEMA_VERSION
     finally:

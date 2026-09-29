@@ -80,7 +80,7 @@ def test_apply_context_changes_scoring_weights_without_mutating_original_config(
     assert adjusted is not cfg
     assert adjusted["hitters"]["power"] != cfg["hitters"]["power"]
     assert adjusted["pitchers"]["sp_hr_rate"] != cfg["pitchers"]["sp_hr_rate"]
-    assert cfg["hitters"]["power"] == pytest.approx(1.15)
+    assert cfg["hitters"]["power"] == pytest.approx(1.10)
 
 
 def test_ruleset_parses_simulation_and_ballpark_fields_from_overrides():

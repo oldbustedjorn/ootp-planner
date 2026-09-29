@@ -3,6 +3,7 @@ online_data_dir = "E:/Out of the Park Developments/OOTP Baseball 27/data/online_
 hitters_csv = "E:/Out of the Park Developments/OOTP Baseball 27/data/online_data/collection_-_manage_cards_collection_-_manage_cards_gpt_batters.csv"
 pitchers_csv = "E:/Out of the Park Developments/OOTP Baseball 27/data/online_data/collection_-_manage_cards_collection_-_manage_cards_gpt_pitchers.csv"
 store_csv = "E:/Out of the Park Developments/OOTP Baseball 27/data/online_data/pt_card_list.csv"
+clubhouse_shop_csv = "ootp_opt/data/clubhouse_shop.csv"
 output_dir = "outputs"
 
 [defaults]
@@ -18,11 +19,11 @@ min_pos_rating = 1.0
 
 # batting weights
 contact = 0.00
-power = 1.15
-eye = 1.00
+power = 1.10
+eye = 0.95
 gap_power = 0.45
-babip = 1.05
-avoid_k = 1.15
+babip = 1.10
+avoid_k = 1.20
 
 # small offensive baserunning bonus
 off_speed = 0.06
@@ -83,119 +84,131 @@ sp_control = 1.10
 sp_movement = 0.00
 
 # reliever weights
-rp_stuff = 1.90
-rp_pbabip = 0.70
+rp_stuff = 1.60
+rp_pbabip = 0.85
 rp_hr_rate = 1.15
-rp_control = 0.75
+rp_control = 1.00
 rp_movement = 0.00
 
 [scoring_environments.iron.pitchers]
 vs_rhb_weight = 0.68
 vs_lhb_weight = 0.32
-rp_stuff_midpoint = 89
-sp_stuff_midpoint = 89
-hra_midpoint = 61
-pbabip_midpoint = 81
-control_midpoint = 74
-control_floor = 45
-control_floor_penalty = 1.5
+rp_stuff_midpoint = 93
+sp_stuff_midpoint = 93
+hra_midpoint = 64
+pbabip_midpoint = 85
+control_midpoint = 78
+sp_control_floor = 45
+sp_control_floor_penalty = 1.5
+rp_control_floor = 45
+rp_control_floor_penalty = 1.5
 
 [scoring_environments.iron.hitters]
-power_midpoint = 61
-avoid_k_midpoint = 89
-babip_midpoint = 81
-gap_midpoint = 77
-eye_midpoint = 74
+power_midpoint = 64
+avoid_k_midpoint = 93
+babip_midpoint = 85
+gap_midpoint = 81
+eye_midpoint = 78
 
 [scoring_environments.bronze.pitchers]
 vs_rhb_weight = 0.57
 vs_lhb_weight = 0.43
-rp_stuff_midpoint = 91
-sp_stuff_midpoint = 91
-hra_midpoint = 72
-pbabip_midpoint = 87
-control_midpoint = 82
-control_floor = 45
-control_floor_penalty = 1.5
+rp_stuff_midpoint = 96
+sp_stuff_midpoint = 96
+hra_midpoint = 76
+pbabip_midpoint = 91
+control_midpoint = 86
+sp_control_floor = 45
+sp_control_floor_penalty = 1.5
+rp_control_floor = 45
+rp_control_floor_penalty = 1.5
 
 [scoring_environments.bronze.hitters]
-power_midpoint = 72
-avoid_k_midpoint = 91
-babip_midpoint = 87
-gap_midpoint = 83
-eye_midpoint = 82
+power_midpoint = 76
+avoid_k_midpoint = 96
+babip_midpoint = 91
+gap_midpoint = 87
+eye_midpoint = 86
 
 [scoring_environments.silver.pitchers]
 vs_rhb_weight = 0.69
 vs_lhb_weight = 0.31
-rp_stuff_midpoint = 92
-sp_stuff_midpoint = 92
-hra_midpoint = 83
-pbabip_midpoint = 92
-control_midpoint = 82
-control_floor = 50
-control_floor_penalty = 2.0
+rp_stuff_midpoint = 97
+sp_stuff_midpoint = 97
+hra_midpoint = 87
+pbabip_midpoint = 97
+control_midpoint = 86
+sp_control_floor = 50
+sp_control_floor_penalty = 2.0
+rp_control_floor = 50
+rp_control_floor_penalty = 2.0
 
 [scoring_environments.silver.hitters]
-power_midpoint = 83
-avoid_k_midpoint = 92
-babip_midpoint = 92
-gap_midpoint = 93
-eye_midpoint = 82
+power_midpoint = 87
+avoid_k_midpoint = 97
+babip_midpoint = 97
+gap_midpoint = 98
+eye_midpoint = 86
 
 [scoring_environments.gold.pitchers]
 vs_rhb_weight = 0.60
 vs_lhb_weight = 0.40
-rp_stuff_midpoint = 95
-sp_stuff_midpoint = 95
-hra_midpoint = 92
-pbabip_midpoint = 97
-control_midpoint = 97
-control_floor = 55
-control_floor_penalty = 2.5
+rp_stuff_midpoint = 100
+sp_stuff_midpoint = 100
+hra_midpoint = 97
+pbabip_midpoint = 102
+control_midpoint = 102
+sp_control_floor = 60
+sp_control_floor_penalty = 3.0
+rp_control_floor = 60
+rp_control_floor_penalty = 3.0
 
 [scoring_environments.gold.hitters]
-power_midpoint = 92
-avoid_k_midpoint = 95
-babip_midpoint = 97
-gap_midpoint = 90
-eye_midpoint = 97
+power_midpoint = 97
+avoid_k_midpoint = 100
+babip_midpoint = 102
+gap_midpoint = 95
+eye_midpoint = 102
 
 [scoring_environments.diamond.pitchers]
 vs_rhb_weight = 0.55
 vs_lhb_weight = 0.45
-rp_stuff_midpoint = 110
-sp_stuff_midpoint = 110
-hra_midpoint = 101
-pbabip_midpoint = 110
-control_midpoint = 92
-control_floor = 55
-control_floor_penalty = 2.5
+rp_stuff_midpoint = 116
+sp_stuff_midpoint = 116
+hra_midpoint = 106
+pbabip_midpoint = 116
+control_midpoint = 97
+sp_control_floor = 65
+sp_control_floor_penalty = 3.0
+rp_control_floor = 65
+rp_control_floor_penalty = 3.0
 
 [scoring_environments.diamond.hitters]
-power_midpoint = 101
-avoid_k_midpoint = 110
-babip_midpoint = 110
-gap_midpoint = 102
-eye_midpoint = 92
+power_midpoint = 106
+avoid_k_midpoint = 116
+babip_midpoint = 116
+gap_midpoint = 107
+eye_midpoint = 97
 
 [scoring_environments.open.pitchers]
 vs_rhb_weight = 0.50
 vs_lhb_weight = 0.50
-rp_stuff_midpoint = 115
-sp_stuff_midpoint = 115
-hra_midpoint = 108
-pbabip_midpoint = 122
-control_midpoint = 105
-control_floor = 55
-control_floor_penalty = 2.5
+rp_stuff_midpoint = 121
+sp_stuff_midpoint = 121
+hra_midpoint = 113
+pbabip_midpoint = 128
+control_midpoint = 110
+sp_control_floor = 70
+sp_control_floor_penalty = 3.0
+rp_control_floor = 65
+rp_control_floor_penalty = 3.0
 
 [scoring_environments.open.hitters]
-power_midpoint = 108
-avoid_k_midpoint = 115
-babip_midpoint = 122
-gap_midpoint = 106
-eye_midpoint = 105
+power_midpoint = 113
+avoid_k_midpoint = 121
+babip_midpoint = 128
+gap_midpoint = 111
+eye_midpoint = 110
 avoid_k_floor = 90
 avoid_k_floor_penalty = 2.0
 babip_floor = 75

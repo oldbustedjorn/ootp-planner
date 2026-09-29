@@ -73,6 +73,21 @@ def safe_cost_per_gain(
     return estimated_price / gain
 
 
+def clubhouse_shop_metadata(
+    candidate: pd.Series,
+    market_price: int | None,
+) -> dict[str, Any]:
+    raw_cost = candidate.get("clubhouse_star_cost")
+    star_cost = None if pd.isna(raw_cost) else int(raw_cost)
+    pp_per_star = None
+    if market_price is not None and star_cost is not None and star_cost > 0:
+        pp_per_star = round(market_price / star_cost, 2)
+    return {
+        "clubhouse_star_cost": star_cost,
+        "pp_per_clubhouse_star": pp_per_star,
+    }
+
+
 def find_hitter_upgrades(
     hitter_roster: HitterRoster,
     store_hitters: pd.DataFrame,
@@ -116,6 +131,7 @@ def find_hitter_upgrades(
                     "candidate_tier": candidate.get("pt_tier", ""),
                     "candidate_value": candidate.get("card_value", 0),
                     **upgrade_card_metadata(candidate),
+                    **clubhouse_shop_metadata(candidate, estimated_price),
                     "current_score": round(current_score, 2),
                     "candidate_score": round(candidate_score, 2),
                     "gain": round(gain, 2),
@@ -194,6 +210,7 @@ def find_pitcher_upgrades(
                 "candidate_tier": candidate.get("pt_tier", ""),
                 "candidate_value": candidate.get("card_value", 0),
                 **upgrade_card_metadata(candidate),
+                **clubhouse_shop_metadata(candidate, estimated_price),
                 "current_score": round(current_sp_score, 2),
                 "candidate_score": round(candidate_score, 2),
                 "gain": round(gain, 2),
@@ -228,6 +245,7 @@ def find_pitcher_upgrades(
                 "candidate_tier": candidate.get("pt_tier", ""),
                 "candidate_value": candidate.get("card_value", 0),
                 **upgrade_card_metadata(candidate),
+                **clubhouse_shop_metadata(candidate, estimated_price),
                 "current_score": round(current_rp_score, 2),
                 "candidate_score": round(candidate_score, 2),
                 "gain": round(gain, 2),
@@ -262,6 +280,7 @@ def find_pitcher_upgrades(
                 "candidate_tier": candidate.get("pt_tier", ""),
                 "candidate_value": candidate.get("card_value", 0),
                 **upgrade_card_metadata(candidate),
+                **clubhouse_shop_metadata(candidate, estimated_price),
                 "current_score": round(current_lhp_score, 2),
                 "candidate_score": round(candidate_score, 2),
                 "gain": round(gain, 2),

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 import pandas as pd
 
@@ -13,6 +14,16 @@ POOLED_ROLE_PREFIXES = {
     "lefty_specialist": ("LHP Specialist ",),
     "long_relief": ("Long Relief ", "Long Man "),
 }
+
+
+@dataclass(frozen=True)
+class RemovedRosterCard:
+    previous_roles: tuple[str, ...]
+    name: str
+    card_value: str
+    pt_tier: str
+    pt_year: str
+    pt_type: str
 
 
 def build_roster_snapshot(
@@ -116,6 +127,42 @@ def compare_snapshots(
             statuses[role] = "changed"
 
     return statuses
+
+
+def removed_roster_cards(
+    old_snapshot: dict[str, str] | None,
+    new_snapshot: dict[str, str],
+) -> list[RemovedRosterCard]:
+    if old_snapshot is None:
+        return []
+
+    new_identities = set(new_snapshot.values())
+    removed_roles: dict[str, list[str]] = {}
+    for role, identity in old_snapshot.items():
+        if identity not in new_identities:
+            removed_roles.setdefault(identity, []).append(role)
+
+    cards = []
+    for identity, roles in removed_roles.items():
+        name, card_value, pt_tier, pt_year, pt_type = parse_card_identity(identity)
+        cards.append(
+            RemovedRosterCard(
+                previous_roles=tuple(sorted(roles)),
+                name=name,
+                card_value=card_value,
+                pt_tier=pt_tier,
+                pt_year=pt_year,
+                pt_type=pt_type,
+            )
+        )
+
+    return sorted(cards, key=lambda card: (card.previous_roles, card.name))
+
+
+def parse_card_identity(identity: str) -> tuple[str, str, str, str, str]:
+    values = str(identity).split("|", maxsplit=4)
+    values.extend([""] * (5 - len(values)))
+    return values[0], values[1], values[2], values[3], values[4]
 
 
 def pooled_role_key(role: str) -> str | None:

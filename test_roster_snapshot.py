@@ -5,6 +5,7 @@ from ootp_opt.roster.roster_snapshot import (
     build_roster_snapshot,
     card_identity,
     compare_snapshots,
+    removed_roster_cards,
 )
 
 
@@ -90,3 +91,30 @@ def test_new_snapshot_uses_middle_and_long_relief_names():
     assert "Long Relief 1" in snapshot
     assert "RP1" not in snapshot
     assert "Long Man 1" not in snapshot
+
+
+def test_removed_roster_cards_lists_cards_absent_from_new_roster():
+    returning = card_identity(row("Returning Player"))
+    departing = card_identity(row("Departing Player"))
+    old_snapshot = {
+        "Starter SS": returning,
+        "Bench 1": departing,
+    }
+    new_snapshot = {
+        "Starter SS": card_identity(row("New Starter")),
+        "Bench 1": returning,
+    }
+
+    removed = removed_roster_cards(old_snapshot, new_snapshot)
+
+    assert len(removed) == 1
+    assert removed[0].name == "Departing Player"
+    assert removed[0].previous_roles == ("Bench 1",)
+    assert removed[0].card_value == "90"
+    assert removed[0].pt_year == "2000"
+
+
+def test_removed_roster_cards_is_empty_for_first_build():
+    new_snapshot = {"Starter SS": card_identity(row("New Starter"))}
+
+    assert removed_roster_cards(None, new_snapshot) == []

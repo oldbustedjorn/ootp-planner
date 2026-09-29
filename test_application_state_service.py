@@ -15,6 +15,7 @@ from ootp_opt.services.application_state_service import (
     load_application_build_records,
     load_runtime_config,
     rename_application_roster_plan,
+    reserve_next_application_build_number,
     update_application_roster_plan,
     update_application_preset_build_method,
     update_application_preset_notes,
@@ -287,3 +288,37 @@ def test_planless_build_run_automatically_creates_roster_plan(tmp_path):
     assert plan.lifecycle_status == "active"
     assert plan.rules["tier_max"] == "gold"
     assert load_application_build_records(config_path)[0]["preset_name"] == plan.command_name
+
+
+def test_roster_reference_reservation_includes_plans_and_never_reuses_numbers(
+    tmp_path,
+):
+    config_path = write_config(tmp_path)
+    database_path = tmp_path / "planner.sqlite3"
+    initialize_database(database_path)
+    connection = connect_database(database_path)
+    try:
+        SqlitePresetRepository(connection).add(
+            PresetRecord(
+                id="plan-22",
+                command_name="weekly_gold_022",
+                display_title="Weekly Gold T-022",
+                base_profile="playoff_pt",
+                build_method="optimizer",
+                rules={"_gui_build_number": 22},
+            )
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    assert reserve_next_application_build_number(config_path) == 23
+
+    connection = connect_database(database_path)
+    try:
+        SqlitePresetRepository(connection).delete("plan-22")
+        connection.commit()
+    finally:
+        connection.close()
+
+    assert reserve_next_application_build_number(config_path) == 24

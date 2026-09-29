@@ -8,6 +8,7 @@ import pandas as pd
 
 from ootp_opt.domain.scoring_environment import ScoringEnvironment
 from ootp_opt.domain.simulation_context import SimulationContext
+from ootp_opt.roster.bullpen_usage import assign_middle_relief_usage
 from ootp_opt.roster.lineup import (
     build_lineup_order,
     assign_position_backups,
@@ -15,6 +16,7 @@ from ootp_opt.roster.lineup import (
     build_pinch_runners,
 )
 from ootp_opt.roster.models import HitterRoster, PitcherRoster
+from ootp_opt.roster.roster_snapshot import RemovedRosterCard
 from ootp_opt.roster.rules import Ruleset
 from ootp_opt.roster.slots import coverage_summary
 from ootp_opt.roster.tier_slot_report import build_tier_slot_rows, normalize_tier_slots
@@ -31,6 +33,7 @@ def export_roster_html(
     pitcher_roster: PitcherRoster,
     eligibility_summary: dict[str, Any] | None = None,
     change_statuses: dict[str, str] | None = None,
+    removed_cards: list[RemovedRosterCard] | None = None,
     tier_slot_repair_result: TierSlotRepairResult | None = None,
     simulation_context: SimulationContext | None = None,
     scoring_environment: ScoringEnvironment | None = None,
@@ -46,6 +49,7 @@ def export_roster_html(
         pitcher_roster=pitcher_roster,
         eligibility_summary=eligibility_summary or {},
         change_statuses=change_statuses or {},
+        removed_cards=removed_cards or [],
         tier_slot_repair_result=tier_slot_repair_result,
         simulation_context=simulation_context,
         scoring_environment=scoring_environment,
@@ -62,6 +66,7 @@ def build_roster_html(
     pitcher_roster: PitcherRoster,
     eligibility_summary: dict[str, Any],
     change_statuses: dict[str, str],
+    removed_cards: list[RemovedRosterCard] | None = None,
     tier_slot_repair_result: TierSlotRepairResult | None = None,
     simulation_context: SimulationContext | None = None,
     scoring_environment: ScoringEnvironment | None = None,
@@ -86,6 +91,7 @@ def build_roster_html(
   {render_tier_slot_summary(ruleset, hitter_roster, pitcher_roster)}
   {render_tier_slot_repair_summary(tier_slot_repair_result)}
   {render_roster_checklist(hitter_roster, pitcher_roster, change_statuses)}
+  {render_removed_cards(removed_cards or [])}
 
   <section class="screen two-col">
     {render_rotation(pitcher_roster)}
@@ -105,6 +111,38 @@ def build_roster_html(
   </section>
 </body>
 </html>
+"""
+
+
+def render_removed_cards(cards: list[RemovedRosterCard]) -> str:
+    if not cards:
+        body = '<p class="muted">None</p>'
+    else:
+        rows = "".join(
+            "<tr>"
+            f"<td>{escape(', '.join(card.previous_roles))}</td>"
+            f"<td>{escape(card.name)}</td>"
+            f"<td class='num'>{escape(card.card_value or '-')}</td>"
+            f"<td>{escape(card.pt_tier or '-')}</td>"
+            f"<td class='num'>{escape(card.pt_year or '-')}</td>"
+            f"<td>{escape(card.pt_type or '-')}</td>"
+            "</tr>"
+            for card in cards
+        )
+        body = f"""
+<table>
+  <thead><tr><th>Previous Role</th><th>Card</th><th>Value</th><th>Tier</th><th>Year</th><th>Type</th></tr></thead>
+  <tbody>{rows}</tbody>
+</table>
+"""
+
+    return f"""
+<section class="screen">
+  <div class="panel">
+    <div class="panel-title">Removed Since Previous Build</div>
+    {body}
+  </div>
+</section>
 """
 
 
@@ -440,9 +478,14 @@ def render_rotation(pitcher_roster: PitcherRoster) -> str:
 def render_bullpen(pitcher_roster: PitcherRoster) -> str:
     rows = []
 
-    for _, row in pitcher_roster.bullpen.iterrows():
+    middle_relief = assign_middle_relief_usage(pitcher_roster.bullpen)
+    for _, row in middle_relief.iterrows():
         rows.append(
-            render_pitcher_role_row(row, role="Middle Relief", usage="Normal Usage")
+            render_pitcher_role_row(
+                row,
+                role="Middle Relief",
+                usage=str(row["usage_option"]),
+            )
         )
 
     for _, row in pitcher_roster.lefty_specialist.iterrows():

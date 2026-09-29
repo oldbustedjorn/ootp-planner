@@ -124,8 +124,17 @@ def build_candidate_pool(
     scored_pitchers: pd.DataFrame,
     identity_schema: CandidateIdentitySchema = PT_CARD_IDENTITY_SCHEMA,
 ) -> CandidatePool:
-    identified_hitters = attach_candidate_identities(scored_hitters, identity_schema)
-    identified_pitchers = attach_candidate_identities(scored_pitchers, identity_schema)
+    duplicate_policy = "collapse" if source == "owned" else "error"
+    identified_hitters = attach_candidate_identities(
+        scored_hitters,
+        identity_schema,
+        duplicate_policy=duplicate_policy,
+    )
+    identified_pitchers = attach_candidate_identities(
+        scored_pitchers,
+        identity_schema,
+        duplicate_policy=duplicate_policy,
+    )
 
     return CandidatePool(
         source=source,

@@ -6,10 +6,13 @@ from ootp_opt.roster.html_export import (
     render_build_timing_summary,
     render_lineup_panel,
     render_optimizer_summary,
+    render_bullpen,
+    render_removed_cards,
 )
 from ootp_opt.config import load_config
 from ootp_opt.roster.rules import build_ruleset_from_base_profile
-from ootp_opt.roster.models import HitterRoster
+from ootp_opt.roster.models import HitterRoster, PitcherRoster
+from ootp_opt.roster.roster_snapshot import RemovedRosterCard
 
 
 def test_format_variant_flag_uses_normalized_boolean():
@@ -102,3 +105,53 @@ def test_lineup_panel_uses_starters_for_requested_split():
     assert "LHP C" in html
     assert "LHP DH" in html
     assert "RHP C" not in html
+
+
+def test_bullpen_renders_score_based_usage_options():
+    middle_relief = pd.DataFrame(
+        {
+            "name": ["Top A", "Top B", "Top C", "Normal A", "Normal B", "Normal C"],
+            "throws": ["R"] * 6,
+            "reliever_score_overall": [465.8, 461.3, 454.2, 422.2, 414.2, 413.1],
+        }
+    )
+    empty = middle_relief.head(0).copy()
+    roster = PitcherRoster(
+        rotation=empty,
+        bullpen=middle_relief,
+        lefty_specialist=empty,
+        long_man=empty,
+        unused_players=empty,
+    )
+
+    html = render_bullpen(roster)
+
+    assert html.count("Use more often") == 3
+    assert html.count("Normal Usage") == 3
+
+
+def test_removed_cards_section_renders_previous_role_and_card_details():
+    html = render_removed_cards(
+        [
+            RemovedRosterCard(
+                previous_roles=("SP4",),
+                name="Former Starter",
+                card_value="91",
+                pt_tier="diamond",
+                pt_year="1998",
+                pt_type="Historical All-Star",
+            )
+        ]
+    )
+
+    assert "Removed Since Previous Build" in html
+    assert "Former Starter" in html
+    assert "SP4" in html
+    assert "Historical All-Star" in html
+
+
+def test_removed_cards_section_is_empty_on_first_build():
+    html = render_removed_cards([])
+
+    assert "Removed Since Previous Build" in html
+    assert ">None<" in html

@@ -324,6 +324,8 @@ Store upgrades:
 - reports default to currently listed cards and rank by purchase price per estimated gain
 - optional exact checks add whole-roster objective gain and assignment changes
 - reports include card title and Clubhouse Card status derived from the title
+- dated Clubhouse Shop data is joined by store card ID from
+  `ootp_opt/data/clubhouse_shop.csv`; reports show Star cost and market PP per Star
 
 ## Current Pain Points
 
@@ -364,6 +366,10 @@ errors while preserving legacy tables and command names for compatibility. It
 also creates semantic `roster_plans` and `build_runs` views and adopts every
 legacy planless run into a generated plan. Service operations enforce that all
 new runs have a roster plan.
+
+Migration 003 adds a transactional, persistent roster-reference counter. New
+`T-NNN` references account for both plans and runs and are not reused after a
+plan or its history is deleted.
 
 `cleanup_legacy_history.py` previews retaining the newest successful record for
 each active preset. Its explicit apply mode verifies unchanged inputs, creates a

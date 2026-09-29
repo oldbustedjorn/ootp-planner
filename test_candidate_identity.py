@@ -54,10 +54,13 @@ def test_pt_card_identity_matches_across_owned_and_store_numeric_formats():
 def test_pt_shared_card_attributes_override_different_export_record_ids():
     card_attributes = {
         "name": "Shared Card",
+        "pt_title": "Snapshot  1B Shared Card  ABC  1999",
         "pt_year": 1999,
         "card_value": 88,
         "pt_type": "Snapshot",
+        "pt_subtype": "-",
         "pt_series": 4,
+        "is_variant": False,
     }
     owned = pd.DataFrame([{"player_id": 123, **card_attributes}])
     store = pd.DataFrame([{"player_id": 85123, **card_attributes}])
@@ -139,6 +142,56 @@ def test_duplicate_candidate_identity_is_rejected():
 
     with pytest.raises(ValueError, match="Candidate identity is not unique"):
         attach_candidate_identities(cards, PT_CARD_IDENTITY_SCHEMA)
+
+
+def test_pt_variant_has_distinct_candidate_identity_from_base_card():
+    common = {
+        "name": "Variant Player",
+        "pt_title": "Special  CF Variant Player  ABC  1999",
+        "pt_year": 1999,
+        "card_value": 88,
+        "pt_type": "Snapshot",
+        "pt_subtype": "-",
+        "pt_series": "Special",
+    }
+    cards = pd.DataFrame(
+        [
+            {"player_id": 100, "is_variant": False, **common},
+            {"player_id": 101, "is_variant": True, **common},
+        ]
+    )
+
+    identified = attach_candidate_identities(cards, PT_CARD_IDENTITY_SCHEMA)
+
+    assert identified[CANDIDATE_ID_COLUMN].nunique() == 2
+
+
+def test_duplicate_owned_card_copies_can_be_collapsed():
+    common = {
+        "name": "Duplicate Card",
+        "pt_title": "Snapshot  SS Duplicate Card  ABC  1999",
+        "pt_year": 1999,
+        "card_value": 88,
+        "pt_type": "Snapshot",
+        "pt_subtype": "-",
+        "pt_series": "",
+        "is_variant": False,
+    }
+    cards = pd.DataFrame(
+        [
+            {"player_id": 100, **common},
+            {"player_id": 101, **common},
+        ]
+    )
+
+    identified = attach_candidate_identities(
+        cards,
+        PT_CARD_IDENTITY_SCHEMA,
+        duplicate_policy="collapse",
+    )
+
+    assert len(identified) == 1
+    assert identified.iloc[0][SOURCE_RECORD_ID_COLUMN] == "100"
 
 
 def test_legacy_name_key_still_blocks_identified_person():

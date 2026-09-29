@@ -7,6 +7,13 @@ from typing import Any
 import pandas as pd
 
 
+COLUMN_LABELS = {
+    "is_clubhouse_card": "Clubhouse Card",
+    "clubhouse_star_cost": "Clubhouse Stars",
+    "pp_per_clubhouse_star": "PP / Clubhouse Star",
+}
+
+
 def export_upgrade_html(
     path: str | Path,
     hitter_upgrades: pd.DataFrame,
@@ -75,7 +82,8 @@ def render_table(df: pd.DataFrame) -> str:
     columns = list(df.columns)
 
     header = "".join(
-        f"<th onclick='sortTable(this)'>{escape(str(col))}</th>" for col in columns
+        f"<th onclick='sortTable(this)'>{escape(COLUMN_LABELS.get(col, str(col)))}</th>"
+        for col in columns
     )
 
     rows = []

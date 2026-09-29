@@ -103,6 +103,8 @@ Canonical records and repositories use `RosterPlan` and `BuildRun` names. Legacy
 `Preset` and `Build` aliases remain available while CLI and migration code are
 transitioned. Migration 002 adds plan lifecycle and validation fields, adopts
 orphaned history, and exposes semantic `roster_plans` and `build_runs` views.
+Migration 003 adds a persistent roster-reference counter so deleted plans and
+history cannot cause a `T-NNN` identifier to be reused.
 
 ### `ootp_opt.storage.import_preview`
 
@@ -355,6 +357,7 @@ Key functions:
 - `load_runtime_config(...)`
 - `load_application_build_records(...)`
 - `append_application_build_record(...)`
+- `reserve_next_application_build_number(...)`
 - `create_application_roster_plan(...)`
 - `list_application_roster_plans(...)`
 - `update_application_roster_plan(...)`
@@ -453,6 +456,7 @@ Responsibilities:
 - apply direct overrides from CLI or future UI requests
 - resolve simulation year and ballpark context
 - score owned cards and store candidates
+- enrich store candidates with dated Clubhouse Shop Star costs when configured
 - build the fresh comparison roster
 - find hitter and pitcher upgrades
 - write store upgrade HTML reports

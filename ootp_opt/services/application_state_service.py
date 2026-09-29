@@ -82,6 +82,60 @@ def load_application_build_records(
     ]
 
 
+def reserve_next_application_build_number(
+    config_path: str | Path = "config.toml",
+) -> int:
+    """Reserve a roster reference that will not be reused after deletion."""
+    with application_connection(config_path) as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        try:
+            stored = connection.execute(
+                """
+                SELECT value
+                FROM application_counters
+                WHERE name = 'roster_reference'
+                """
+            ).fetchone()
+            observed = connection.execute(
+                """
+                SELECT COALESCE(MAX(reference_number), 0)
+                FROM (
+                    SELECT build_number AS reference_number
+                    FROM builds
+                    WHERE build_number IS NOT NULL
+
+                    UNION ALL
+
+                    SELECT CAST(
+                        json_extract(rules_json, '$._gui_build_number') AS INTEGER
+                    )
+                    FROM presets
+                    WHERE json_extract(
+                        rules_json, '$._gui_build_number'
+                    ) IS NOT NULL
+                )
+                """
+            ).fetchone()
+            current_value = int(stored["value"]) if stored is not None else 0
+            observed_value = int(observed[0]) if observed is not None else 0
+            next_value = max(current_value, observed_value) + 1
+            connection.execute(
+                """
+                INSERT INTO application_counters (name, value)
+                VALUES ('roster_reference', ?)
+                ON CONFLICT(name) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                """,
+                (next_value,),
+            )
+            connection.commit()
+            return next_value
+        except Exception:
+            connection.rollback()
+            raise
+
+
 def append_application_build_record(
     *,
     config_path: str | Path,

@@ -15,7 +15,6 @@ from ootp_opt.services.preset_service import (
     find_record,
     format_build_number,
     infer_build_type_from_base_profile,
-    next_build_number,
     preset_name_from_record,
     preset_roster_output_path,
     preset_upgrade_output_path,
@@ -31,6 +30,7 @@ from ootp_opt.services.application_state_service import (
     load_application_build_records,
     load_runtime_config,
     record_application_roster_plan_error,
+    reserve_next_application_build_number,
     update_application_preset_build_method,
     update_application_preset_notes,
 )
@@ -157,9 +157,7 @@ def build_handler(config_path: str):
             form = form or self.read_form()
             plan_name = text_value(form, "preset_name")
             try:
-                build_number = next_build_number(
-                    load_application_build_records(config_path)
-                )
+                build_number = reserve_next_application_build_number(config_path)
                 gui_request = build_gui_request(
                     form,
                     config_path=config_path,
@@ -247,6 +245,7 @@ def build_handler(config_path: str):
                         config_path=config_path,
                         error=escape(f"{type(exc).__name__}: {exc}"),
                         selected_preset=plan_name,
+                        form_values=form,
                     ),
                     HTTPStatus.BAD_REQUEST,
                 )
@@ -271,9 +270,9 @@ def build_handler(config_path: str):
                     preset_cfg=preset_cfg,
                     records=records,
                 )
-                build_number = metadata.get("build_number") or next_build_number(
-                    records
-                )
+                build_number = metadata.get(
+                    "build_number"
+                ) or reserve_next_application_build_number(config_path)
                 build_type = metadata.get(
                     "build_type"
                 ) or infer_build_type_from_base_profile(preset_cfg.get("base_profile"))
@@ -674,6 +673,7 @@ def render_home(
     error: str | None = None,
     selected_record_id: str | None = None,
     selected_preset: str | None = None,
+    form_values: dict[str, list[str]] | None = None,
 ) -> str:
     cfg = load_runtime_config(config_path)
     presets = sorted(cfg.get("tournament_presets", {}).keys())
@@ -681,6 +681,19 @@ def render_home(
         selected_preset if selected_preset in presets else first_or_none(presets)
     )
     records = load_application_build_records(config_path)
+    form_values = form_values or {}
+    selected_card_types = set(list_values(form_values, "allowed_card_types"))
+    has_custom_park_factors = any(
+        submitted_value(form_values, key)
+        for key in [
+            "ba_lh",
+            "ba_rh",
+            "hr_lh",
+            "hr_rh",
+            "doubles_overall",
+            "triples_overall",
+        ]
+    )
 
     return f"""<!doctype html>
 <html lang="en">
@@ -712,31 +725,31 @@ def render_home(
         </div>
 
         <div class="grid two">
-          {field_text("OOTP roster name", "roster_name", placeholder="Blank = auto-name, max 30 chars", maxlength=MAX_OOTP_ROSTER_NAME_LENGTH)}
-          {field_select("Build type", "build_type", [(key, label) for key, (label, _) in BUILD_TYPES.items()], "pt_standard")}
-          {field_select("Build method", "build_method", [("greedy", "Current builder"), ("optimizer", "Full optimizer")], "greedy")}
-          {field_select("Base shape", "base_profile", [("standard_pt", "Regular PT"), ("playoff_pt", "Playoff/Tournament")], "standard_pt")}
-          {field_select("Start from roster plan", "preset_name", [("", "New roster plan")] + [(preset, preset) for preset in presets], "")}
+          {field_text("OOTP roster name", "roster_name", submitted_value(form_values, "roster_name"), placeholder="Blank = auto-name, max 30 chars", maxlength=MAX_OOTP_ROSTER_NAME_LENGTH)}
+          {field_select("Build type", "build_type", [(key, label) for key, (label, _) in BUILD_TYPES.items()], submitted_value(form_values, "build_type", "pt_standard"))}
+          {field_select("Build method", "build_method", [("greedy", "Current builder"), ("optimizer", "Full optimizer")], submitted_value(form_values, "build_method", "greedy"))}
+          {field_select("Base shape", "base_profile", [("standard_pt", "Regular PT"), ("playoff_pt", "Playoff/Tournament")], submitted_value(form_values, "base_profile", "standard_pt"))}
+          {field_select("Start from roster plan", "preset_name", [("", "New roster plan")] + [(preset, preset) for preset in presets], submitted_value(form_values, "preset_name"))}
         </div>
 
         <div class="section-heading small">
           <h3>Scoring Environment</h3>
         </div>
         <div class="grid three">
-          {field_select("Scoring tier", "scoring_environment", [(env, env.title()) for env in SCORING_ENVIRONMENTS], "auto")}
-          {field_number("Simulation year", "simulation_year")}
-          {field_text("Ballpark", "ballpark", placeholder="Fenway Park")}
-          {field_number("Ballpark year", "ballpark_year")}
+          {field_select("Scoring tier", "scoring_environment", [(env, env.title()) for env in SCORING_ENVIRONMENTS], submitted_value(form_values, "scoring_environment", "auto"))}
+          {field_number("Simulation year", "simulation_year", submitted_value(form_values, "simulation_year"))}
+          {field_text("Ballpark", "ballpark", submitted_value(form_values, "ballpark"), placeholder="Fenway Park")}
+          {field_number("Ballpark year", "ballpark_year", submitted_value(form_values, "ballpark_year"))}
         </div>
-        <details>
+        <details{" open" if has_custom_park_factors else ""}>
           <summary>Custom park factors</summary>
           <div class="grid six">
-            {field_number("BA L", "ba_lh", step="0.001")}
-            {field_number("BA R", "ba_rh", step="0.001")}
-            {field_number("HR L", "hr_lh", step="0.001")}
-            {field_number("HR R", "hr_rh", step="0.001")}
-            {field_number("2B", "doubles_overall", step="0.001")}
-            {field_number("3B", "triples_overall", step="0.001")}
+            {field_number("BA L", "ba_lh", submitted_value(form_values, "ba_lh"), step="0.001")}
+            {field_number("BA R", "ba_rh", submitted_value(form_values, "ba_rh"), step="0.001")}
+            {field_number("HR L", "hr_lh", submitted_value(form_values, "hr_lh"), step="0.001")}
+            {field_number("HR R", "hr_rh", submitted_value(form_values, "hr_rh"), step="0.001")}
+            {field_number("2B", "doubles_overall", submitted_value(form_values, "doubles_overall"), step="0.001")}
+            {field_number("3B", "triples_overall", submitted_value(form_values, "triples_overall"), step="0.001")}
           </div>
         </details>
 
@@ -744,29 +757,29 @@ def render_home(
           <h3>Tournament Requirements</h3>
         </div>
         <div class="grid four">
-          {field_select("DH", "dh_enabled", [("", "Default"), ("true", "Yes"), ("false", "No")], "")}
-          {field_select("Tier min", "tier_min", [("", "None")] + [(tier, tier.title()) for tier in TIERS], "")}
-          {field_select("Tier max", "tier_max", [("", "None")] + [(tier, tier.title()) for tier in TIERS], "")}
-          {field_select("Live mode", "live_mode", [("", "Default"), ("all", "All"), ("live", "Live only"), ("non_live", "Non-live")], "")}
-          {field_number("Card value min", "card_value_min")}
-          {field_number("Card value max", "card_value_max")}
-          {field_number("Card year min", "card_year_min")}
-          {field_number("Card year max", "card_year_max")}
-          {field_number("Point cap", "point_cap_total")}
-          {field_number("Variant limit", "variant_limit", placeholder="blank = no limit, 0 = none")}
+          {field_select("DH", "dh_enabled", [("", "Default"), ("true", "Yes"), ("false", "No")], submitted_value(form_values, "dh_enabled"))}
+          {field_select("Tier min", "tier_min", [("", "None")] + [(tier, tier.title()) for tier in TIERS], submitted_value(form_values, "tier_min"))}
+          {field_select("Tier max", "tier_max", [("", "None")] + [(tier, tier.title()) for tier in TIERS], submitted_value(form_values, "tier_max"))}
+          {field_select("Live mode", "live_mode", [("", "Default"), ("all", "All"), ("live", "Live only"), ("non_live", "Non-live")], submitted_value(form_values, "live_mode"))}
+          {field_number("Card value min", "card_value_min", submitted_value(form_values, "card_value_min"))}
+          {field_number("Card value max", "card_value_max", submitted_value(form_values, "card_value_max"))}
+          {field_number("Card year min", "card_year_min", submitted_value(form_values, "card_year_min"))}
+          {field_number("Card year max", "card_year_max", submitted_value(form_values, "card_year_max"))}
+          {field_number("Point cap", "point_cap_total", submitted_value(form_values, "point_cap_total"))}
+          {field_number("Variant limit", "variant_limit", submitted_value(form_values, "variant_limit"), placeholder="blank = no limit, 0 = none")}
         </div>
 
         <fieldset>
           <legend>Allowed card types</legend>
           <div class="checks">
-            {"".join(render_checkbox(card_type) for card_type in CARD_TYPES)}
+            {"".join(render_checkbox(card_type, card_type in selected_card_types) for card_type in CARD_TYPES)}
           </div>
         </fieldset>
 
         <fieldset>
           <legend>Tier slots</legend>
           <div class="grid six">
-            {"".join(field_number(slot, f"slot_{slot}") for slot in TIER_SLOT_KEYS)}
+            {"".join(field_number(slot, f"slot_{slot}", submitted_value(form_values, f"slot_{slot}")) for slot in TIER_SLOT_KEYS)}
           </div>
         </fieldset>
       </form>
@@ -1188,6 +1201,17 @@ def text_value(form: dict[str, list[str]], key: str) -> str | None:
     return value or None
 
 
+def submitted_value(
+    form: dict[str, list[str]],
+    key: str,
+    default: str = "",
+) -> str:
+    values = form.get(key)
+    if not values:
+        return default
+    return str(values[0])
+
+
 def list_values(form: dict[str, list[str]], key: str) -> list[str]:
     return [value.strip() for value in form.get(key, []) if value.strip()]
 
@@ -1240,8 +1264,9 @@ def field_select(
     return f"""<label><span>{escape(label)}</span><select name="{escape(name)}">{option_html}</select></label>"""
 
 
-def render_checkbox(card_type: str) -> str:
-    return f"""<label class="check"><input type="checkbox" name="allowed_card_types" value="{escape(card_type)}"><span>{escape(card_type)}</span></label>"""
+def render_checkbox(card_type: str, checked: bool = False) -> str:
+    checked_attr = " checked" if checked else ""
+    return f"""<label class="check"><input type="checkbox" name="allowed_card_types" value="{escape(card_type)}"{checked_attr}><span>{escape(card_type)}</span></label>"""
 
 
 def render_alert(kind: str, message: str) -> str:

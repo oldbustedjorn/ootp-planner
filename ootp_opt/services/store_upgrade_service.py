@@ -37,6 +37,7 @@ from ootp_opt.roster.rules import (
     build_ruleset_from_tournament_preset,
 )
 from ootp_opt.roster.upgrade_finder import (
+    clubhouse_shop_metadata,
     estimate_purchase_price,
     find_hitter_upgrades,
     find_pitcher_upgrades,
@@ -119,7 +120,12 @@ def find_store_upgrades(request: StoreUpgradeRequest) -> StoreUpgradeResult:
     eligible_pitchers = owned_candidates.eligible_pitchers
 
     store_hitters, store_pitchers = load_pt_store_hitters_pitchers(
-        cfg["paths"]["store_csv"]
+        cfg["paths"]["store_csv"],
+        cfg["paths"].get("clubhouse_shop_csv"),
+    )
+    clubhouse_shop_as_of = summarize_clubhouse_shop_dates(
+        store_hitters,
+        store_pitchers,
     )
 
     scored_store_hitters = rate_hitters_df(store_hitters, context.scoring_config)
@@ -179,6 +185,7 @@ def find_store_upgrades(request: StoreUpgradeRequest) -> StoreUpgradeResult:
             ("Scoring environment source", scoring_environment.source),
             ("Simulation year", simulation_context.simulation_year or "-"),
             ("Ballpark", simulation_context.park.park if simulation_context.park else "-"),
+            ("Clubhouse shop prices as of", clubhouse_shop_as_of),
             *computation.summary.items(),
         ],
     )
@@ -373,6 +380,8 @@ DIRECT_UPGRADE_REPORT_COLUMNS = [
     "candidate_value",
     "card_title",
     "is_clubhouse_card",
+    "clubhouse_star_cost",
+    "pp_per_clubhouse_star",
     "best_role",
     "current_player",
     "current_score",
@@ -403,6 +412,8 @@ EXACT_UPGRADE_COLUMNS = [
     "candidate_value",
     "card_title",
     "is_clubhouse_card",
+    "clubhouse_star_cost",
+    "pp_per_clubhouse_star",
     "exact_objective_gain",
     "exact_removed_from_roster",
     "exact_other_owned_added",
@@ -479,6 +490,7 @@ def build_direct_upgrade_rows(
                 "is_clubhouse_card": bool(
                     card.get("is_clubhouse_card", False)
                 ),
+                **clubhouse_shop_metadata(card, purchase_price),
                 "best_role": best["role"],
                 "current_player": best["current_player"],
                 "current_score": round(float(best["current_score"]), 2),
@@ -629,6 +641,7 @@ def build_optimizer_upgrade_rows(
                 "is_clubhouse_card": bool(
                     row.get("is_clubhouse_card", False)
                 ),
+                **clubhouse_shop_metadata(row, estimated_price),
                 "exact_objective_gain": round(upgrade.objective_gain, 2),
                 "exact_removed_from_roster": removed_names,
                 "exact_other_owned_added": other_added_names,
@@ -655,6 +668,18 @@ def build_optimizer_upgrade_rows(
         )
 
     return pd.DataFrame(rows, columns=EXACT_UPGRADE_COLUMNS)
+
+
+def summarize_clubhouse_shop_dates(*frames: pd.DataFrame) -> str:
+    dates = sorted(
+        {
+            str(value)
+            for frame in frames
+            if "clubhouse_shop_as_of" in frame.columns
+            for value in frame["clubhouse_shop_as_of"].dropna().unique()
+        }
+    )
+    return ", ".join(dates) if dates else "-"
 
 
 def candidate_usage(

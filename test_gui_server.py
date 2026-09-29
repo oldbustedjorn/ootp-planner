@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import ootp_opt.gui.server as gui_server
+
 from ootp_opt.gui.server import (
     MAX_OOTP_ROSTER_NAME_LENGTH,
     build_auto_roster_name,
@@ -11,7 +13,6 @@ from ootp_opt.services.preset_service import (
     append_history_record_as_preset,
     delete_preset,
     delete_preset_block,
-    next_build_number,
     preset_owned_output_paths,
     preset_roster_output_path,
     preset_upgrade_output_path,
@@ -55,6 +56,54 @@ def test_gui_request_accepts_optimizer_build_method():
     )
 
     assert request.roster_request.build_method == "optimizer"
+
+
+def test_render_home_preserves_submitted_build_form_after_error(monkeypatch):
+    monkeypatch.setattr(
+        gui_server,
+        "load_runtime_config",
+        lambda _config_path: {"tournament_presets": {}},
+    )
+    monkeypatch.setattr(
+        gui_server,
+        "load_application_build_records",
+        lambda _config_path: [],
+    )
+
+    html = gui_server.render_home(
+        "config.toml",
+        error="Unknown ballpark",
+        form_values=form(
+            roster_name="My New Roster",
+            build_type="pt_tournament",
+            build_method="optimizer",
+            base_profile="playoff_pt",
+            scoring_environment="diamond",
+            simulation_year="1959",
+            ballpark="Imaginary Park",
+            ballpark_year="1959",
+            ba_lh="1.05",
+            tier_max="diamond",
+            card_value_max="99",
+            allowed_card_types=["UnH", "Snap"],
+            slot_D="2",
+        ),
+    )
+
+    assert 'name="roster_name" value="My New Roster"' in html
+    assert '<option value="pt_tournament" selected>' in html
+    assert '<option value="optimizer" selected>' in html
+    assert '<option value="playoff_pt" selected>' in html
+    assert '<option value="diamond" selected>' in html
+    assert 'name="simulation_year" value="1959"' in html
+    assert 'name="ballpark" value="Imaginary Park"' in html
+    assert 'name="ballpark_year" value="1959"' in html
+    assert "<details open>" in html
+    assert 'name="ba_lh" value="1.05"' in html
+    assert 'name="card_value_max" value="99"' in html
+    assert 'value="UnH" checked' in html
+    assert 'value="Snap" checked' in html
+    assert 'name="slot_D" value="2"' in html
 
 
 def test_blank_standard_pt_roster_name_is_auto_named():
@@ -174,11 +223,6 @@ def test_auto_roster_name_is_capped_at_30_characters():
     )
 
     assert len(name) <= MAX_OOTP_ROSTER_NAME_LENGTH
-
-
-def test_next_build_number_uses_existing_registry_max():
-    assert next_build_number([]) == 1
-    assert next_build_number([{"build_number": 2}, {"build_number": 14}]) == 15
 
 
 def test_preset_output_paths_are_stable():
