@@ -109,6 +109,11 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument("--html-output", default=None)
+    parser.add_argument(
+        "--roster-name",
+        default=None,
+        help="Roster name stored in optimizer automation manifests.",
+    )
 
     parser.add_argument(
         "--debug",
@@ -193,6 +198,7 @@ def main() -> None:
             html_output=args.html_output,
             debug=args.debug,
             build_method=args.build_method,
+            roster_name=args.roster_name,
         )
     )
     print_report_sections(result.report_sections)

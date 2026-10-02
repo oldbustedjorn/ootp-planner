@@ -56,6 +56,7 @@ def test_gui_request_accepts_optimizer_build_method():
     )
 
     assert request.roster_request.build_method == "optimizer"
+    assert request.roster_request.roster_name == "Optimized PT"
 
 
 def test_render_home_preserves_submitted_build_form_after_error(monkeypatch):

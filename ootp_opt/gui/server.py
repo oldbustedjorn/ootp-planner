@@ -194,6 +194,7 @@ def build_handler(config_path: str):
                             preset=plan_name,
                             html_output=html_output,
                             build_method=gui_request.roster_request.build_method,
+                            roster_name=gui_request.roster_name,
                         ),
                     )
                 result = build_roster(gui_request.roster_request)
@@ -207,6 +208,7 @@ def build_handler(config_path: str):
                     overrides=gui_request.roster_request.overrides,
                     html_output=result.html_output,
                     snapshot_path=result.snapshot_path,
+                    automation_manifest_path=result.automation_manifest_path,
                     status="success",
                     build_method=result.build_method,
                     objective_score=(
@@ -225,6 +227,15 @@ def build_handler(config_path: str):
                             f"Built {escape(gui_request.roster_name)} in "
                             f"{result.build_timing.total_seconds:.2f}s. "
                             f"Report: {report_link(result.html_output, 'Open roster')}"
+                            + (
+                                " | "
+                                + report_link(
+                                    result.automation_manifest_path,
+                                    "Automation manifest",
+                                )
+                                if result.automation_manifest_path
+                                else ""
+                            )
                         ),
                         selected_record_id=record["id"],
                         selected_preset=gui_request.preset_name,
@@ -305,6 +316,7 @@ def build_handler(config_path: str):
                         preset=preset_name,
                         html_output=html_output,
                         build_method=build_method,
+                        roster_name=roster_name,
                     ),
                 )
                 result = build_roster(gui_request.roster_request)
@@ -318,6 +330,7 @@ def build_handler(config_path: str):
                     overrides=gui_request.roster_request.overrides,
                     html_output=result.html_output,
                     snapshot_path=result.snapshot_path,
+                    automation_manifest_path=result.automation_manifest_path,
                     status="success",
                     build_method=result.build_method,
                     objective_score=(
@@ -336,6 +349,15 @@ def build_handler(config_path: str):
                             f"Built {escape(gui_request.roster_name)} in "
                             f"{result.build_timing.total_seconds:.2f}s. "
                             f"Report: {report_link(result.html_output, 'Open roster')}"
+                            + (
+                                " | "
+                                + report_link(
+                                    result.automation_manifest_path,
+                                    "Automation manifest",
+                                )
+                                if result.automation_manifest_path
+                                else ""
+                            )
                         ),
                         selected_record_id=record["id"],
                         selected_preset=preset_name,
@@ -518,7 +540,12 @@ def build_handler(config_path: str):
 
             content = report_path.read_bytes()
             self.send_response(HTTPStatus.OK)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
+            content_type = (
+                "application/json; charset=utf-8"
+                if report_path.suffix.lower() == ".json"
+                else "text/html; charset=utf-8"
+            )
+            self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(content)))
             self.end_headers()
             self.wfile.write(content)
@@ -590,6 +617,7 @@ def build_gui_request(
             html_output=html_output,
             debug=False,
             build_method=build_method,
+            roster_name=roster_name,
         ),
     )
 

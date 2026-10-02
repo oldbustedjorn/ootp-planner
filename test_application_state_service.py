@@ -142,6 +142,9 @@ def test_preset_edits_and_build_history_write_only_to_sqlite(tmp_path):
         overrides={},
         html_output=Path("outputs/preset_roster_sqlite_gold.html"),
         snapshot_path=Path("outputs/preset_roster_sqlite_gold.snapshot.json"),
+        automation_manifest_path=Path(
+            "outputs/preset_roster_sqlite_gold.automation.json"
+        ),
         status="success",
         build_method="greedy",
         objective_score=123.5,
@@ -158,8 +161,11 @@ def test_preset_edits_and_build_history_write_only_to_sqlite(tmp_path):
     assert record["html_output"].endswith("preset_roster_sqlite_gold.html")
     assert isinstance(record["html_output"], str)
     assert isinstance(record["snapshot_path"], str)
+    assert record["automation_manifest_path"].endswith(".automation.json")
     assert record["objective_score"] == 123.5
-    assert load_application_build_records(config_path)[0]["id"] == record["id"]
+    stored = load_application_build_records(config_path)[0]
+    assert stored["id"] == record["id"]
+    assert stored["automation_manifest_path"].endswith(".automation.json")
 
 
 def test_delete_application_roster_plan_removes_its_build_history(tmp_path):

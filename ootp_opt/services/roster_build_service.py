@@ -5,6 +5,11 @@ from dataclasses import dataclass, field
 from io import StringIO
 from typing import Any, Literal
 
+from ootp_opt.automation.manifest import (
+    automation_manifest_path,
+    build_automation_manifest,
+    write_manifest,
+)
 from ootp_opt.domain.simulation_context import SimulationContext
 from ootp_opt.domain.scoring_environment import ScoringEnvironment
 from ootp_opt.optimization.candidate_matrices import CandidateMatrices
@@ -87,6 +92,7 @@ class RosterBuildRequest:
     html_output: str | None = None
     debug: bool = False
     build_method: BuildMethod | None = None
+    roster_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -107,6 +113,7 @@ class RosterBuildResult:
     report_sections: list[tuple[str, str]]
     build_timing: BuildTiming
     build_method: BuildMethod
+    automation_manifest_path: str | None = None
     removed_cards: list[RemovedRosterCard] = field(default_factory=list)
     optimization_solution: OptimizationSolution | None = None
     variant_repair_result: VariantRepairResult | None = None
@@ -430,6 +437,20 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         ),
     )
     write_snapshot(snapshot_path, new_snapshot)
+    manifest_path = None
+    if build_method == "optimizer":
+        manifest_path = automation_manifest_path(html_output)
+        manifest = build_automation_manifest(
+            ruleset=ruleset,
+            hitter_roster=hitter_roster,
+            pitcher_roster=pitcher_roster,
+            html_output=html_output,
+            roster_name=request.roster_name,
+            preset_name=request.preset,
+            base_profile=request.base_profile,
+            config_path=request.config_path,
+        )
+        write_manifest(manifest_path, manifest)
     timer.checkpoint("HTML and snapshot export")
 
     add_text_section(
@@ -439,6 +460,11 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
             [
                 f"HTML roster written to: {html_output}",
                 f"Roster snapshot written to: {snapshot_path}",
+                *(
+                    [f"Automation manifest written to: {manifest_path}"]
+                    if manifest_path
+                    else []
+                ),
             ]
         ),
     )
@@ -468,6 +494,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         report_sections=report_sections,
         build_timing=build_timing,
         build_method=build_method,
+        automation_manifest_path=manifest_path,
         removed_cards=removed_cards,
         optimization_solution=optimization_solution,
         variant_repair_result=variant_result,

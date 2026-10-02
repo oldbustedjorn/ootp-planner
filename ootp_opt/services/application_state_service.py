@@ -149,6 +149,7 @@ def append_application_build_record(
     snapshot_path: str | Path,
     status: str,
     build_method: BuildMethod,
+    automation_manifest_path: str | Path | None = None,
     objective_score: float | None = None,
     diagnostics: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -201,6 +202,13 @@ def append_application_build_record(
         )
         _insert_artifact(connection, build.id, "roster_html", html_output)
         _insert_artifact(connection, build.id, "roster_snapshot", snapshot_path)
+        if automation_manifest_path is not None:
+            _insert_artifact(
+                connection,
+                build.id,
+                "automation_manifest",
+                str(automation_manifest_path),
+            )
         preset_repository.update(
             replace(preset, lifecycle_status="active", validation_errors={})
         )
@@ -208,7 +216,15 @@ def append_application_build_record(
         return build_record_to_legacy_dict(
             build,
             {preset.id: preset.command_name} if preset else {},
-            {"roster_html": html_output, "roster_snapshot": snapshot_path},
+            {
+                "roster_html": html_output,
+                "roster_snapshot": snapshot_path,
+                **(
+                    {"automation_manifest": str(automation_manifest_path)}
+                    if automation_manifest_path is not None
+                    else {}
+                ),
+            },
         )
 
 
@@ -528,6 +544,7 @@ def build_record_to_legacy_dict(
         "overrides": dict(build.request.get("overrides") or {}),
         "html_output": artifacts.get("roster_html"),
         "snapshot_path": artifacts.get("roster_snapshot"),
+        "automation_manifest_path": artifacts.get("automation_manifest"),
         "status": build.status,
         "build_method": build.build_method,
         "model_version": build.model_version,
