@@ -184,10 +184,13 @@ Loads owned-card hitter exports.
 Responsibilities:
 
 - map raw OOTP hitter columns to normalized names
+- expose `CID` as stable `pt_card_id`
 - handle OOTP 26/27 fielding column differences
 - normalize trainability flags
 - normalize `VAR` to boolean `is_variant`
 - expose `CType` as `pt_type`
+- validate and collapse interchangeable physical copies by `(pt_card_id,
+  is_variant)` before scoring
 
 Key function:
 
@@ -200,14 +203,32 @@ Loads owned-card pitcher exports.
 Responsibilities:
 
 - map raw OOTP pitcher columns to normalized names
+- expose `CID` as stable `pt_card_id`
 - handle `HRR`/`HRA`
 - handle `P.1`/`P_1`
 - normalize `VAR` to boolean `is_variant`
 - expose `CType` as `pt_type`
+- validate and collapse interchangeable physical copies by `(pt_card_id,
+  is_variant)` before scoring
 
 Key function:
 
 - `load_pt_pitchers_csv(path)`
+
+### `ootp_opt.ingest.owned_cards`
+
+Normalizes duplicate physical inventory copies after owned-card ingestion.
+
+Responsibilities:
+
+- treat `(pt_card_id, is_variant)` as one selectable Perfect Team card version
+- preserve normal and variant versions of the same CID as separate candidates
+- reject duplicate versions whose stable metadata or ratings disagree
+- expose `owned_copy_count` and retain one representative physical `player_id`
+
+Key function:
+
+- `collapse_owned_card_copies(df)`
 
 ### `ootp_opt.ingest.pt_store`
 
@@ -216,6 +237,7 @@ Loads PT store card-list exports.
 Responsibilities:
 
 - normalize store columns to the same downstream names used by owned-card exports
+- expose store `Card ID` as stable `pt_card_id`
 - split hitters and pitchers by store position
 - map numeric store `Card Type` codes to owned-card `pt_type` codes
 - preserve raw store classification fields as debug columns
@@ -283,11 +305,13 @@ those assets.
 Responsibilities:
 
 - assign one stable `candidate_id` to each selectable card or player record
+- prefer `(pt_card_id, is_variant)` for Perfect Team candidate identity
 - assign one `person_key` used by duplicate-player constraints
 - keep identity independent from candidate source such as owned or store data
 - retain the export-specific identifier separately as `source_record_id`
 - provide a PT card schema and a save-scoped base-game schema factory
-- derive deterministic fallback candidate IDs when a source ID is unavailable
+- retain metadata identity compatibility for older PT exports without CID
+- derive deterministic fallback candidate IDs when all source identity is unavailable
 
 Key classes and functions:
 

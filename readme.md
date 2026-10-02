@@ -169,7 +169,13 @@ Roster builds and store analysis resolve environment settings into one
 `CandidatePool` objects. Candidate pools attach two identities before filtering:
 `candidate_id` identifies the selectable card or player record, while
 `person_key` prevents selecting multiple cards representing the same player.
-The same PT card receives the same candidate identity in owned and store data.
+For Perfect Team, `candidate_id` is based on owned-export `CID` plus `VAR`; store
+`Card ID` maps to the same normalized CID. This keeps identity stable when an
+owned card's physical `ID` changes between exports and keeps normal and variant
+versions distinct. Exports may include all duplicate inventory copies: copies
+with the same CID and variant status are validated, counted, and collapsed
+before scoring. Older owned exports without CID retain metadata-based identity
+compatibility.
 Configured rulesets also expose a `RosterSlotPlan`. Each field position has a
 separate assignment for the vs-RHP and vs-LHP lineups, using its split position
 score; DH uses split batting score. Bench status is derived independently for

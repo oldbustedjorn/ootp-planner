@@ -9,16 +9,23 @@ from ootp_opt.roster.roster_snapshot import (
 )
 
 
-def row(name: str) -> pd.Series:
-    return pd.Series(
-        {
-            "name": name,
-            "card_value": 90,
-            "pt_tier": "diamond",
-            "pt_year": 2000,
-            "pt_type": "Test",
-        }
-    )
+def row(
+    name: str,
+    *,
+    pt_card_id: int | None = None,
+    is_variant: bool = False,
+) -> pd.Series:
+    values = {
+        "name": name,
+        "card_value": 90,
+        "pt_tier": "diamond",
+        "pt_year": 2000,
+        "pt_type": "Test",
+        "is_variant": is_variant,
+    }
+    if pt_card_id is not None:
+        values["pt_card_id"] = pt_card_id
+    return pd.Series(values)
 
 
 def test_pooled_members_remain_unchanged_when_their_order_changes():
@@ -118,3 +125,41 @@ def test_removed_roster_cards_is_empty_for_first_build():
     new_snapshot = {"Starter SS": card_identity(row("New Starter"))}
 
     assert removed_roster_cards(None, new_snapshot) == []
+
+
+def test_snapshot_identity_uses_cid_and_variant():
+    normal = card_identity(row("Versioned Card", pt_card_id=86730))
+    variant = card_identity(
+        row("Versioned Card", pt_card_id=86730, is_variant=True)
+    )
+
+    assert normal.endswith("|86730|N")
+    assert variant.endswith("|86730|Y")
+    assert compare_snapshots(
+        {"Starter SS": normal},
+        {"Starter SS": variant},
+    ) == {"Starter SS": "changed"}
+
+
+def test_legacy_snapshot_matches_new_snapshot_by_descriptive_identity():
+    legacy = "Returning Player|90|diamond|2000|Test"
+    current = card_identity(row("Returning Player", pt_card_id=86730))
+
+    assert compare_snapshots(
+        {"Starter SS": legacy},
+        {"Starter SS": current},
+    ) == {"Starter SS": "unchanged"}
+
+
+def test_removed_roster_card_includes_cid_and_variant():
+    departing = card_identity(
+        row("Departing Variant", pt_card_id=86730, is_variant=True)
+    )
+
+    removed = removed_roster_cards(
+        {"Bench 1": departing},
+        {"Bench 1": card_identity(row("Replacement", pt_card_id=99999))},
+    )
+
+    assert removed[0].pt_card_id == "86730"
+    assert removed[0].is_variant is True

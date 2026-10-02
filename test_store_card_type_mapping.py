@@ -50,6 +50,8 @@ def test_store_ingest_normalizes_missions_and_clubhouse_title(tmp_path):
     cards = load_pt_store_csv(path)
 
     assert cards["is_clubhouse_card"].tolist() == [True, False]
+    assert cards["pt_card_id"].tolist() == [101, 102]
+    assert cards["player_id"].tolist() == [101, 102]
 
 
 def test_clubhouse_shop_data_joins_by_player_id(tmp_path):

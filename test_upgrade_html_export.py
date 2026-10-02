@@ -20,6 +20,8 @@ def test_upgrade_html_includes_store_card_metadata_columns(tmp_path):
     upgrades = pd.DataFrame(
         [
             {
+                "pt_card_id": 86730,
+                "is_variant": True,
                 "card_title": "Clubhouse - Snapshot Example",
                 "is_clubhouse_card": True,
                 "clubhouse_star_cost": 50,
@@ -32,6 +34,9 @@ def test_upgrade_html_includes_store_card_metadata_columns(tmp_path):
 
     html = output.read_text(encoding="utf-8")
     assert "card_title" in html
+    assert "CID" in html
+    assert "86,730" in html
+    assert "Variant" in html
     assert "Clubhouse Card" in html
     assert "Clubhouse Stars" in html
     assert "PP / Clubhouse Star" in html

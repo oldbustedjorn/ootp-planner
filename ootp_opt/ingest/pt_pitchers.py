@@ -5,6 +5,8 @@ from typing import Dict, List
 
 import pandas as pd
 
+from ootp_opt.ingest.owned_cards import collapse_owned_card_copies
+
 # -----------------------------
 # OOTP 26 – PT Pitchers Export Schema
 # -----------------------------
@@ -23,6 +25,7 @@ OOTP26_PITCHER_REQUIRED = [
 OOTP26_PITCHER_RENAME: Dict[str, str] = {
     # Identity
     "ID": "player_id",
+    "CID": "pt_card_id",
     "First Name": "first_name",
     "Last Name": "last_name",
     "B": "bats",
@@ -113,7 +116,7 @@ def _rename_duplicate_p_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def load_pt_pitchers_csv(path: Path) -> pd.DataFrame:
     """Load an OOTP26 pitchers PT export and normalize key columns."""
-    df_raw = pd.read_csv(path)
+    df_raw = pd.read_csv(path, low_memory=False)
 
     missing = [c for c in OOTP26_PITCHER_REQUIRED if c not in df_raw.columns]
     if missing:
@@ -185,4 +188,4 @@ def load_pt_pitchers_csv(path: Path) -> pd.DataFrame:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
-    return df
+    return collapse_owned_card_copies(df)

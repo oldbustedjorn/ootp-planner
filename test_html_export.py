@@ -140,6 +140,8 @@ def test_removed_cards_section_renders_previous_role_and_card_details():
                 pt_tier="diamond",
                 pt_year="1998",
                 pt_type="Historical All-Star",
+                pt_card_id="86730",
+                is_variant=True,
             )
         ]
     )
@@ -148,6 +150,10 @@ def test_removed_cards_section_renders_previous_role_and_card_details():
     assert "Former Starter" in html
     assert "SP4" in html
     assert "Historical All-Star" in html
+    assert "CID" in html
+    assert "86730" in html
+    assert "Variant" in html
+    assert ">Yes<" in html
 
 
 def test_removed_cards_section_is_empty_on_first_build():

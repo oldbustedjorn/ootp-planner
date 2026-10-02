@@ -36,7 +36,7 @@ PT_TYPE_CODE_MAP = {
 STORE_RENAME = {
     "//Card Title": "card_title",
     "Card Title": "card_title",
-    "Card ID": "player_id",
+    "Card ID": "pt_card_id",
     "Card Value": "card_value",
     "Card Type": "pt_type",
     "Card Sub Type": "pt_subtype",
@@ -160,6 +160,7 @@ TIER_CODE_TO_NAME = {
 
 
 NUMERIC_COLS = [
+    "pt_card_id",
     "player_id",
     "card_value",
     "pt_year",
@@ -246,6 +247,7 @@ NUMERIC_COLS = [
 ]
 
 INTEGER_COLS = [
+    "pt_card_id",
     "player_id",
     "card_value",
     "pt_year",
@@ -264,6 +266,10 @@ def load_pt_store_csv(path: str | Path) -> pd.DataFrame:
     df_raw.columns = [str(col).strip() for col in df_raw.columns]
 
     df = df_raw.rename(columns=STORE_RENAME).copy()
+    # Keep the legacy name for price/shop joins while exposing the same stable
+    # card-definition identifier used by owned exports.
+    if "pt_card_id" in df.columns:
+        df["player_id"] = df["pt_card_id"]
 
     # Preserve raw store-export classification fields for debugging/future rules.
     if "pt_type" in df.columns:

@@ -5,7 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 import pandas as pd
 
+from ootp_opt.domain.candidate_identity import pt_card_id_for_row
 from ootp_opt.roster.models import HitterRoster, PitcherRoster
+from ootp_opt.roster.variant_report import is_variant_card
 
 
 POOLED_ROLE_PREFIXES = {
@@ -24,6 +26,8 @@ class RemovedRosterCard:
     pt_tier: str
     pt_year: str
     pt_type: str
+    pt_card_id: str = ""
+    is_variant: bool = False
 
 
 def build_roster_snapshot(
@@ -61,6 +65,8 @@ def card_identity(row: pd.Series) -> str:
             str(row.get("pt_tier", "")),
             str(row.get("pt_year", "")),
             str(row.get("pt_type", "")),
+            pt_card_id_for_row(row),
+            "Y" if is_variant_card(row) else "N",
         ]
     )
 
@@ -111,7 +117,10 @@ def compare_snapshots(
             old_pool_identities = identities_for_pool(old_snapshot, pool_key)
             if not old_pool_identities:
                 statuses[role] = "new"
-            elif new_identity in old_pool_identities:
+            elif any(
+                card_identities_match(old_identity, new_identity)
+                for old_identity in old_pool_identities
+            ):
                 statuses[role] = "unchanged"
             else:
                 statuses[role] = "changed"
@@ -121,7 +130,7 @@ def compare_snapshots(
 
         if old_identity is None:
             statuses[role] = "new"
-        elif old_identity == new_identity:
+        elif card_identities_match(old_identity, new_identity):
             statuses[role] = "unchanged"
         else:
             statuses[role] = "changed"
@@ -136,15 +145,25 @@ def removed_roster_cards(
     if old_snapshot is None:
         return []
 
-    new_identities = set(new_snapshot.values())
     removed_roles: dict[str, list[str]] = {}
     for role, identity in old_snapshot.items():
-        if identity not in new_identities:
+        if not any(
+            card_identities_match(identity, new_identity)
+            for new_identity in new_snapshot.values()
+        ):
             removed_roles.setdefault(identity, []).append(role)
 
     cards = []
     for identity, roles in removed_roles.items():
-        name, card_value, pt_tier, pt_year, pt_type = parse_card_identity(identity)
+        (
+            name,
+            card_value,
+            pt_tier,
+            pt_year,
+            pt_type,
+            pt_card_id,
+            variant,
+        ) = parse_card_identity(identity)
         cards.append(
             RemovedRosterCard(
                 previous_roles=tuple(sorted(roles)),
@@ -153,16 +172,40 @@ def removed_roster_cards(
                 pt_tier=pt_tier,
                 pt_year=pt_year,
                 pt_type=pt_type,
+                pt_card_id=pt_card_id,
+                is_variant=variant == "Y",
             )
         )
 
     return sorted(cards, key=lambda card: (card.previous_roles, card.name))
 
 
-def parse_card_identity(identity: str) -> tuple[str, str, str, str, str]:
-    values = str(identity).split("|", maxsplit=4)
-    values.extend([""] * (5 - len(values)))
-    return values[0], values[1], values[2], values[3], values[4]
+def parse_card_identity(
+    identity: str,
+) -> tuple[str, str, str, str, str, str, str]:
+    values = str(identity).split("|", maxsplit=6)
+    values.extend([""] * (7 - len(values)))
+    return (
+        values[0],
+        values[1],
+        values[2],
+        values[3],
+        values[4],
+        values[5],
+        values[6],
+    )
+
+
+def card_identities_match(left: str, right: str) -> bool:
+    left_values = parse_card_identity(left)
+    right_values = parse_card_identity(right)
+    left_cid, left_variant = left_values[5], left_values[6]
+    right_cid, right_variant = right_values[5], right_values[6]
+    if left_cid and right_cid:
+        return left_cid == right_cid and left_variant == right_variant
+    # Legacy snapshots did not contain CID or VAR. Preserve their descriptive
+    # comparison for the first rebuild after migration.
+    return left_values[:5] == right_values[:5]
 
 
 def pooled_role_key(role: str) -> str | None:

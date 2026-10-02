@@ -132,6 +132,10 @@ Important rule:
   `person_key`
 - candidate source is not part of identity, so an owned card and the matching
   store card receive the same `candidate_id`
+- Perfect Team candidate identity uses the stable card version `(pt_card_id,
+  is_variant)`, sourced from owned-export `CID`/`VAR` and store `Card ID`
+- owned exports may include every physical copy; interchangeable copies of the
+  same CID and variant status are validated and collapsed before scoring
 - future role and slot definitions should be data-driven; adding or removing a
   specialist, closer, stopper, setup role, or long-relief role must not require
   new roster-model fields
@@ -150,8 +154,12 @@ Card identity and metadata:
 - `candidate_id`: canonical selectable card/player identity
 - `person_key`: canonical person-level duplicate constraint identity
 - `source_record_id`: source export ID retained for traceability
-- `player_id`: legacy normalized OOTP source ID; owned `ID` and store `Card ID`
-  use different numeric namespaces
+- `pt_card_id`: stable Perfect Team card definition ID; owned `CID` and store
+  `Card ID`
+- `player_id`: physical owned-card `ID`, which may change between exports;
+  store rows retain `Card ID` here as a legacy compatibility alias
+- `owned_copy_count`: number of interchangeable physical copies represented by
+  one collapsed owned-card version
 - `pt_tier`
 - `card_value`
 - `pt_year`
@@ -177,6 +185,11 @@ Known `pt_type` values:
 `pt_subtype` is separate from variant status. Subtypes include values such as `BBR`, `HOF`, `ME`, `UTIL`, `VB`, and `WBC`.
 
 Variant status uses normalized boolean `is_variant` from OOTP `VAR`. `pt_subtype` is not variant status.
+
+For Perfect Team, the stable selectable version is the combination of
+`pt_card_id` and `is_variant`. Normal and variant copies with the same CID remain
+separate candidates. Older exports without CID fall back to the established
+metadata identity.
 
 ## Scoring Outputs
 

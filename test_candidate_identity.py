@@ -51,6 +51,73 @@ def test_pt_card_identity_matches_across_owned_and_store_numeric_formats():
     )
 
 
+def test_pt_card_identity_prefers_cid_and_variant_over_physical_inventory_id():
+    owned = pd.DataFrame(
+        [
+            {
+                "player_id": 111,
+                "pt_card_id": 86730,
+                "is_variant": False,
+                "name": "Stable Card",
+            }
+        ]
+    )
+    later_export = pd.DataFrame(
+        [
+            {
+                "player_id": 999,
+                "pt_card_id": 86730.0,
+                "is_variant": False,
+                "name": "Stable Card",
+            }
+        ]
+    )
+
+    first = attach_candidate_identities(owned, PT_CARD_IDENTITY_SCHEMA)
+    second = attach_candidate_identities(later_export, PT_CARD_IDENTITY_SCHEMA)
+
+    assert first.iloc[0][CANDIDATE_ID_COLUMN] == (
+        "ootp-pt:card:stable:86730:false"
+    )
+    assert (
+        first.iloc[0][CANDIDATE_ID_COLUMN]
+        == second.iloc[0][CANDIDATE_ID_COLUMN]
+    )
+    assert first.iloc[0][SOURCE_RECORD_ID_COLUMN] == "111"
+    assert second.iloc[0][SOURCE_RECORD_ID_COLUMN] == "999"
+
+
+def test_owned_cid_matches_store_card_id_identity():
+    owned = pd.DataFrame(
+        [
+            {
+                "player_id": 111,
+                "pt_card_id": 86730,
+                "is_variant": False,
+                "name": "Stable Card",
+            }
+        ]
+    )
+    store = pd.DataFrame(
+        [
+            {
+                "player_id": 86730,
+                "pt_card_id": 86730,
+                "is_variant": False,
+                "name": "Stable Card",
+            }
+        ]
+    )
+
+    owned_identified = attach_candidate_identities(owned, PT_CARD_IDENTITY_SCHEMA)
+    store_identified = attach_candidate_identities(store, PT_CARD_IDENTITY_SCHEMA)
+
+    assert (
+        owned_identified.iloc[0][CANDIDATE_ID_COLUMN]
+        == store_identified.iloc[0][CANDIDATE_ID_COLUMN]
+    )
+
+
 def test_pt_shared_card_attributes_override_different_export_record_ids():
     card_attributes = {
         "name": "Shared Card",
@@ -164,6 +231,32 @@ def test_pt_variant_has_distinct_candidate_identity_from_base_card():
     identified = attach_candidate_identities(cards, PT_CARD_IDENTITY_SCHEMA)
 
     assert identified[CANDIDATE_ID_COLUMN].nunique() == 2
+
+
+def test_same_cid_normal_and_variant_have_distinct_candidate_identities():
+    cards = pd.DataFrame(
+        [
+            {
+                "player_id": 100,
+                "pt_card_id": 86730,
+                "is_variant": False,
+                "name": "Variant Player",
+            },
+            {
+                "player_id": 101,
+                "pt_card_id": 86730,
+                "is_variant": True,
+                "name": "Variant Player",
+            },
+        ]
+    )
+
+    identified = attach_candidate_identities(cards, PT_CARD_IDENTITY_SCHEMA)
+
+    assert identified[CANDIDATE_ID_COLUMN].tolist() == [
+        "ootp-pt:card:stable:86730:false",
+        "ootp-pt:card:stable:86730:true",
+    ]
 
 
 def test_duplicate_owned_card_copies_can_be_collapsed():

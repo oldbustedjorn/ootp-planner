@@ -5,6 +5,8 @@ from typing import Dict, Iterable, List
 
 import pandas as pd
 
+from ootp_opt.ingest.owned_cards import collapse_owned_card_copies
+
 # -----------------------------
 # OOTP 26 – PT Hitters Export Schema
 # -----------------------------
@@ -30,6 +32,7 @@ OOTP26_HITTER_REQUIRED = [
 OOTP26_HITTER_RENAME: Dict[str, str] = {
     # Identity
     "ID": "player_id",
+    "CID": "pt_card_id",
     "First Name": "first_name",
     "Last Name": "last_name",
     "B": "bats",
@@ -155,7 +158,7 @@ def load_pt_cards_csv(path: Path) -> pd.DataFrame:
       - Trainability columns: train_* and train_*_ok (bool)
       - Computed: name
     """
-    df_raw = pd.read_csv(path)
+    df_raw = pd.read_csv(path, low_memory=False)
 
     # Validate required core columns
     missing = [col for col in OOTP26_HITTER_REQUIRED if col not in df_raw.columns]
@@ -240,4 +243,4 @@ def load_pt_cards_csv(path: Path) -> pd.DataFrame:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
-    return df
+    return collapse_owned_card_copies(df)

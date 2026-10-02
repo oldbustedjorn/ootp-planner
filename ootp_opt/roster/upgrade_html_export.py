@@ -8,6 +8,8 @@ import pandas as pd
 
 
 COLUMN_LABELS = {
+    "pt_card_id": "CID",
+    "is_variant": "Variant",
     "is_clubhouse_card": "Clubhouse Card",
     "clubhouse_star_cost": "Clubhouse Stars",
     "pp_per_clubhouse_star": "PP / Clubhouse Star",

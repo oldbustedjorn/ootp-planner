@@ -6,6 +6,7 @@ from typing import Any
 
 import pandas as pd
 
+from ootp_opt.domain.candidate_identity import pt_card_id_for_row
 from ootp_opt.domain.scoring_environment import ScoringEnvironment
 from ootp_opt.domain.simulation_context import SimulationContext
 from ootp_opt.roster.bullpen_usage import assign_middle_relief_usage
@@ -126,12 +127,14 @@ def render_removed_cards(cards: list[RemovedRosterCard]) -> str:
             f"<td>{escape(card.pt_tier or '-')}</td>"
             f"<td class='num'>{escape(card.pt_year or '-')}</td>"
             f"<td>{escape(card.pt_type or '-')}</td>"
+            f"<td class='num'>{escape(card.pt_card_id or '-')}</td>"
+            f"<td>{'Yes' if card.is_variant else 'No'}</td>"
             "</tr>"
             for card in cards
         )
         body = f"""
 <table>
-  <thead><tr><th>Previous Role</th><th>Card</th><th>Value</th><th>Tier</th><th>Year</th><th>Type</th></tr></thead>
+  <thead><tr><th>Previous Role</th><th>Card</th><th>Value</th><th>Tier</th><th>Year</th><th>Type</th><th>CID</th><th>Variant</th></tr></thead>
   <tbody>{rows}</tbody>
 </table>
 """
@@ -458,6 +461,8 @@ def render_rotation(pitcher_roster: PitcherRoster) -> str:
             f"<td>{idx}</td>"
             f"<td>{escape(str(row.get('throws', '')))}</td>"
             f"<td>{escape(str(row.get('name', '')))}</td>"
+            f"<td class='num'>{escape(pt_card_id_for_row(row) or '-')}</td>"
+            f"<td>{format_variant_flag(row)}</td>"
             f"<td class='num'>{float(row.get('starter_score_overall', 0.0)):.1f}</td>"
             "</tr>"
         )
@@ -467,7 +472,7 @@ def render_rotation(pitcher_roster: PitcherRoster) -> str:
   <div class="panel-title"># &nbsp; T &nbsp; Starting Rotation</div>
   <table>
     <thead>
-      <tr><th>#</th><th>T</th><th>Starting Rotation</th><th>Score</th></tr>
+      <tr><th>#</th><th>T</th><th>Starting Rotation</th><th>CID</th><th>Variant</th><th>Score</th></tr>
     </thead>
     <tbody>{''.join(rows)}</tbody>
   </table>
@@ -504,7 +509,7 @@ def render_bullpen(pitcher_roster: PitcherRoster) -> str:
   <table>
     <thead>
       <tr>
-        <th>T</th><th>Bullpen</th><th>Primary Role</th><th>Usage Option</th><th>Secondary Role</th><th>Score</th>
+        <th>T</th><th>Bullpen</th><th>CID</th><th>Variant</th><th>Primary Role</th><th>Usage Option</th><th>Secondary Role</th><th>Score</th>
       </tr>
     </thead>
     <tbody>{''.join(rows)}</tbody>
@@ -518,6 +523,8 @@ def render_pitcher_role_row(row: pd.Series, role: str, usage: str) -> str:
         "<tr>"
         f"<td>{escape(str(row.get('throws', '')))}</td>"
         f"<td>{escape(str(row.get('name', '')))}</td>"
+        f"<td class='num'>{escape(pt_card_id_for_row(row) or '-')}</td>"
+        f"<td>{format_variant_flag(row)}</td>"
         f"<td>{escape(role)}</td>"
         f"<td>{escape(usage)}</td>"
         f"<td>{'Long Relief' if role != 'Long Relief' and bool(row.get('is_long_secondary', False)) else '-'}</td>"
@@ -546,6 +553,8 @@ def render_lineup_panel(
             f"<td>{spot}</td>"
             f"<td>{escape(str(row.get('bats', '')))}</td>"
             f"<td>{escape(str(row.get('name', '')))}</td>"
+            f"<td class='num'>{escape(pt_card_id_for_row(row) or '-')}</td>"
+            f"<td>{format_variant_flag(row)}</td>"
             f"<td>{escape(position)}</td>"
             f"<td class='num'>{float(row.get(score_col, 0.0)):.1f}</td>"
             "</tr>"
@@ -556,7 +565,7 @@ def render_lineup_panel(
   <div class="panel-title"># &nbsp; B &nbsp; {escape(title)}</div>
   <table>
     <thead>
-      <tr><th>#</th><th>B</th><th>Player</th><th>POS</th><th>Bat Score</th></tr>
+      <tr><th>#</th><th>B</th><th>Player</th><th>CID</th><th>Variant</th><th>POS</th><th>Bat Score</th></tr>
     </thead>
     <tbody>{''.join(rows)}</tbody>
   </table>
@@ -642,6 +651,7 @@ def render_roster_checklist(
           <th>Done</th>
           <th>Role</th>
           <th>Player</th>
+          <th>CID</th>
           <th>Value</th>
           <th>Tier</th>
           <th>Year</th>
@@ -670,6 +680,7 @@ def render_checklist_row(
         f"<td><input type='checkbox'></td>"
         f"<td>{escape(role)}</td>"
         f"<td>{escape(str(row.get('name', '')))}</td>"
+        f"<td class='num'>{escape(pt_card_id_for_row(row) or '-')}</td>"
         f"<td>{escape(str(row.get('card_value', '')))}</td>"
         f"<td>{escape(str(row.get('pt_tier', '')))}</td>"
         f"<td>{escape(str(row.get('pt_year', '')))}</td>"

@@ -26,6 +26,7 @@ class CandidateIdentitySchema:
     source_id_column: str
     person_id_column: str | None = None
     name_column: str = "name"
+    preferred_identity_columns: tuple[str, ...] = ()
     shared_identity_columns: tuple[str, ...] = ()
     fallback_columns: tuple[str, ...] = ()
     numeric_source_ids: bool = False
@@ -34,13 +35,13 @@ class CandidateIdentitySchema:
 PT_CARD_IDENTITY_SCHEMA = CandidateIdentitySchema(
     namespace="ootp-pt",
     entity_kind="card",
-    # OOTP calls this ID in the owned export and Card ID in the store export.
-    # Both are currently normalized to the legacy column name player_id.
+    # Owned ID identifies a physical copy and can change between exports.
     source_id_column="player_id",
     name_column="name",
-    # Owned-export ID and store Card ID use different number ranges. These
-    # attributes identify the same card version across both exports. An owned
-    # export may still contain multiple interchangeable inventory copies.
+    # CID in owned exports and Card ID in store exports identify the underlying
+    # card. VAR distinguishes its normal and variant versions.
+    preferred_identity_columns=("pt_card_id", "is_variant"),
+    # Older exports without CID retain the established metadata identity.
     shared_identity_columns=(
         "name",
         "pt_title",
@@ -93,8 +94,9 @@ def attach_candidate_identities(
 ) -> pd.DataFrame:
     """Return a copy with canonical candidate_id and person_key columns.
 
-    The owned-card pipeline collapses interchangeable inventory copies after
-    identities are attached. Other sources retain strict duplicate checking.
+    Owned loaders collapse duplicate CID/variant copies before scoring. The
+    collapse policy here remains for older exports that need metadata identity;
+    other sources retain strict duplicate checking.
     """
     if duplicate_policy not in {"error", "collapse"}:
         raise ValueError(f"Unknown duplicate candidate policy '{duplicate_policy}'.")
@@ -104,14 +106,24 @@ def attach_candidate_identities(
     source_ids = source_identifier_series(identified, schema)
     identified[SOURCE_RECORD_ID_COLUMN] = source_ids
 
-    if schema.shared_identity_columns and all(
+    candidate_ids = pd.Series("", index=identified.index, dtype="object")
+    preferred_mask = preferred_identity_mask(identified, schema)
+    if preferred_mask.any():
+        candidate_ids.loc[preferred_mask] = identified.loc[preferred_mask].apply(
+            lambda row: build_preferred_candidate_id(row, schema), axis=1
+        )
+
+    unresolved = candidate_ids.eq("")
+    if unresolved.any() and schema.shared_identity_columns and all(
         column in identified.columns for column in schema.shared_identity_columns
     ):
-        candidate_ids = identified.apply(
+        candidate_ids.loc[unresolved] = identified.loc[unresolved].apply(
             lambda row: build_shared_candidate_id(row, schema), axis=1
         )
-    else:
-        candidate_ids = source_ids.map(
+
+    unresolved = candidate_ids.eq("")
+    if unresolved.any():
+        candidate_ids.loc[unresolved] = source_ids.loc[unresolved].map(
             lambda value: build_scoped_key(schema, value) if value else ""
         )
 
@@ -148,6 +160,9 @@ def candidate_id_for_row(row: pd.Series) -> str:
     if existing:
         return existing
 
+    if preferred_identity_available(row, PT_CARD_IDENTITY_SCHEMA):
+        return build_preferred_candidate_id(row, PT_CARD_IDENTITY_SCHEMA)
+
     if all(
         column in row.index
         for column in PT_CARD_IDENTITY_SCHEMA.shared_identity_columns
@@ -159,6 +174,10 @@ def candidate_id_for_row(row: pd.Series) -> str:
         return build_scoped_key(PT_CARD_IDENTITY_SCHEMA, source_id)
 
     return build_fallback_candidate_id(row, PT_CARD_IDENTITY_SCHEMA)
+
+
+def pt_card_id_for_row(row: pd.Series) -> str:
+    return normalize_source_identifier(row.get("pt_card_id"), numeric=True)
 
 
 def person_key_for_row(row: pd.Series) -> str:
@@ -253,6 +272,59 @@ def build_scoped_key(schema: CandidateIdentitySchema, source_id: str) -> str:
             quote(schema.namespace, safe=""),
             quote(schema.entity_kind, safe=""),
             quote(source_id, safe=""),
+        ]
+    )
+
+
+def preferred_identity_mask(
+    df: pd.DataFrame,
+    schema: CandidateIdentitySchema,
+) -> pd.Series:
+    columns = schema.preferred_identity_columns
+    if not columns or not all(column in df.columns for column in columns):
+        return pd.Series(False, index=df.index, dtype=bool)
+    primary = columns[0]
+    return df[primary].map(
+        lambda value: bool(
+            normalize_source_identifier(value, numeric=schema.numeric_source_ids)
+        )
+    )
+
+
+def preferred_identity_available(
+    row: pd.Series,
+    schema: CandidateIdentitySchema,
+) -> bool:
+    columns = schema.preferred_identity_columns
+    if not columns or not all(column in row.index for column in columns):
+        return False
+    return bool(
+        normalize_source_identifier(
+            row.get(columns[0]),
+            numeric=schema.numeric_source_ids,
+        )
+    )
+
+
+def build_preferred_candidate_id(
+    row: pd.Series,
+    schema: CandidateIdentitySchema,
+) -> str:
+    values = []
+    for index, column in enumerate(schema.preferred_identity_columns):
+        value = row.get(column)
+        normalized = (
+            normalize_source_identifier(value, numeric=schema.numeric_source_ids)
+            if index == 0
+            else normalize_fingerprint_value(value)
+        )
+        values.append(quote(normalized, safe=""))
+    return ":".join(
+        [
+            quote(schema.namespace, safe=""),
+            quote(schema.entity_kind, safe=""),
+            "stable",
+            *values,
         ]
     )
 
