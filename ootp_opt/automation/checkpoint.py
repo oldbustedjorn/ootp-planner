@@ -145,3 +145,24 @@ def now_iso() -> str:
 
 def merge_unique(existing: list[str], additions: list[str]) -> list[str]:
     return list(dict.fromkeys([*existing, *additions]))
+
+
+def format_checkpoint_summary(checkpoint: dict[str, Any]) -> str:
+    validate_checkpoint(checkpoint)
+    lines = [
+        f"Manifest: {checkpoint['manifest_path']}",
+        f"Fingerprint: {checkpoint['manifest_fingerprint'][:16]}",
+    ]
+    next_phase = None
+    for phase in PHASES:
+        record = checkpoint["phases"][phase]
+        lines.append(
+            f"{phase}: {record['status']} | "
+            f"completed={len(record['completed'])} "
+            f"missing={len(record['missing'])} "
+            f"ambiguous={len(record['ambiguous'])}"
+        )
+        if next_phase is None and record["status"] != "complete":
+            next_phase = phase
+    lines.append(f"Next phase: {next_phase or 'none'}")
+    return "\n".join(lines)

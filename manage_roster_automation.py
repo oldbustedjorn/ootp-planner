@@ -4,6 +4,7 @@ import argparse
 import json
 
 from ootp_opt.automation.checkpoint import (
+    format_checkpoint_summary,
     initialize_checkpoint,
     load_checkpoint,
     update_phase,
@@ -21,9 +22,19 @@ def parse_args() -> argparse.Namespace:
     initialize = subparsers.add_parser("init", help="Create a fresh checkpoint.")
     initialize.add_argument("manifest")
     initialize.add_argument("--checkpoint", default=None)
+    initialize.add_argument("--json", action="store_true")
 
     status = subparsers.add_parser("status", help="Show checkpoint status.")
     status.add_argument("checkpoint")
+    status.add_argument("--json", action="store_true")
+
+    actions = subparsers.add_parser(
+        "actions", help="Show compact manifest actions for one UI section."
+    )
+    actions.add_argument("manifest")
+    actions.add_argument(
+        "section", choices=["sync", "pitching", "vs_rhp", "vs_lhp"]
+    )
 
     phase = subparsers.add_parser("phase", help="Update one checkpoint phase.")
     phase.add_argument("checkpoint")
@@ -35,6 +46,12 @@ def parse_args() -> argparse.Namespace:
     phase.add_argument("--missing", action="append", default=[])
     phase.add_argument("--ambiguous", action="append", default=[])
     phase.add_argument("--note", action="append", default=[])
+    phase.add_argument(
+        "--complete-all",
+        action="store_true",
+        help="Record every manifest card as completed for this phase.",
+    )
+    phase.add_argument("--json", action="store_true")
     return parser.parse_args()
 
 
@@ -50,23 +67,109 @@ def main() -> None:
 
     if args.command == "init":
         checkpoint = initialize_checkpoint(args.manifest, args.checkpoint)
-        print(json.dumps(checkpoint, indent=2, sort_keys=True))
+        print_output(checkpoint, args.json)
         return
 
     if args.command == "status":
-        print(json.dumps(load_checkpoint(args.checkpoint), indent=2, sort_keys=True))
+        print_output(load_checkpoint(args.checkpoint), args.json)
         return
 
+    if args.command == "actions":
+        print(format_actions(load_manifest(args.manifest), args.section))
+        return
+
+    completed = list(args.completed)
+    if args.complete_all:
+        checkpoint = load_checkpoint(args.checkpoint)
+        manifest = load_manifest(checkpoint["manifest_path"])
+        completed.extend(
+            card["candidate_id"] for card in manifest["roster"]["membership"]
+        )
     checkpoint = update_phase(
         args.checkpoint,
         args.phase,
         args.status,
-        completed=args.completed,
+        completed=completed,
         missing=args.missing,
         ambiguous=args.ambiguous,
         notes=args.note,
     )
-    print(json.dumps(checkpoint, indent=2, sort_keys=True))
+    print_output(checkpoint, args.json)
+
+
+def print_output(checkpoint: dict, as_json: bool) -> None:
+    if as_json:
+        print(json.dumps(checkpoint, indent=2, sort_keys=True))
+    else:
+        print(format_checkpoint_summary(checkpoint))
+
+
+def format_actions(manifest: dict, section: str) -> str:
+    if section == "sync":
+        lines = ["candidate_id\tcid\tvariant\ttype\tname"]
+        for card in manifest["roster"]["membership"]:
+            lines.append(
+                "\t".join(
+                    [
+                        card["candidate_id"],
+                        card["cid"],
+                        "Y" if card["variant"] else "N",
+                        card["player_type"],
+                        card["name"],
+                    ]
+                )
+            )
+        return "\n".join(lines)
+
+    if section == "pitching":
+        lines = ["ROTATION"]
+        for entry in manifest["pitching"]["rotation"]:
+            card = entry["card"]
+            lines.append(
+                f"{entry['order']}\t{card['cid']}\t"
+                f"{'Y' if card['variant'] else 'N'}\t{card['name']}"
+            )
+        lines.append("BULLPEN")
+        for entry in manifest["pitching"]["bullpen"]:
+            card = entry["card"]
+            lines.append(
+                "\t".join(
+                    [
+                        card["cid"],
+                        "Y" if card["variant"] else "N",
+                        card["name"],
+                        entry["primary_role"],
+                        entry["usage"],
+                        entry["secondary_role"] or "-",
+                    ]
+                )
+            )
+        return "\n".join(lines)
+
+    lineup = manifest["lineups"][section]["starters"]
+    bench = manifest["bench_actions"][section]
+    lines = [f"LINEUP {section}"]
+    for entry in lineup:
+        card = entry["card"]
+        lines.append(
+            f"{entry['batting_order']}\t{entry['position']}\t"
+            f"{card['cid']}\t{card['name']}"
+        )
+        for depth in entry["depth"]:
+            backup = depth["card"]
+            lines.append(
+                f"  depth {depth['order']}\t{entry['position']}\t"
+                f"{backup['cid']}\t{backup['name']}\t{depth['condition']}"
+            )
+    for label, key in (
+        ("PINCH HITTERS", "pinch_hitters"),
+        ("PINCH RUNNERS", "pinch_runners"),
+    ):
+        lines.append(label)
+        for entry in bench[key]:
+            card = entry["card"]
+            lines.append(f"{entry['order']}\t{card['cid']}\t{card['name']}")
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":

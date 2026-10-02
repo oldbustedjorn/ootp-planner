@@ -1,6 +1,7 @@
 """Structured artifacts for resumable OOTP roster automation."""
 
 from ootp_opt.automation.checkpoint import (
+    format_checkpoint_summary,
     initialize_checkpoint,
     load_checkpoint,
     update_phase,
@@ -16,6 +17,7 @@ from ootp_opt.automation.manifest import (
 __all__ = [
     "automation_manifest_path",
     "build_automation_manifest",
+    "format_checkpoint_summary",
     "initialize_checkpoint",
     "load_checkpoint",
     "load_manifest",

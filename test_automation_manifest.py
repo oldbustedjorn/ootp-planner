@@ -1,13 +1,16 @@
 from pathlib import Path
+import sys
 
 import pandas as pd
 import pytest
 
 from ootp_opt.automation.checkpoint import (
+    format_checkpoint_summary,
     initialize_checkpoint,
     load_checkpoint,
     update_phase,
 )
+from manage_roster_automation import format_actions, main as automation_main
 from ootp_opt.automation.manifest import (
     build_automation_manifest,
     load_manifest,
@@ -181,3 +184,64 @@ def test_checkpoint_rejects_replaced_manifest(tmp_path: Path):
 
     with pytest.raises(ValueError, match="different manifest revision"):
         load_checkpoint(checkpoint_path)
+
+
+def test_compact_checkpoint_summary_identifies_next_phase(tmp_path: Path):
+    manifest_path = tmp_path / "roster.automation.json"
+    checkpoint_path = tmp_path / "roster.checkpoint.json"
+    write_manifest(manifest_path, build_manifest())
+    checkpoint = initialize_checkpoint(manifest_path, checkpoint_path)
+
+    summary = format_checkpoint_summary(checkpoint)
+
+    assert "plan: complete" in summary
+    assert "sync: pending" in summary
+    assert "Next phase: sync" in summary
+    assert "hitter-1" not in summary
+
+
+def test_action_views_are_compact_and_phase_specific():
+    manifest = build_manifest()
+
+    sync = format_actions(manifest, "sync")
+    pitching = format_actions(manifest, "pitching")
+    lineup = format_actions(manifest, "vs_rhp")
+
+    assert sync.count("\n") == 26
+    assert "1000\tY\thitter\tHitter 0" in sync
+    assert "ROTATION" in pitching
+    assert "BULLPEN" in pitching
+    assert "LINEUP vs_rhp" in lineup
+    assert "PINCH HITTERS" in lineup
+    assert "PINCH RUNNERS" in lineup
+
+
+def test_cli_complete_all_records_manifest_membership_compactly(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    manifest_path = tmp_path / "roster.automation.json"
+    checkpoint_path = tmp_path / "roster.checkpoint.json"
+    write_manifest(manifest_path, build_manifest())
+    initialize_checkpoint(manifest_path, checkpoint_path)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "manage_roster_automation.py",
+            "phase",
+            str(checkpoint_path),
+            "sync",
+            "complete",
+            "--complete-all",
+        ],
+    )
+
+    automation_main()
+
+    output = capsys.readouterr().out
+    checkpoint = load_checkpoint(checkpoint_path)
+    assert len(checkpoint["phases"]["sync"]["completed"]) == 26
+    assert "completed=26" in output
+    assert "ootp-pt:card" not in output
