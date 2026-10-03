@@ -2,15 +2,20 @@
 
 Use this phase after roster membership matches the manifest.
 
-1. Run `manage_roster_automation.py actions <manifest> pitching`. Configure
-   rotation order, primary role, usage, and secondary role in one section batch,
-   then verify pitching once.
-2. Run `manage_roster_automation.py actions <manifest> vs_rhp`. Configure the RHP
-   starters as one batch, then verify the entire lineup.
-3. Configure its `depth` entries and `bench_actions.vs_rhp` pinch lists, then
-   verify the section.
-4. Run the corresponding `vs_lhp` action view and repeat for LHP.
-5. Save the local roster. Do not submit or enter the tournament.
+1. Run `manage_roster_automation.py ui-plan <manifest> pitching`. Capture the
+   visible pitcher source rows once, map each planned name to its source-row
+   coordinate, and configure rotation order, bullpen roles, usage, and secondary
+   roles in one computer-control call. OOTP may reorder bullpen rows after role
+   changes, so set row-dependent menus in an order that accounts for that behavior
+   and verify pitching once afterward.
+2. Run `manage_roster_automation.py ui-plan <manifest> vs_rhp`. Capture the
+   visible hitter source rows once and build one name-to-source-row map. Use it to
+   configure starters, batting order, depth, and pinch lists in one call, retaining
+   350-450 ms between drops. Verify the complete RHP section once.
+3. Run the corresponding `vs_lhp` plan. Reuse the source-row map only if the
+   source list is visibly unchanged; otherwise capture it once again. Execute and
+   verify the complete LHP section once.
+4. Save the local roster. Do not submit or enter the tournament.
 
 Use names only to locate already-synchronized roster members; CID and variant in
 the manifest remain the identity source of truth. If OOTP does not expose a

@@ -4,15 +4,21 @@ Use this phase to make OOTP roster membership match `roster.membership` in the
 automation manifest.
 
 1. Validate the manifest and load or initialize its checkpoint. Run
-   `manage_roster_automation.py actions <manifest> sync` instead of loading or
-   printing the full manifest.
+   `manage_roster_automation.py ui-plan <manifest> sync` instead of loading or
+   printing the full manifest. The plan separates exact planned variants from
+   standard cards and includes aggregate verification counts.
 2. Open the intended local roster and OOTP's Manage Cards screen.
 3. Select the `RosterLoad` view and use the `RosterFilterCID` filter.
-4. Process membership in batches of roughly 6-8 cards. Search by `cid`, then
-   require the manifest's `variant` value to match OOTP's PT Variant value. Keep
-   each batch in one computer-control call when the screen geometry remains stable.
-5. If several physical copies match, prefer a copy already in a tournament, then
-   a locked copy, then any remaining copy. Do not rely on exported physical ID.
+4. Process the plan's variant pass first. Every card in it requires PT Variant
+   `Y`; the optimizer has already enforced whether variants are allowed and how
+   many fit, so do not make a second variant-cap decision in OOTP. Verify the
+   planned variant count before continuing with the standard pass, where every
+   card requires PT Variant `N`.
+5. Search by `cid` and scan only the few returned rows. Among rows with the exact
+   required variant status, prefer a copy already in a tournament, then a locked
+   copy, then the first remaining copy. Do not repeatedly re-sort for these
+   priorities and do not rely on exported physical ID. Sorting once may reduce
+   scanning, but row inspection remains the correctness check.
 6. Activate the chosen copy. Refresh internally only as required for OOTP to apply
    the filter or activation; do not emit intermediate screenshots or accessibility
    text for successful cards.

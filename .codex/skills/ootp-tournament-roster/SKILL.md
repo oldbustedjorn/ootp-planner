@@ -45,6 +45,12 @@ Capture the smallest useful OOTP region at the start and end of a batch, and on
 failure. Do not capture or narrate every click or drag. Perform a batch, verify its
 aggregate result, then retry only discrepancies.
 
+At the start of each run, find and activate the single OOTP window once. Record
+its current client-area origin and size and derive all coordinates relative to
+that geometry. The window may differ between runs, but treat it as fixed during
+one run. Do not repeatedly rediscover the app or window. Before a mutating batch,
+stop if the window moved, resized, or no longer shows the expected screen.
+
 Once OOTP auto-refresh is off, treat tournament rows, filters, and settings as
 static until this workflow changes them or the user interacts with OOTP. Do not
 re-read unchanged tournament state. Within a stable screen, perform related clicks
@@ -63,7 +69,15 @@ Use the repository-local Python environment:
 .\.venv\Scripts\python.exe manage_roster_automation.py init <manifest>
 .\.venv\Scripts\python.exe manage_roster_automation.py status <checkpoint>
 .\.venv\Scripts\python.exe manage_roster_automation.py actions <manifest> <section>
+.\.venv\Scripts\python.exe manage_roster_automation.py ui-plan <manifest> <section>
 ```
+
+For OOTP mutation, prefer `ui-plan` over `actions`. It emits compact JSON designed
+to be passed into one persistent computer-control session. Build one visible
+player-name-to-source-row map per pitching or lineup screen, then execute that
+entire section from the plan in one call. Do not ask the model to decide between
+individual drags. Verify once after the section and use one targeted repair call
+only for discrepancies.
 
 Before mutating OOTP, mark the active phase `in_progress`. On completion or
 failure, update the phase once per batch with concise notes. Use `--complete-all`

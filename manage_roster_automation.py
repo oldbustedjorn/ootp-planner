@@ -10,6 +10,7 @@ from ootp_opt.automation.checkpoint import (
     update_phase,
 )
 from ootp_opt.automation.manifest import load_manifest
+from ootp_opt.automation.ui_plan import UI_PLAN_SECTIONS, compact_ui_plan
 
 
 def parse_args() -> argparse.Namespace:
@@ -35,6 +36,12 @@ def parse_args() -> argparse.Namespace:
     actions.add_argument(
         "section", choices=["sync", "pitching", "vs_rhp", "vs_lhp"]
     )
+
+    ui_plan = subparsers.add_parser(
+        "ui-plan", help="Emit a compact deterministic UI execution plan."
+    )
+    ui_plan.add_argument("manifest")
+    ui_plan.add_argument("section", choices=UI_PLAN_SECTIONS)
 
     phase = subparsers.add_parser("phase", help="Update one checkpoint phase.")
     phase.add_argument("checkpoint")
@@ -76,6 +83,10 @@ def main() -> None:
 
     if args.command == "actions":
         print(format_actions(load_manifest(args.manifest), args.section))
+        return
+
+    if args.command == "ui-plan":
+        print(compact_ui_plan(load_manifest(args.manifest), args.section))
         return
 
     completed = list(args.completed)

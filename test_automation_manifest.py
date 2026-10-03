@@ -17,6 +17,7 @@ from ootp_opt.automation.manifest import (
     validate_manifest,
     write_manifest,
 )
+from ootp_opt.automation.ui_plan import build_ui_plan, compact_ui_plan
 from ootp_opt.config import load_config
 from ootp_opt.roster.models import HitterRoster, PitcherRoster
 from ootp_opt.roster.rules import build_ruleset_from_base_profile
@@ -214,6 +215,42 @@ def test_action_views_are_compact_and_phase_specific():
     assert "LINEUP vs_rhp" in lineup
     assert "PINCH HITTERS" in lineup
     assert "PINCH RUNNERS" in lineup
+
+
+def test_sync_ui_plan_separates_exact_variants_into_first_pass():
+    manifest = build_manifest()
+
+    plan = build_ui_plan(manifest, "sync")
+
+    assert plan["section"] == "sync"
+    assert plan["expected"] == {
+        "total": 26,
+        "hitters": 13,
+        "pitchers": 13,
+        "variants": 7,
+    }
+    assert plan["passes"][0]["variant"] is True
+    assert plan["passes"][1]["variant"] is False
+    assert all(card[0].startswith("hitter-") for card in plan["passes"][0]["cards"])
+    assert all(
+        int(card[0].split("-")[-1]) % 2 == 0
+        for card in plan["passes"][0]["cards"]
+    )
+
+
+def test_assignment_ui_plans_are_compact_and_directly_executable():
+    manifest = build_manifest()
+
+    pitching = build_ui_plan(manifest, "pitching")
+    lineup = build_ui_plan(manifest, "vs_rhp")
+    encoded = compact_ui_plan(manifest, "vs_rhp")
+
+    assert pitching["rotation"][0] == [1, "2000", "Pitcher 0"]
+    assert len(pitching["bullpen"]) == 8
+    assert len(lineup["starters"]) == 9
+    assert lineup["starters"][0][0] == 1
+    assert lineup["depth"]
+    assert "\n" not in encoded
 
 
 def test_cli_complete_all_records_manifest_membership_compactly(
