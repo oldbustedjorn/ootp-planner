@@ -29,6 +29,7 @@ def test_duplicate_physical_copies_collapse_to_one_card_version():
     assert len(collapsed) == 1
     assert collapsed.iloc[0]["player_id"] == 101
     assert collapsed.iloc[0]["owned_copy_count"] == 2
+    assert collapsed.iloc[0]["owned_cid_copy_count"] == 2
 
 
 def test_normal_and_variant_versions_are_not_collapsed_together():
@@ -54,6 +55,7 @@ def test_normal_and_variant_versions_are_not_collapsed_together():
     assert len(collapsed) == 2
     assert collapsed["is_variant"].tolist() == [False, True]
     assert collapsed["owned_copy_count"].tolist() == [1, 1]
+    assert collapsed["owned_cid_copy_count"].tolist() == [2, 2]
 
 
 def test_duplicate_version_with_inconsistent_ratings_is_rejected():

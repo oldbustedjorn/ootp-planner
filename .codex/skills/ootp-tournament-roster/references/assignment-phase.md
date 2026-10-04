@@ -11,7 +11,10 @@ Use this phase after roster membership matches the manifest.
 2. Run `manage_roster_automation.py ui-plan <manifest> vs_rhp`. Capture the
    visible hitter source rows once and build one name-to-source-row map. Use it to
    configure starters, batting order, depth, and pinch lists in one call, retaining
-   350-450 ms between drops. Verify the complete RHP section once.
+   350-450 ms between drops. Start every drag in the source row's non-text left
+   gutter, approximately 7.5-8% of the current client width, rather than on the
+   player name; name-region drags can open a player tooltip instead. Verify the
+   complete RHP section once.
 3. Run the corresponding `vs_lhp` plan. Reuse the source-row map only if the
    source list is visibly unchanged; otherwise capture it once again. Execute and
    verify the complete LHP section once.

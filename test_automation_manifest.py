@@ -34,6 +34,7 @@ def hitter(index: int) -> pd.Series:
         "name": f"Hitter {index}",
         "is_variant": index % 2 == 0,
         "owned_copy_count": 1,
+        "owned_cid_copy_count": 1,
         "card_value": 80 + index,
         "pt_year": 1990 + index,
         "pt_type": "Historical All-Star",
@@ -60,6 +61,7 @@ def pitcher(index: int) -> dict:
         "name": f"Pitcher {index}",
         "is_variant": False,
         "owned_copy_count": 1,
+        "owned_cid_copy_count": 1,
         "card_value": 85 + index,
         "pt_year": 1980 + index,
         "pt_type": "Historical All-Star",
@@ -231,11 +233,28 @@ def test_sync_ui_plan_separates_exact_variants_into_first_pass():
     }
     assert plan["passes"][0]["variant"] is True
     assert plan["passes"][1]["variant"] is False
-    assert all(card[0].startswith("hitter-") for card in plan["passes"][0]["cards"])
+    variant_cards = [
+        card for batch in plan["passes"][0]["fast_batches"] for card in batch
+    ]
+    assert all(card[0].startswith("hitter-") for card in variant_cards)
     assert all(
         int(card[0].split("-")[-1]) % 2 == 0
-        for card in plan["passes"][0]["cards"]
+        for card in variant_cards
     )
+    assert all(len(batch) <= 7 for batch in plan["passes"][1]["fast_batches"])
+    assert plan["passes"][0]["inspect"] == []
+
+
+def test_sync_ui_plan_inspects_cid_duplicates_and_unknown_old_manifests():
+    manifest = build_manifest()
+    manifest["roster"]["membership"][0]["owned_cid_copy_count"] = 2
+    manifest["roster"]["membership"][1].pop("owned_cid_copy_count")
+
+    plan = build_ui_plan(manifest, "sync")
+    inspect_cards = [card for sync_pass in plan["passes"] for card in sync_pass["inspect"]]
+
+    assert {card[0] for card in inspect_cards} == {"hitter-0", "hitter-1"}
+    assert inspect_cards[0][-1] in {2, None}
 
 
 def test_assignment_ui_plans_are_compact_and_directly_executable():

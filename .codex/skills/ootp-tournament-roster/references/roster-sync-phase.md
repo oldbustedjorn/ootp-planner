@@ -14,14 +14,21 @@ automation manifest.
    many fit, so do not make a second variant-cap decision in OOTP. Verify the
    planned variant count before continuing with the standard pass, where every
    card requires PT Variant `N`.
-5. Search by `cid` and scan only the few returned rows. Among rows with the exact
-   required variant status, prefer a copy already in a tournament, then a locked
-   copy, then the first remaining copy. Do not repeatedly re-sort for these
-   priorities and do not rely on exported physical ID. Sorting once may reduce
-   scanning, but row inspection remains the correctness check.
-6. Activate the chosen copy. Refresh internally only as required for OOTP to apply
-   the filter or activation; do not emit intermediate screenshots or accessibility
-   text for successful cards.
+5. Each pass contains `fast_batches` and `inspect`. A fast-batch card has exactly
+   one physical inventory row across all versions of that CID, so its required
+   variant status is unambiguous. Process all 6-8 cards in a fast batch in one
+   computer-control call: enter CID, wait for the filter, activate the sole row,
+   and continue without emitting intermediate states. Emit one state afterward
+   and verify that the active-roster count increased by the batch size.
+6. Process every `inspect` card individually. Search by `cid` and scan the few
+   returned rows. Among rows with the exact required variant status, prefer a copy
+   already in a tournament, then a locked copy, then the first remaining copy. Do
+   not repeatedly re-sort for these priorities and do not rely on exported
+   physical ID. Cards from older manifests with no CID-wide copy count deliberately
+   use this inspected path.
+7. Refresh internally only as required for OOTP to apply the filter or activation;
+   do not emit intermediate screenshots or accessibility text for successful fast
+   cards.
 
 After each batch, emit one state and verify the aggregate active-roster count.
 Checkpoint once per batch, not once per card. Use targeted screenshots only for

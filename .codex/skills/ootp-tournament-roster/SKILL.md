@@ -50,6 +50,8 @@ its current client-area origin and size and derive all coordinates relative to
 that geometry. The window may differ between runs, but treat it as fixed during
 one run. Do not repeatedly rediscover the app or window. Before a mutating batch,
 stop if the window moved, resized, or no longer shows the expected screen.
+Calibrate from the current window; do not load prior rollout or session logs to
+recover coordinates from an earlier run.
 
 Once OOTP auto-refresh is off, treat tournament rows, filters, and settings as
 static until this workflow changes them or the user interacts with OOTP. Do not

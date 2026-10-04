@@ -4,8 +4,9 @@ import json
 from typing import Any
 
 
-UI_PLAN_SCHEMA_VERSION = 1
+UI_PLAN_SCHEMA_VERSION = 2
 UI_PLAN_SECTIONS = ("sync", "pitching", "vs_rhp", "vs_lhp")
+FAST_SYNC_BATCH_SIZE = 7
 
 
 def build_ui_plan(manifest: dict[str, Any], section: str) -> dict[str, Any]:
@@ -30,13 +31,13 @@ def compact_ui_plan(manifest: dict[str, Any], section: str) -> str:
 
 def sync_plan(manifest: dict[str, Any]) -> dict[str, Any]:
     membership = manifest["roster"]["membership"]
-    variants = [sync_card(card) for card in membership if card["variant"]]
-    standards = [sync_card(card) for card in membership if not card["variant"]]
+    variants = [card for card in membership if card["variant"]]
+    standards = [card for card in membership if not card["variant"]]
     roster = manifest["roster"]
     return {
         "passes": [
-            {"variant": True, "cards": variants},
-            {"variant": False, "cards": standards},
+            sync_pass(True, variants),
+            sync_pass(False, standards),
         ],
         "expected": {
             "total": roster["expected_total"],
@@ -44,6 +45,20 @@ def sync_plan(manifest: dict[str, Any]) -> dict[str, Any]:
             "pitchers": roster["expected_pitchers"],
             "variants": len(variants),
         },
+    }
+
+
+def sync_pass(variant: bool, cards: list[dict[str, Any]]) -> dict[str, Any]:
+    fast_cards = [
+        sync_card(card) for card in cards if card.get("owned_cid_copy_count") == 1
+    ]
+    inspect_cards = [
+        sync_card(card) for card in cards if card.get("owned_cid_copy_count") != 1
+    ]
+    return {
+        "variant": variant,
+        "fast_batches": list(chunked(fast_cards, FAST_SYNC_BATCH_SIZE)),
+        "inspect": inspect_cards,
     }
 
 
@@ -102,7 +117,12 @@ def sync_card(card: dict[str, Any]) -> list[Any]:
         card["cid"],
         card["name"],
         card["player_type"],
+        card.get("owned_cid_copy_count"),
     ]
+
+
+def chunked(cards: list[list[Any]], size: int) -> list[list[list[Any]]]:
+    return [cards[index : index + size] for index in range(0, len(cards), size)]
 
 
 def ranked_names(entries: list[dict[str, Any]]) -> list[list[Any]]:

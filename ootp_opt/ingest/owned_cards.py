@@ -9,6 +9,7 @@ INVENTORY_COPY_COLUMNS = {
     "player_id",
     "pt_on_active",
     "owned_copy_count",
+    "owned_cid_copy_count",
 }
 
 
@@ -69,12 +70,18 @@ def collapse_owned_card_copies(df: pd.DataFrame) -> pd.DataFrame:
             )
 
     copy_counts = version_rows.groupby(version_columns, dropna=False).size()
+    cid_copy_counts = version_rows.groupby(PT_CARD_ID_COLUMN, dropna=False).size()
     collapsed["owned_copy_count"] = 1
+    collapsed["owned_cid_copy_count"] = 1
     collapsed.loc[valid_card_id, "owned_copy_count"] = [
         int(copy_counts.loc[(card_id, is_variant)])
         for card_id, is_variant in collapsed.loc[
             valid_card_id, version_columns
         ].itertuples(index=False, name=None)
+    ]
+    collapsed.loc[valid_card_id, "owned_cid_copy_count"] = [
+        int(cid_copy_counts.loc[card_id])
+        for card_id in collapsed.loc[valid_card_id, PT_CARD_ID_COLUMN]
     ]
 
     duplicate_copy = valid_card_id & collapsed.duplicated(

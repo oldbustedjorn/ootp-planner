@@ -301,6 +301,7 @@ def card_reference(row: pd.Series, *, player_type: str) -> dict[str, Any]:
         "player_type": player_type,
         "variant": bool(row.get("is_variant", False)),
         "owned_copy_count": scalar_int(row.get("owned_copy_count")),
+        "owned_cid_copy_count": scalar_int(row.get("owned_cid_copy_count")),
         "card_value": scalar_int(row.get("card_value")),
         "year": scalar_int(row.get("pt_year")),
         "card_type": scalar_text(row.get("pt_type")),
