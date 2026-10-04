@@ -12,7 +12,13 @@ local OOTP roster.
    Preserve user-entered park factors and other explicit planner settings.
 4. Build the roster. A successful optimizer build writes
    `outputs/<report-name>.automation.json` beside the HTML report.
-5. Validate that manifest with `manage_roster_automation.py validate`.
+5. Validate that manifest with `manage_roster_automation.py validate`, then run
+   `manage_roster_automation.py ui-plan <manifest> sync
+   --require-cid-copy-counts`. Do this before creating the blank OOTP roster. If
+   the inventory-count check fails for a newly generated manifest, identify the
+   process listening on port 8765. Restart it only when its command line confirms
+   it is this repository's `launch_gui.py`, then rebuild and validate the planner
+   roster once. Do not continue with the inspected legacy path for a new build.
 6. Create a blank local roster in OOTP using the manifest's roster name. Do not
    enter or submit the tournament.
 7. Initialize the checkpoint. The `plan` phase will be complete and later phases

@@ -4,7 +4,7 @@ import json
 from typing import Any
 
 
-UI_PLAN_SCHEMA_VERSION = 2
+UI_PLAN_SCHEMA_VERSION = 3
 UI_PLAN_SECTIONS = ("sync", "pitching", "vs_rhp", "vs_lhp")
 FAST_SYNC_BATCH_SIZE = 7
 
@@ -27,6 +27,22 @@ def build_ui_plan(manifest: dict[str, Any], section: str) -> dict[str, Any]:
 
 def compact_ui_plan(manifest: dict[str, Any], section: str) -> str:
     return json.dumps(build_ui_plan(manifest, section), separators=(",", ":"))
+
+
+def require_cid_copy_counts(manifest: dict[str, Any]) -> None:
+    missing = [
+        card["candidate_id"]
+        for card in manifest["roster"]["membership"]
+        if not isinstance(card.get("owned_cid_copy_count"), int)
+        or card["owned_cid_copy_count"] < 1
+    ]
+    if missing:
+        raise ValueError(
+            "Manifest is missing CID-wide inventory counts for "
+            f"{len(missing)} selected cards. The planner service may predate the "
+            "fast-sync code; restart the repository planner and rebuild this new "
+            "roster before creating its OOTP roster."
+        )
 
 
 def sync_plan(manifest: dict[str, Any]) -> dict[str, Any]:
@@ -83,11 +99,11 @@ def pitching_plan(manifest: dict[str, Any]) -> dict[str, Any]:
 
 
 def lineup_plan(manifest: dict[str, Any], split: str) -> dict[str, Any]:
-    starters: list[list[Any]] = []
+    starter_sequence: list[list[Any]] = []
     depth: list[list[Any]] = []
     for entry in manifest["lineups"][split]["starters"]:
         card = entry["card"]
-        starters.append(
+        starter_sequence.append(
             [entry["batting_order"], entry["position"], card["cid"], card["name"]]
         )
         for backup in entry["depth"]:
@@ -104,7 +120,7 @@ def lineup_plan(manifest: dict[str, Any], split: str) -> dict[str, Any]:
 
     bench = manifest["bench_actions"][split]
     return {
-        "starters": starters,
+        "starter_sequence": sorted(starter_sequence, key=lambda entry: entry[0]),
         "depth": depth,
         "pinch_hitters": ranked_names(bench["pinch_hitters"]),
         "pinch_runners": ranked_names(bench["pinch_runners"]),

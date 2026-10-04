@@ -72,6 +72,7 @@ Use the repository-local Python environment:
 .\.venv\Scripts\python.exe manage_roster_automation.py status <checkpoint>
 .\.venv\Scripts\python.exe manage_roster_automation.py actions <manifest> <section>
 .\.venv\Scripts\python.exe manage_roster_automation.py ui-plan <manifest> <section>
+.\.venv\Scripts\python.exe manage_roster_automation.py ui-plan <manifest> sync --require-cid-copy-counts
 ```
 
 For OOTP mutation, prefer `ui-plan` over `actions`. It emits compact JSON designed

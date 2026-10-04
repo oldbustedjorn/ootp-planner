@@ -17,7 +17,11 @@ from ootp_opt.automation.manifest import (
     validate_manifest,
     write_manifest,
 )
-from ootp_opt.automation.ui_plan import build_ui_plan, compact_ui_plan
+from ootp_opt.automation.ui_plan import (
+    build_ui_plan,
+    compact_ui_plan,
+    require_cid_copy_counts,
+)
 from ootp_opt.config import load_config
 from ootp_opt.roster.models import HitterRoster, PitcherRoster
 from ootp_opt.roster.rules import build_ruleset_from_base_profile
@@ -257,6 +261,16 @@ def test_sync_ui_plan_inspects_cid_duplicates_and_unknown_old_manifests():
     assert inspect_cards[0][-1] in {2, None}
 
 
+def test_new_sync_plan_requires_cid_wide_inventory_counts():
+    manifest = build_manifest()
+    require_cid_copy_counts(manifest)
+
+    manifest["roster"]["membership"][0].pop("owned_cid_copy_count")
+
+    with pytest.raises(ValueError, match="restart the repository planner"):
+        require_cid_copy_counts(manifest)
+
+
 def test_assignment_ui_plans_are_compact_and_directly_executable():
     manifest = build_manifest()
 
@@ -266,8 +280,8 @@ def test_assignment_ui_plans_are_compact_and_directly_executable():
 
     assert pitching["rotation"][0] == [1, "2000", "Pitcher 0"]
     assert len(pitching["bullpen"]) == 8
-    assert len(lineup["starters"]) == 9
-    assert lineup["starters"][0][0] == 1
+    assert len(lineup["starter_sequence"]) == 9
+    assert [entry[0] for entry in lineup["starter_sequence"]] == list(range(1, 10))
     assert lineup["depth"]
     assert "\n" not in encoded
 
