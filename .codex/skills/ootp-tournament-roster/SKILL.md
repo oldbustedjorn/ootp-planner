@@ -5,86 +5,105 @@ description: Create or resume an OOTP Perfect Team tournament roster using the l
 
 # OOTP Tournament Roster
 
-Use this skill when the user asks to create, load, synchronize, assign, or resume a
-Perfect Team tournament roster. The planner and OOTP run locally. Operate only one
-OOTP window controller at a time.
+Use this skill for a local Perfect Team tournament roster. Operate only one OOTP
+window controller at a time.
 
 ## Boundaries
 
-- Always use the planner's Full Optimizer. Do not use the legacy builder.
-- Use the generated automation manifest as the source of truth after planning.
-- Use CID plus variant status to identify a card. Physical inventory ID is
-  informational and may change between exports.
-- Never enter a tournament, pay an entry fee, submit a tournament roster, sell a
-  card, or delete an existing roster without a separate explicit user request.
-- Do not silently substitute a player or role. Record missing, ambiguous, or
-  ineligible assignments in the checkpoint and report them.
-- Preserve a usable checkpoint when interrupted. Resume from it rather than
-  repeating completed phases.
+- Always use the planner's Full Optimizer, never the legacy builder.
+- After planning, treat the automation manifest as the source of truth.
+- Identify cards by CID plus variant status. Physical inventory ID may change.
+- Never enter a tournament, pay a fee, submit a roster, sell a card, or delete an
+  existing roster without a separate explicit request.
+- Do not silently substitute a player or role. Checkpoint missing, ambiguous, or
+  ineligible work and report it.
+- Preserve and resume checkpoints instead of replaying completed phases.
+- On a rebuild, preserve unchanged roster members and assignments. Use the
+  manifest's rebuild delta; do not reconstruct differences from the screen.
+- Never clear a lineup during a rebuild. Finish all changed starter-position and
+  backup-depth slots first, then apply the separate batting-order plan if present.
 
 ## Route The Request
 
-Run phases sequentially. Never delegate concurrent control of OOTP.
-Read each phase reference immediately before that phase. Do not load all three
-references at startup.
+Run `plan -> sync -> assign` sequentially. Read only the reference for the phase
+being executed:
 
-- For a new roster or the `plan` phase, read
-  [references/plan-phase.md](references/plan-phase.md).
-- For card membership or the `sync` phase, read
-  [references/roster-sync-phase.md](references/roster-sync-phase.md).
-- For pitching, lineups, depth charts, or the `assign` phase, read
-  [references/assignment-phase.md](references/assignment-phase.md).
-- For status or resume requests, validate the manifest and checkpoint with
-  `manage_roster_automation.py`, then read only the reference for the first
-  incomplete phase.
+- New roster, rebuild, or plan:
+  [references/plan-phase.md](references/plan-phase.md)
+- Card membership: [references/roster-sync-phase.md](references/roster-sync-phase.md)
+- Pitching, lineups, depth, and pinch lists:
+  [references/assignment-phase.md](references/assignment-phase.md)
+- Resume: use `status`, then read only the first incomplete phase reference.
 
-## Shared Operating Rules
+Do not preload all references. A routine run must not read repository source,
+`MEMORY.md`, old session logs, or prior manifests to rediscover commands or
+coordinates. Use CLI `--help` for an unknown command. Inspect implementation or
+historical logs only after a concrete failure that the compact status, plan, or
+phase reference cannot explain. Do not load the full computer-control API manual
+for a routine run; consult only the required bootstrap or a specific unknown API.
+Do not reread this entrypoint on resume within the same chat.
 
-Prefer structured files and application text over screenshot interpretation.
-Capture the smallest useful OOTP region at the start and end of a batch, and on
-failure. Do not capture or narrate every click or drag. Perform a batch, verify its
-aggregate result, then retry only discrepancies.
+## Efficient Execution
 
-At the start of each run, find and activate the single OOTP window once. Record
-its current client-area origin and size and derive all coordinates relative to
-that geometry. The window may differ between runs, but treat it as fixed during
-one run. Do not repeatedly rediscover the app or window. Before a mutating batch,
-stop if the window moved, resized, or no longer shows the expected screen.
-Calibrate from the current window; do not load prior rollout or session logs to
-recover coordinates from an earlier run.
-
-Once OOTP auto-refresh is off, treat tournament rows, filters, and settings as
-static until this workflow changes them or the user interacts with OOTP. Do not
-re-read unchanged tournament state. Within a stable screen, perform related clicks
-and drags in one computer-control call, suppress intermediate screenshots and text,
-and emit one refreshed state at the end. Aim for one model decision per batch or
-completed section, not one decision per control.
-
-For drag-heavy sections, allow roughly 350-450 ms for OOTP to apply each drop.
-This is preferable to shorter waits followed by multiple observation and repair
-cycles. Keep the OOTP window geometry unchanged throughout the run.
-
-Use the repository-local Python environment:
+Prefer compact structured output over source inspection and screenshots:
 
 ```powershell
+.\.venv\Scripts\python.exe manage_roster_automation.py service-check
 .\.venv\Scripts\python.exe manage_roster_automation.py validate <manifest>
 .\.venv\Scripts\python.exe manage_roster_automation.py init <manifest>
 .\.venv\Scripts\python.exe manage_roster_automation.py status <checkpoint>
-.\.venv\Scripts\python.exe manage_roster_automation.py actions <manifest> <section>
 .\.venv\Scripts\python.exe manage_roster_automation.py ui-plan <manifest> <section>
-.\.venv\Scripts\python.exe manage_roster_automation.py ui-plan <manifest> sync --require-cid-copy-counts
 ```
 
-For OOTP mutation, prefer `ui-plan` over `actions`. It emits compact JSON designed
-to be passed into one persistent computer-control session. Build one visible
-player-name-to-source-row map per pitching or lineup screen, then execute that
-entire section from the plan in one call. Do not ask the model to decide between
-individual drags. Verify once after the section and use one targeted repair call
-only for discrepancies.
+Use `ui-plan`, not the full manifest or `actions`, for routine mutations. The CLI
+prints compact summaries by default; request JSON only when a downstream command
+needs it. Bound shell output and image detail to what the current phase requires.
+Do not print helper source to verify a supported option.
 
-Before mutating OOTP, mark the active phase `in_progress`. On completion or
-failure, update the phase once per batch with concise notes. Use `--complete-all`
-after aggregate verification rather than printing or passing every candidate ID.
-The CLI prints compact summaries by default; use `--json` only when full checkpoint
-data is genuinely needed. Finish by reporting the manifest path, checkpoint path,
-completed phases, and exceptions.
+At run start, activate the single OOTP window once and record its client origin
+and size. Geometry can change between runs but is fixed within a run. Stop before
+the next mutation if the window moved, resized, or left the expected screen.
+Treat tournament state as static after auto-refresh is off unless this workflow or
+the user changes it.
+
+Perform related fixed-geometry actions in a batch. Use one model decision per
+batch or completed section, not per click, card, or drag. Successful native helper
+calls do not require an observation. Capture the smallest useful region for
+calibration, aggregate verification, or one exact discrepancy. Never observe
+inside an assignment loop.
+
+Before OOTP mutation, mark the phase `in_progress`. Checkpoint once per successful
+batch and update completion with `--complete-all` after aggregate verification.
+Use the repair gate only for exact confirmed mismatches:
+
+```powershell
+.\.venv\Scripts\python.exe manage_roster_automation.py repair-attempt <checkpoint> <section> --item <target> --strategy <distinct-strategy>
+```
+
+Do not replay correct work or begin an open-ended repair loop. Keep OOTP on the
+blocked screen when pausing so the user can repair and resume.
+
+## Run Metrics
+
+Instrument new and resumed runs with `setup`, `plan`, `sync`, `rotation`,
+`bullpen`, `vs_rhp`, `vs_lhp`, and `save`:
+
+```powershell
+.\.venv\Scripts\python.exe manage_roster_automation.py metric-marker <run-id> <stage> start
+.\.venv\Scripts\python.exe manage_roster_automation.py metric-marker <run-id> <stage> complete
+```
+
+Use `<tournament-id>-<UTC-start-time>` and retain it across resumes. Put a closing
+marker and next opening marker in the existing phase-transition shell call; never
+create a model turn only for metrics. On resume, start the incomplete stage again.
+
+After `save complete` has returned, generate the report in the next tool call:
+
+```powershell
+.\.venv\Scripts\python.exe manage_roster_automation.py metric-report --run-id <run-id> --html outputs/<manifest-stem>.metrics.html --json-output outputs/<manifest-stem>.metrics.json
+```
+
+Report the manifest, checkpoint, metrics path, completed phases, and exceptions.
+Completion requires plan, sync, and assign complete; zero missing or ambiguous
+items; and a confirmed local save. Do not infer phase cost from the whole run when
+marker data exists.

@@ -3,11 +3,14 @@ from __future__ import annotations
 from contextlib import redirect_stdout
 from dataclasses import dataclass, field
 from io import StringIO
+from pathlib import Path
 from typing import Any, Literal
 
 from ootp_opt.automation.manifest import (
+    archive_manifest_revision,
     automation_manifest_path,
     build_automation_manifest,
+    load_manifest,
     write_manifest,
 )
 from ootp_opt.domain.simulation_context import SimulationContext
@@ -401,6 +404,20 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
 
     html_output = request.html_output or build_output_name(ruleset, request.overrides)
     snapshot_path = snapshot_path_for_html(html_output)
+    manifest_path = (
+        automation_manifest_path(html_output)
+        if build_method == "optimizer"
+        else None
+    )
+    previous_manifest = None
+    previous_artifacts = None
+    if manifest_path and Path(manifest_path).exists():
+        previous_manifest = load_manifest(manifest_path)
+        previous_artifacts = archive_manifest_revision(
+            manifest_path,
+            snapshot_path,
+            previous_manifest,
+        )
     old_snapshot = load_snapshot(snapshot_path)
     new_snapshot = build_roster_snapshot(
         hitter_roster=hitter_roster,
@@ -437,9 +454,7 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
         ),
     )
     write_snapshot(snapshot_path, new_snapshot)
-    manifest_path = None
     if build_method == "optimizer":
-        manifest_path = automation_manifest_path(html_output)
         manifest = build_automation_manifest(
             ruleset=ruleset,
             hitter_roster=hitter_roster,
@@ -449,6 +464,8 @@ def build_roster(request: RosterBuildRequest) -> RosterBuildResult:
             preset_name=request.preset,
             base_profile=request.base_profile,
             config_path=request.config_path,
+            previous_manifest=previous_manifest,
+            previous_artifacts=previous_artifacts,
         )
         write_manifest(manifest_path, manifest)
     timer.checkpoint("HTML and snapshot export")
@@ -583,6 +600,10 @@ def build_output_name(ruleset: Ruleset, overrides: dict[str, Any]) -> str:
         parts.append("types_" + "_".join(ruleset.allowed_card_types))
     if ruleset.excluded_card_types:
         parts.append("exclude_types_" + "_".join(ruleset.excluded_card_types))
+    if ruleset.allowed_card_subtypes:
+        parts.append("subtypes_" + "_".join(ruleset.allowed_card_subtypes))
+    if ruleset.excluded_card_subtypes:
+        parts.append("exclude_subtypes_" + "_".join(ruleset.excluded_card_subtypes))
     if ruleset.card_year_min is not None:
         parts.append(f"year_min_{ruleset.card_year_min}")
     if ruleset.card_year_max is not None:
@@ -606,6 +627,8 @@ def format_ruleset_summary(ruleset: Ruleset) -> str:
         f"Live mode: {ruleset.live_mode}",
         f"Allowed card types: {ruleset.allowed_card_types or '-'}",
         f"Excluded card types: {ruleset.excluded_card_types or '-'}",
+        f"Allowed card subtypes: {ruleset.allowed_card_subtypes or '-'}",
+        f"Excluded card subtypes: {ruleset.excluded_card_subtypes or '-'}",
         f"Card year min/max: {ruleset.card_year_min} / {ruleset.card_year_max}",
         f"Simulation year: {ruleset.simulation_year or '-'}",
         f"Ballpark: {ruleset.ballpark or '-'}",

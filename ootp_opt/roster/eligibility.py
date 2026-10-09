@@ -29,6 +29,7 @@ def filter_eligible_players(df: pd.DataFrame, ruleset: Ruleset) -> pd.DataFrame:
     filtered = apply_card_value_filter(filtered, ruleset)
     filtered = apply_live_filter(filtered, ruleset)
     filtered = apply_card_type_filter(filtered, ruleset)
+    filtered = apply_card_subtype_filter(filtered, ruleset)
     filtered = apply_card_year_filter(filtered, ruleset)
 
     return filtered.copy()
@@ -113,6 +114,27 @@ def apply_card_type_filter(df: pd.DataFrame, ruleset: Ruleset) -> pd.DataFrame:
     if ruleset.excluded_card_types:
         excluded = set(ruleset.excluded_card_types)
         mask &= ~card_types.isin(excluded)
+
+    return df.loc[mask].copy()
+
+
+def apply_card_subtype_filter(df: pd.DataFrame, ruleset: Ruleset) -> pd.DataFrame:
+    if not ruleset.allowed_card_subtypes and not ruleset.excluded_card_subtypes:
+        return df
+
+    if "pt_subtype" not in df.columns:
+        raise ValueError(
+            "Cannot apply card subtype filter: missing column 'pt_subtype'."
+        )
+
+    card_subtypes = normalize_card_type_series(df["pt_subtype"])
+    mask = pd.Series(True, index=df.index)
+
+    if ruleset.allowed_card_subtypes:
+        mask &= card_subtypes.isin(set(ruleset.allowed_card_subtypes))
+
+    if ruleset.excluded_card_subtypes:
+        mask &= ~card_subtypes.isin(set(ruleset.excluded_card_subtypes))
 
     return df.loc[mask].copy()
 

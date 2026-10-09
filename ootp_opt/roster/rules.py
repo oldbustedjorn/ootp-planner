@@ -52,6 +52,8 @@ class Ruleset:
     live_mode: str = "all"  # "all", "live", or "non_live"
     allowed_card_types: list[str] = field(default_factory=list)
     excluded_card_types: list[str] = field(default_factory=list)
+    allowed_card_subtypes: list[str] = field(default_factory=list)
+    excluded_card_subtypes: list[str] = field(default_factory=list)
     card_year_min: int | None = None
     card_year_max: int | None = None
     simulation_year: int | None = None
@@ -115,6 +117,8 @@ TOURNAMENT_PRESET_RULESET_KEYS = {
     "live_mode",
     "allowed_card_types",
     "excluded_card_types",
+    "allowed_card_subtypes",
+    "excluded_card_subtypes",
     "card_year_min",
     "card_year_max",
     "simulation_year",
@@ -257,6 +261,12 @@ def build_ruleset(profile_name: str, profile_cfg: dict[str, Any]) -> Ruleset:
     live_mode = str(profile_cfg.get("live_mode", "all")).lower()
     allowed_card_types = normalize_string_list(profile_cfg.get("allowed_card_types"))
     excluded_card_types = normalize_string_list(profile_cfg.get("excluded_card_types"))
+    allowed_card_subtypes = normalize_string_list(
+        profile_cfg.get("allowed_card_subtypes")
+    )
+    excluded_card_subtypes = normalize_string_list(
+        profile_cfg.get("excluded_card_subtypes")
+    )
     card_year_min = none_if_zero(profile_cfg.get("card_year_min"))
     card_year_max = none_if_zero(profile_cfg.get("card_year_max"))
     simulation_year = none_if_zero(profile_cfg.get("simulation_year"))
@@ -303,6 +313,8 @@ def build_ruleset(profile_name: str, profile_cfg: dict[str, Any]) -> Ruleset:
         live_mode=live_mode,
         allowed_card_types=allowed_card_types,
         excluded_card_types=excluded_card_types,
+        allowed_card_subtypes=allowed_card_subtypes,
+        excluded_card_subtypes=excluded_card_subtypes,
         card_year_min=card_year_min,
         card_year_max=card_year_max,
         simulation_year=simulation_year,

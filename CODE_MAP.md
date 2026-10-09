@@ -189,6 +189,7 @@ Responsibilities:
 - normalize trainability flags
 - normalize `VAR` to boolean `is_variant`
 - expose `CType` as `pt_type`
+- expose `ST` as `pt_subtype` for independent subtype restrictions such as `LE`
 - validate and collapse interchangeable physical copies by `(pt_card_id,
   is_variant)` before scoring
 
@@ -208,6 +209,7 @@ Responsibilities:
 - handle `P.1`/`P_1`
 - normalize `VAR` to boolean `is_variant`
 - expose `CType` as `pt_type`
+- expose `ST` as `pt_subtype` for independent subtype restrictions such as `LE`
 - validate and collapse interchangeable physical copies by `(pt_card_id,
   is_variant)` before scoring
 

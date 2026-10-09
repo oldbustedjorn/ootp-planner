@@ -45,6 +45,16 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Comma-separated pt_type block-list, matched case-insensitively.",
     )
+    parser.add_argument(
+        "--card-subtypes",
+        default=None,
+        help="Comma-separated pt_subtype allow-list, matched case-insensitively.",
+    )
+    parser.add_argument(
+        "--exclude-card-subtypes",
+        default=None,
+        help="Comma-separated pt_subtype block-list, matched case-insensitively.",
+    )
 
     parser.add_argument(
         "--dh-enabled",
@@ -135,6 +145,8 @@ def build_overrides(args: argparse.Namespace) -> dict[str, Any]:
         "live_mode",
         "card_types",
         "exclude_card_types",
+        "card_subtypes",
+        "exclude_card_subtypes",
         "card_year_min",
         "card_year_max",
         "simulation_year",
@@ -150,6 +162,10 @@ def build_overrides(args: argparse.Namespace) -> dict[str, Any]:
                 overrides["allowed_card_types"] = split_csv_arg(value)
             elif field == "exclude_card_types":
                 overrides["excluded_card_types"] = split_csv_arg(value)
+            elif field == "card_subtypes":
+                overrides["allowed_card_subtypes"] = split_csv_arg(value)
+            elif field == "exclude_card_subtypes":
+                overrides["excluded_card_subtypes"] = split_csv_arg(value)
             else:
                 overrides[field] = value
 

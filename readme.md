@@ -345,6 +345,7 @@ Common preset fields:
 - `card_value_min`, `card_value_max`
 - `live_mode`: `all`, `live`, `non_live`
 - `allowed_card_types`, `excluded_card_types`
+- `allowed_card_subtypes`, `excluded_card_subtypes` (`LE` is Limited Edition)
 - `card_year_min`, `card_year_max`
 - `simulation_year`
 - `ballpark`

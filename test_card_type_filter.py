@@ -10,6 +10,8 @@ def base_config() -> dict:
             "live_mode": "all",
             "allowed_card_types": [],
             "excluded_card_types": [],
+            "allowed_card_subtypes": [],
+            "excluded_card_subtypes": [],
         },
         "roster": {
             "default_base_profile": "standard_pt",
@@ -51,9 +53,24 @@ def base_config() -> dict:
 def sample_cards() -> pd.DataFrame:
     return pd.DataFrame(
         [
-            {"name": "A", "pt_type": "Live", "pt_tier": "gold"},
-            {"name": "B", "pt_type": "Historical Legend", "pt_tier": "gold"},
-            {"name": "C", "pt_type": "Future Legend", "pt_tier": "gold"},
+            {
+                "name": "A",
+                "pt_type": "Live",
+                "pt_subtype": "",
+                "pt_tier": "gold",
+            },
+            {
+                "name": "B",
+                "pt_type": "Historical Legend",
+                "pt_subtype": "LE",
+                "pt_tier": "gold",
+            },
+            {
+                "name": "C",
+                "pt_type": "Future Legend",
+                "pt_subtype": "Special",
+                "pt_tier": "gold",
+            },
         ]
     )
 
@@ -95,3 +112,31 @@ def test_allowed_and_excluded_card_types_can_be_combined():
     filtered = filter_eligible_players(sample_cards(), ruleset)
 
     assert filtered["name"].tolist() == ["A", "B"]
+
+
+def test_excluded_card_subtypes_filter_independently_from_card_type():
+    ruleset = build_ruleset_from_base_profile(
+        base_config(),
+        "standard_pt",
+        overrides={"excluded_card_subtypes": ["LE"]},
+    )
+
+    filtered = filter_eligible_players(sample_cards(), ruleset)
+
+    assert filtered["name"].tolist() == ["A", "C"]
+    assert ruleset.excluded_card_subtypes == ["le"]
+
+
+def test_allowed_and_excluded_card_subtypes_can_be_combined():
+    ruleset = build_ruleset_from_base_profile(
+        base_config(),
+        "standard_pt",
+        overrides={
+            "allowed_card_subtypes": ["LE", "Special"],
+            "excluded_card_subtypes": ["LE"],
+        },
+    )
+
+    filtered = filter_eligible_players(sample_cards(), ruleset)
+
+    assert filtered["name"].tolist() == ["C"]

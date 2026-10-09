@@ -233,6 +233,10 @@ live_mode = "all" # all, live, non_live
 # 2026Live, AS, FL, HaH, Leg, NeL, RS, Snap, UnH, VET
 allowed_card_types = []
 excluded_card_types = []
+# Card subtype filters use the normalized ST values from exports. For example,
+# LE means Limited Edition.
+allowed_card_subtypes = []
+excluded_card_subtypes = []
 card_year_min = 0
 card_year_max = 0
 simulation_year = 0

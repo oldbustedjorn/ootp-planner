@@ -1,9 +1,14 @@
 from pathlib import Path
+import json
+from http.server import ThreadingHTTPServer
+from threading import Thread
+from urllib.request import urlopen
 
 import ootp_opt.gui.server as gui_server
 
 from ootp_opt.gui.server import (
     MAX_OOTP_ROSTER_NAME_LENGTH,
+    PlannerHTTPServer,
     build_auto_roster_name,
     build_gui_request,
     build_overrides_from_form,
@@ -28,6 +33,51 @@ def form(**kwargs):
         key: value if isinstance(value, list) else [str(value)]
         for key, value in kwargs.items()
     }
+
+
+def test_automation_status_endpoint_reports_current_contract():
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0),
+        gui_server.build_handler(config_path="config.toml"),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with urlopen(
+            f"http://127.0.0.1:{server.server_port}/automation-status",
+            timeout=3,
+        ) as response:
+            status = json.load(response)
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
+
+    assert status["automation_contract_version"] == 13
+    assert status["ui_plan_schema_version"] == 15
+    assert status["features"]["single_calibration_batching"] is True
+    assert status["features"]["checkpoint_repair_gate"] is True
+    assert status["features"]["targeted_repair_retries"] is True
+    assert status["features"]["split_pinch_calibration"] is True
+    assert status["features"]["distinct_repair_strategies"] is True
+    assert status["features"]["in_place_assignment_pause"] is True
+    assert status["features"]["drag_capability_preflight"] is True
+    assert status["features"]["drag_gesture_fail_fast"] is True
+    assert status["features"]["context_menu_lineup_assignment"] is False
+    assert status["features"]["context_menu_isolated_repair_only"] is True
+    assert status["features"]["lower_pane_drag_sources"] is True
+    assert status["features"]["upper_list_drag_disabled"] is False
+    assert status["features"]["failed_preflight_manual_handoff"] is True
+    assert status["features"]["windows_held_drag"] is True
+    assert status["features"]["upper_pitcher_list_drag"] is True
+    assert status["features"]["player_name_drag_source"] is True
+    assert status["features"]["local_assignment_captures"] is True
+    assert status["features"]["native_drag_batches"] is True
+    assert status["features"]["card_subtype_constraints"] is True
+
+
+def test_planner_server_disables_shared_port_reuse():
+    assert PlannerHTTPServer.allow_reuse_address is False
 
 
 def test_standard_pt_gui_request_uses_standard_profile():
@@ -87,6 +137,7 @@ def test_render_home_preserves_submitted_build_form_after_error(monkeypatch):
             tier_max="diamond",
             card_value_max="99",
             allowed_card_types=["UnH", "Snap"],
+            excluded_card_subtypes=["LE"],
             slot_D="2",
         ),
     )
@@ -104,6 +155,7 @@ def test_render_home_preserves_submitted_build_form_after_error(monkeypatch):
     assert 'name="card_value_max" value="99"' in html
     assert 'value="UnH" checked' in html
     assert 'value="Snap" checked' in html
+    assert 'name="excluded_card_subtypes" value="LE" checked' in html
     assert 'name="slot_D" value="2"' in html
 
 
@@ -131,6 +183,7 @@ def test_tournament_gui_request_maps_restrictions():
             card_value_max="84",
             variant_limit="0",
             allowed_card_types=["UnH", "Snap", "RS"],
+            excluded_card_subtypes=["LE"],
             slot_P="1",
             slot_D="2",
         )
@@ -146,6 +199,7 @@ def test_tournament_gui_request_maps_restrictions():
         "Snap",
         "RS",
     ]
+    assert request.roster_request.overrides["excluded_card_subtypes"] == ["LE"]
     assert request.roster_request.overrides["tier_slots"] == {"P": 1, "D": 2}
 
 

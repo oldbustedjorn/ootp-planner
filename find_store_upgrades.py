@@ -36,6 +36,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--card-types", default=None)
     parser.add_argument("--exclude-card-types", default=None)
+    parser.add_argument("--card-subtypes", default=None)
+    parser.add_argument("--exclude-card-subtypes", default=None)
     parser.add_argument("--card-year-min", type=int, default=None)
     parser.add_argument("--card-year-max", type=int, default=None)
 
@@ -100,6 +102,8 @@ def build_overrides(args: argparse.Namespace) -> dict[str, Any]:
         "live_mode",
         "card_types",
         "exclude_card_types",
+        "card_subtypes",
+        "exclude_card_subtypes",
         "card_year_min",
         "card_year_max",
         "simulation_year",
@@ -113,6 +117,10 @@ def build_overrides(args: argparse.Namespace) -> dict[str, Any]:
                 overrides["allowed_card_types"] = split_csv_arg(value)
             elif field == "exclude_card_types":
                 overrides["excluded_card_types"] = split_csv_arg(value)
+            elif field == "card_subtypes":
+                overrides["allowed_card_subtypes"] = split_csv_arg(value)
+            elif field == "exclude_card_subtypes":
+                overrides["excluded_card_subtypes"] = split_csv_arg(value)
             else:
                 overrides[field] = value
 
@@ -168,6 +176,8 @@ def main() -> None:
     print(f"Live mode: {ruleset.live_mode}")
     print(f"Allowed card types: {ruleset.allowed_card_types or '-'}")
     print(f"Excluded card types: {ruleset.excluded_card_types or '-'}")
+    print(f"Allowed card subtypes: {ruleset.allowed_card_subtypes or '-'}")
+    print(f"Excluded card subtypes: {ruleset.excluded_card_subtypes or '-'}")
     print(f"Card year min/max: {ruleset.card_year_min} / {ruleset.card_year_max}")
     print(f"Scoring environment: {result.scoring_environment.name}")
     print(f"Min gain: {args.min_gain}")

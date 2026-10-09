@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
+import os
 import re
+import socket
 from dataclasses import dataclass, replace
 from datetime import datetime
 from http import HTTPStatus
@@ -11,6 +14,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
+from ootp_opt.automation.ui_plan import automation_status
 from ootp_opt.services.preset_service import (
     find_record,
     format_build_number,
@@ -41,6 +45,7 @@ from ootp_opt.services.store_upgrade_service import (
 )
 
 CARD_TYPES = ["2026Live", "AS", "FL", "HaH", "Leg", "NeL", "RS", "Snap", "UnH", "VET"]
+CARD_SUBTYPE_EXCLUSIONS = [("LE", "Limited Edition (LE)")]
 TIERS = ["iron", "bronze", "silver", "gold", "diamond", "perfect"]
 SCORING_ENVIRONMENTS = [
     "auto",
@@ -69,6 +74,19 @@ BUILD_TYPES = {
 }
 
 
+class PlannerHTTPServer(ThreadingHTTPServer):
+    allow_reuse_address = False
+
+    def server_bind(self) -> None:
+        if os.name == "nt":
+            self.socket.setsockopt(
+                socket.SOL_SOCKET,
+                socket.SO_EXCLUSIVEADDRUSE,
+                1,
+            )
+        super().server_bind()
+
+
 @dataclass(frozen=True)
 class GuiBuildRequest:
     roster_name: str
@@ -90,7 +108,7 @@ def main() -> None:
     except ApplicationStateError as exc:
         parser.error(str(exc))
     handler_cls = build_handler(config_path=args.config)
-    server = ThreadingHTTPServer((args.host, args.port), handler_cls)
+    server = PlannerHTTPServer((args.host, args.port), handler_cls)
     print(f"OOTP Planner UI running at http://{args.host}:{args.port}")
     print("Press Ctrl+C to stop.")
     server.serve_forever()
@@ -100,6 +118,10 @@ def build_handler(config_path: str):
     class OotpPlannerHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
             parsed = urlparse(self.path)
+            if parsed.path == "/automation-status":
+                self.respond_json(automation_status())
+                return
+
             if parsed.path == "/":
                 query = parse_qs(parsed.query)
                 self.respond_html(
@@ -562,6 +584,18 @@ def build_handler(config_path: str):
             self.end_headers()
             self.wfile.write(encoded)
 
+        def respond_json(
+            self,
+            body: dict[str, Any],
+            status: HTTPStatus = HTTPStatus.OK,
+        ) -> None:
+            encoded = json.dumps(body, separators=(",", ":")).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(encoded)))
+            self.end_headers()
+            self.wfile.write(encoded)
+
         def respond_text(
             self,
             body: str,
@@ -672,6 +706,10 @@ def build_overrides_from_form(
     if allowed_card_types:
         overrides["allowed_card_types"] = allowed_card_types
 
+    excluded_card_subtypes = list_values(form, "excluded_card_subtypes")
+    if excluded_card_subtypes:
+        overrides["excluded_card_subtypes"] = excluded_card_subtypes
+
     for key in [
         "card_value_min",
         "card_value_max",
@@ -711,6 +749,9 @@ def render_home(
     records = load_application_build_records(config_path)
     form_values = form_values or {}
     selected_card_types = set(list_values(form_values, "allowed_card_types"))
+    excluded_card_subtypes = set(
+        list_values(form_values, "excluded_card_subtypes")
+    )
     has_custom_park_factors = any(
         submitted_value(form_values, key)
         for key in [
@@ -800,7 +841,14 @@ def render_home(
         <fieldset>
           <legend>Allowed card types</legend>
           <div class="checks">
-            {"".join(render_checkbox(card_type, card_type in selected_card_types) for card_type in CARD_TYPES)}
+            {"".join(render_checkbox("allowed_card_types", card_type, card_type, card_type in selected_card_types) for card_type in CARD_TYPES)}
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Excluded card subtypes</legend>
+          <div class="checks">
+            {"".join(render_checkbox("excluded_card_subtypes", value, label, value in excluded_card_subtypes) for value, label in CARD_SUBTYPE_EXCLUSIONS)}
           </div>
         </fieldset>
 
@@ -957,6 +1005,9 @@ def flatten_preset_summary(preset_cfg: dict[str, Any]) -> list[tuple[str, Any]]:
         "card_value_max",
         "live_mode",
         "allowed_card_types",
+        "excluded_card_types",
+        "allowed_card_subtypes",
+        "excluded_card_subtypes",
         "card_year_min",
         "card_year_max",
         "simulation_year",
@@ -1292,9 +1343,9 @@ def field_select(
     return f"""<label><span>{escape(label)}</span><select name="{escape(name)}">{option_html}</select></label>"""
 
 
-def render_checkbox(card_type: str, checked: bool = False) -> str:
+def render_checkbox(name: str, value: str, label: str, checked: bool = False) -> str:
     checked_attr = " checked" if checked else ""
-    return f"""<label class="check"><input type="checkbox" name="allowed_card_types" value="{escape(card_type)}"{checked_attr}><span>{escape(card_type)}</span></label>"""
+    return f"""<label class="check"><input type="checkbox" name="{escape(name)}" value="{escape(value)}"{checked_attr}><span>{escape(label)}</span></label>"""
 
 
 def render_alert(kind: str, message: str) -> str:

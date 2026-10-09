@@ -182,7 +182,8 @@ Known `pt_type` values:
 - `UnH`
 - `VET`
 
-`pt_subtype` is separate from variant status. Subtypes include values such as `BBR`, `HOF`, `ME`, `UTIL`, `VB`, and `WBC`.
+`pt_subtype` is separate from variant status. Subtypes include values such as
+`BBR`, `HOF`, `LE`, `ME`, `UTIL`, `VB`, and `WBC`. `LE` means Limited Edition.
 
 Variant status uses normalized boolean `is_variant` from OOTP `VAR`. `pt_subtype` is not variant status.
 
@@ -237,6 +238,8 @@ Supported preset fields include:
 - `live_mode`
 - `allowed_card_types`
 - `excluded_card_types`
+- `allowed_card_subtypes`
+- `excluded_card_subtypes`
 - `card_year_min`
 - `card_year_max`
 - `simulation_year`

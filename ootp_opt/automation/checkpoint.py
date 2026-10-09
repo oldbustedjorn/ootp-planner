@@ -12,6 +12,9 @@ PhaseName = Literal["plan", "sync", "assign"]
 PhaseStatus = Literal["pending", "in_progress", "complete", "failed"]
 PHASES: tuple[PhaseName, ...] = ("plan", "sync", "assign")
 STATUSES = {"pending", "in_progress", "complete", "failed"}
+ASSIGNMENT_SECTIONS = ("pitching", "vs_rhp", "vs_lhp")
+MAX_ASSIGNMENT_REPAIR_BATCHES = 3
+MAX_REPAIR_ATTEMPTS_PER_ITEM = 2
 
 
 def checkpoint_path_for_manifest(manifest_path: str | Path) -> str:
@@ -34,6 +37,11 @@ def initialize_checkpoint(
             "plan": phase_record("complete"),
             "sync": phase_record("pending"),
             "assign": phase_record("pending"),
+        },
+        "assignment_repairs": {section: 0 for section in ASSIGNMENT_SECTIONS},
+        "assignment_repair_items": {section: {} for section in ASSIGNMENT_SECTIONS},
+        "assignment_repair_strategies": {
+            section: {} for section in ASSIGNMENT_SECTIONS
         },
     }
     write_checkpoint(destination, checkpoint)
@@ -113,6 +121,61 @@ def validate_checkpoint(checkpoint: dict[str, Any]) -> None:
             continue
         if record.get("status") not in STATUSES:
             errors.append(f"phase {phase} has an invalid status")
+    repairs = checkpoint.get("assignment_repairs", {})
+    if not isinstance(repairs, dict):
+        errors.append("assignment_repairs must be an object")
+    else:
+        for section in ASSIGNMENT_SECTIONS:
+            count = repairs.get(section, 0)
+            if (
+                not isinstance(count, int)
+                or count < 0
+                or count > MAX_ASSIGNMENT_REPAIR_BATCHES
+            ):
+                errors.append(
+                    f"assignment repair count for {section} must be between 0 and "
+                    f"{MAX_ASSIGNMENT_REPAIR_BATCHES}"
+                )
+    repair_items = checkpoint.get("assignment_repair_items", {})
+    if not isinstance(repair_items, dict):
+        errors.append("assignment_repair_items must be an object")
+    else:
+        for section in ASSIGNMENT_SECTIONS:
+            items = repair_items.get(section, {})
+            if not isinstance(items, dict):
+                errors.append(f"assignment repair items for {section} must be an object")
+                continue
+            for item, attempts in items.items():
+                if (
+                    not isinstance(item, str)
+                    or not item
+                    or not isinstance(attempts, int)
+                    or attempts < 1
+                    or attempts > MAX_REPAIR_ATTEMPTS_PER_ITEM
+                ):
+                    errors.append(f"invalid assignment repair item for {section}")
+    repair_strategies = checkpoint.get("assignment_repair_strategies", {})
+    if not isinstance(repair_strategies, dict):
+        errors.append("assignment_repair_strategies must be an object")
+    else:
+        for section in ASSIGNMENT_SECTIONS:
+            strategies = repair_strategies.get(section, {})
+            if not isinstance(strategies, dict):
+                errors.append(
+                    f"assignment repair strategies for {section} must be an object"
+                )
+                continue
+            for item, values in strategies.items():
+                if (
+                    not isinstance(item, str)
+                    or not item
+                    or not isinstance(values, list)
+                    or not values
+                    or len(values) > MAX_REPAIR_ATTEMPTS_PER_ITEM
+                    or len(values) != len(set(values))
+                    or any(not isinstance(value, str) or not value for value in values)
+                ):
+                    errors.append(f"invalid assignment repair strategy for {section}")
     if errors:
         raise ValueError("Invalid automation checkpoint: " + "; ".join(errors))
 
@@ -147,6 +210,63 @@ def merge_unique(existing: list[str], additions: list[str]) -> list[str]:
     return list(dict.fromkeys([*existing, *additions]))
 
 
+def record_assignment_repair(
+    checkpoint_path: str | Path,
+    section: str,
+    items: list[str],
+    strategy: str,
+) -> dict[str, Any]:
+    checkpoint = load_checkpoint(checkpoint_path)
+    if section not in ASSIGNMENT_SECTIONS:
+        raise ValueError(f"Unknown assignment section: {section}")
+    if checkpoint["phases"]["assign"]["status"] != "in_progress":
+        raise ValueError("Assignment phase must be in_progress before a repair batch")
+    normalized_items = merge_unique([], [item.strip() for item in items if item.strip()])
+    if not normalized_items:
+        raise ValueError("At least one specific repair item is required")
+    normalized_strategy = strategy.strip()
+    if not normalized_strategy:
+        raise ValueError("A specific repair strategy is required")
+
+    repairs = checkpoint.setdefault("assignment_repairs", {})
+    attempts = int(repairs.get(section, 0))
+    if attempts >= MAX_ASSIGNMENT_REPAIR_BATCHES:
+        raise ValueError(
+            f"Repair batch limit reached for {section}; stop and report remaining "
+            "discrepancies."
+        )
+    repair_items = checkpoint.setdefault("assignment_repair_items", {})
+    section_items = repair_items.setdefault(section, {})
+    exhausted = [
+        item
+        for item in normalized_items
+        if int(section_items.get(item, 0)) >= MAX_REPAIR_ATTEMPTS_PER_ITEM
+    ]
+    if exhausted:
+        raise ValueError(
+            "Repair attempt limit reached for: " + ", ".join(exhausted)
+        )
+    repair_strategies = checkpoint.setdefault("assignment_repair_strategies", {})
+    section_strategies = repair_strategies.setdefault(section, {})
+    repeated = [
+        item
+        for item in normalized_items
+        if normalized_strategy in section_strategies.get(item, [])
+    ]
+    if repeated:
+        raise ValueError(
+            "Repair strategy already used for: " + ", ".join(repeated)
+        )
+
+    repairs[section] = attempts + 1
+    for item in normalized_items:
+        section_items[item] = int(section_items.get(item, 0)) + 1
+        section_strategies.setdefault(item, []).append(normalized_strategy)
+    checkpoint["updated_at"] = now_iso()
+    write_checkpoint(checkpoint_path, checkpoint)
+    return checkpoint
+
+
 def format_checkpoint_summary(checkpoint: dict[str, Any]) -> str:
     validate_checkpoint(checkpoint)
     lines = [
@@ -165,4 +285,12 @@ def format_checkpoint_summary(checkpoint: dict[str, Any]) -> str:
         if next_phase is None and record["status"] != "complete":
             next_phase = phase
     lines.append(f"Next phase: {next_phase or 'none'}")
+    repairs = checkpoint.get("assignment_repairs", {})
+    lines.append(
+        "Assignment repairs: "
+        + " ".join(
+            f"{section}={repairs.get(section, 0)}"
+            for section in ASSIGNMENT_SECTIONS
+        )
+    )
     return "\n".join(lines)

@@ -133,6 +133,8 @@ Examples:
 - `max_overall`
 - `allowed_card_types`
 - `excluded_card_types`
+- `allowed_card_subtypes`
+- `excluded_card_subtypes`
 - `team_filters`
 - `league_filters`
 - `nation_filters`

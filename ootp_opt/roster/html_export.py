@@ -176,6 +176,14 @@ def render_build_summary(
             ", ".join(ruleset.excluded_card_types) or "-",
         ),
         (
+            "Allowed card subtypes",
+            ", ".join(ruleset.allowed_card_subtypes) or "-",
+        ),
+        (
+            "Excluded card subtypes",
+            ", ".join(ruleset.excluded_card_subtypes) or "-",
+        ),
+        (
             "Card year min/max",
             f"{ruleset.card_year_min or '-'} / {ruleset.card_year_max or '-'}",
         ),

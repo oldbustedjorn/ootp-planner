@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 import json
 from pathlib import Path
+from shutil import copy2
 from typing import Any, Iterable
 
 import pandas as pd
@@ -21,6 +22,10 @@ from ootp_opt.roster.lineup import (
 )
 from ootp_opt.roster.models import HitterRoster, PitcherRoster
 from ootp_opt.roster.rules import Ruleset
+from ootp_opt.automation.rebuild import (
+    build_rebuild_delta,
+    compatible_rebuild_source,
+)
 
 
 SCHEMA_VERSION = 1
@@ -42,6 +47,8 @@ def build_automation_manifest(
     preset_name: str | None,
     base_profile: str | None,
     config_path: str | Path,
+    previous_manifest: dict[str, Any] | None = None,
+    previous_artifacts: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     hitters = selected_hitter_rows(hitter_roster)
     pitchers = selected_pitcher_rows(pitcher_roster)
@@ -77,6 +84,10 @@ def build_automation_manifest(
             split: bench_assignments(hitter_roster, split) for split in SPLITS
         },
     }
+    if compatible_rebuild_source(previous_manifest, manifest):
+        manifest["rebuild"] = build_rebuild_delta(previous_manifest, manifest)
+        if previous_artifacts:
+            manifest["rebuild"]["previous_artifacts"] = previous_artifacts
     manifest["fingerprint"] = manifest_fingerprint(manifest)
     manifest["manifest_id"] = manifest["fingerprint"][:16]
     validate_manifest(manifest)
@@ -98,6 +109,30 @@ def load_manifest(path: str | Path) -> dict[str, Any]:
     manifest = json.loads(Path(path).read_text(encoding="utf-8"))
     validate_manifest(manifest)
     return manifest
+
+
+def archive_manifest_revision(
+    manifest_path: str | Path,
+    snapshot_path: str | Path,
+    manifest: dict[str, Any],
+) -> dict[str, str]:
+    source = Path(manifest_path)
+    history = source.parent / "automation_history" / source.stem
+    history.mkdir(parents=True, exist_ok=True)
+    manifest_id = str(manifest["manifest_id"])
+
+    archived_manifest = history / f"{manifest_id}.automation.json"
+    if not archived_manifest.exists():
+        copy2(source, archived_manifest)
+    artifacts = {"manifest": str(archived_manifest)}
+
+    snapshot = Path(snapshot_path)
+    if snapshot.exists():
+        archived_snapshot = history / f"{manifest_id}.snapshot.json"
+        if not archived_snapshot.exists():
+            copy2(snapshot, archived_snapshot)
+        artifacts["snapshot"] = str(archived_snapshot)
+    return artifacts
 
 
 def validate_manifest(manifest: dict[str, Any]) -> None:
@@ -182,6 +217,8 @@ def tournament_constraints(ruleset: Ruleset) -> dict[str, Any]:
         "live_mode": ruleset.live_mode,
         "allowed_card_types": ruleset.allowed_card_types,
         "excluded_card_types": ruleset.excluded_card_types,
+        "allowed_card_subtypes": ruleset.allowed_card_subtypes,
+        "excluded_card_subtypes": ruleset.excluded_card_subtypes,
         "card_year_min": ruleset.card_year_min,
         "card_year_max": ruleset.card_year_max,
         "simulation_year": ruleset.simulation_year,
