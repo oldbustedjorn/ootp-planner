@@ -78,3 +78,30 @@ def test_clubhouse_shop_data_joins_by_player_id(tmp_path):
     assert pd.isna(enriched.loc[0, "clubhouse_star_cost"])
     assert enriched.loc[1, "clubhouse_star_cost"] == 75
     assert enriched.loc[1, "clubhouse_shop_as_of"] == "2026-09-16"
+
+
+def test_clubhouse_shop_data_falls_back_to_full_card_title(tmp_path):
+    shop_path = tmp_path / "clubhouse_shop.csv"
+    pd.DataFrame(
+        [
+            {
+                "player_id": None,
+                "clubhouse_star_cost": 500,
+                "as_of_date": "2026-10-12",
+                "card_title": "Clubhouse - New Series SS Example Player BOS Peak",
+            }
+        ]
+    ).to_csv(shop_path, index=False)
+    cards = pd.DataFrame(
+        [
+            {
+                "player_id": 99999,
+                "card_title": "Clubhouse - New Series SS Example Player BOS Peak",
+            }
+        ]
+    )
+
+    enriched = attach_clubhouse_shop_data(cards, shop_path)
+
+    assert enriched.loc[0, "clubhouse_star_cost"] == 500
+    assert enriched.loc[0, "clubhouse_shop_as_of"] == "2026-10-12"

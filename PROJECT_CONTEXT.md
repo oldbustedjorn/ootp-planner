@@ -340,8 +340,9 @@ Store upgrades:
 - reports default to currently listed cards and rank by purchase price per estimated gain
 - optional exact checks add whole-roster objective gain and assignment changes
 - reports include card title and Clubhouse Card status derived from the title
-- dated Clubhouse Shop data is joined by store card ID from
-  `ootp_opt/data/clubhouse_shop.csv`; reports show Star cost and market PP per Star
+- dated Clubhouse Shop data is joined primarily by store card ID from
+  `ootp_opt/data/clubhouse_shop.csv`, with a full-title fallback for cards not yet
+  present in the local store export; reports show Star cost and market PP per Star
 
 ## Current Pain Points
 

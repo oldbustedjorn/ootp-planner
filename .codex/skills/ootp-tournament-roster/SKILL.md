@@ -1,12 +1,31 @@
 ---
 name: ootp-tournament-roster
-description: Create or resume an OOTP Perfect Team tournament roster using the local planner Full Optimizer and the OOTP desktop application.
+description: Create, rebuild, resume, or audit an OOTP Perfect Team tournament roster using the local planner Full Optimizer and the OOTP desktop application. Also applies to terse requests beginning with "OOTP create:", "OOTP rebuild:", "OOTP resume:", or "OOTP audit tournaments".
 ---
 
 # OOTP Tournament Roster
 
 Use this skill for a local Perfect Team tournament roster. Operate only one OOTP
 window controller at a time.
+
+## Short Invocations
+
+The user may invoke the workflow without preserving an old task prompt:
+
+- `OOTP create: <current tournament name>` creates a roster only when no matching
+  active planner definition exists.
+- `OOTP rebuild: <planner plan or local roster name>` preserves the existing plan
+  and roster and applies only the Full Optimizer delta.
+- `OOTP resume: <tournament name or checkpoint>` resumes the first incomplete
+  checkpoint phase without replaying completed work.
+- `OOTP audit tournaments` performs a read-only comparison of currently visible
+  tournament names and rules against active planner definitions. Report matching,
+  changed, missing, and new definitions; do not build, edit, enter, or submit.
+
+An OOTP tournament ID identifies a scheduled tournament instance, not the reusable
+tournament definition. A changed ID alone must not create another planner plan.
+Match by normalized tournament name and material rules first; retain the current
+instance ID only as observed metadata for locating that listing.
 
 ## Boundaries
 
@@ -54,6 +73,12 @@ Prefer compact structured output over source inspection and screenshots:
 .\.venv\Scripts\python.exe manage_roster_automation.py status <checkpoint>
 .\.venv\Scripts\python.exe manage_roster_automation.py ui-plan <manifest> <section>
 ```
+
+Run `service-check` in the host network context, outside the command sandbox.
+The Windows scheduled service listens on the host loopback interface, so a
+sandboxed connection failure is not evidence that the planner service is down.
+Start or inspect the `OOTP Planner Service` scheduled task in the same host
+context.
 
 Use `ui-plan`, not the full manifest or `actions`, for routine mutations. The CLI
 prints compact summaries by default; request JSON only when a downstream command

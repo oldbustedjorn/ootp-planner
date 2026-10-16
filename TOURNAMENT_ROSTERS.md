@@ -1,10 +1,12 @@
 # OOTP Tournament Rosters
 
-Last refreshed: 2026-10-08 from the active SQLite roster plans.
+Last refreshed: 2026-10-11 from the active SQLite roster plans.
 
 The **OOTP ID** is the number shown in parentheses beside the tournament name in
-OOTP. Older planner records did not capture it, so those entries remain marked
-`Not captured`. Newer automation records include the ID in the roster plan name.
+OOTP. It identifies a scheduled tournament instance, so the same recurring
+tournament can receive a different ID without becoming a different roster
+definition. Use it to locate the current listing, then compare the key settings.
+Older planner records did not capture it and remain marked `Not captured`.
 Values such as `T-021` are older planner labels, and values such as `1002` or
 `1006` are roster date suffixes, not OOTP tournament IDs.
 
@@ -29,6 +31,7 @@ Values such as `T-021` are older planner labels, and values such as `1002` or
 | Tournament | Tier/range | OOTP ID | Key settings |
 |---|---|---:|---|
 | Daily Dank | Value 49 or lower | 1140208 | No DH; max 13 variants; 1945 simulation; Comiskey Park (1945); Iron scoring |
+| Daily Iron & Friends OOTP Era Slots | P 1, D 1, G 1, S 1, B 1 | 1880135 | Cards from 1999 onward; DH; 1999 simulation; Coors Field (2000); automatic scoring environment |
 
 ### Bronze
 
@@ -122,18 +125,15 @@ Values such as `T-021` are older planner labels, and values such as `1002` or
 
 - The standard PT regular-season plan is intentionally excluded because it is not
   a tournament roster.
-- The document now represents 22 unique active tournaments: 2 Quick, 12 Daily,
+- The document now represents 23 unique active tournaments: 2 Quick, 13 Daily,
   7 Weekly, and 1 PTCS special event.
-- SQLite currently contains 25 active tournament roster-plan records for those
-  22 tournaments. Friday Nightmare Cap appears in three records (`roster_050`,
-  `roster_052`, and `roster_053`); this list uses the latest corrected rules from
-  `roster_053` and shows the tournament once. Daily Low Gold Cap appears in two
-  consecutive records (`roster_049`, ID 1910134, and `roster_055`, ID 1910135);
-  this list shows the newer `roster_055` instance.
+- SQLite contains one active roster-plan definition for each of these 23
+  tournaments after archiving superseded duplicate definitions. Friday Nightmare
+  Cap uses corrected `roster_053`; Daily Low Gold Cap uses newer `roster_055`.
 - Quick Low Gold is active in SQLite but has no roster-report path. Verify that its
   local OOTP roster still exists before relying on it for entry.
 - Monday Wonky and Tuesday Dead were completed through the roster automation
   workflow even though Monday Wonky's active plan points to an older report path.
-- Tournament rules can change between runs. For older records without an OOTP ID,
-  compare the tournament name and key settings before entering. For newer records,
-  verify the ID first, then confirm that the displayed restrictions still match.
+- Tournament rules can change between runs. Match by tournament name and key
+  settings before entering. Treat a changed OOTP ID as a new scheduled instance,
+  then confirm whether its restrictions still match the stored definition.

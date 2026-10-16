@@ -261,6 +261,7 @@ INTEGER_COLS = [
     "last_10_price",
 ]
 
+
 def load_pt_store_csv(path: str | Path) -> pd.DataFrame:
     df_raw = pd.read_csv(path, index_col=False)
     df_raw.columns = [str(col).strip() for col in df_raw.columns]
@@ -351,20 +352,39 @@ def load_pt_store_hitters_pitchers(
 
 
 def load_clubhouse_shop_csv(path: str | Path) -> pd.DataFrame:
-    shop = pd.read_csv(path, dtype={"as_of_date": "string"})
-    required = ["player_id", "clubhouse_star_cost", "as_of_date"]
+    shop = pd.read_csv(
+        path,
+        dtype={"player_id": "string", "as_of_date": "string", "card_title": "string"},
+    )
+    required = ["player_id", "clubhouse_star_cost", "as_of_date", "card_title"]
     missing = [column for column in required if column not in shop.columns]
     if missing:
         raise ValueError(f"Clubhouse shop data missing required columns: {missing}")
 
     shop = shop.copy()
-    shop["player_id"] = pd.to_numeric(shop["player_id"], errors="raise").astype(int)
+    shop["player_id"] = pd.to_numeric(shop["player_id"], errors="coerce").astype(
+        "Int64"
+    )
     shop["clubhouse_star_cost"] = pd.to_numeric(
         shop["clubhouse_star_cost"], errors="raise"
     ).astype(int)
-    if shop["player_id"].duplicated().any():
-        duplicate_ids = sorted(shop.loc[shop["player_id"].duplicated(), "player_id"])
-        raise ValueError(f"Clubhouse shop data has duplicate player IDs: {duplicate_ids}")
+    titled = shop["card_title"].fillna("").str.strip()
+    if (shop["player_id"].isna() & titled.eq("")).any():
+        raise ValueError(
+            "Clubhouse shop rows require a player ID or a full card title."
+        )
+    present_ids = shop["player_id"].dropna()
+    if present_ids.duplicated().any():
+        duplicate_ids = sorted(present_ids[present_ids.duplicated()].astype(int))
+        raise ValueError(
+            f"Clubhouse shop data has duplicate player IDs: {duplicate_ids}"
+        )
+    present_titles = titled[titled.ne("")].str.casefold()
+    if present_titles.duplicated().any():
+        duplicate_titles = sorted(present_titles[present_titles.duplicated()].unique())
+        raise ValueError(
+            f"Clubhouse shop data has duplicate card titles: {duplicate_titles}"
+        )
     if (shop["clubhouse_star_cost"] <= 0).any():
         raise ValueError("Clubhouse Star costs must be positive integers.")
     if shop["as_of_date"].fillna("").str.strip().eq("").any():
@@ -378,9 +398,29 @@ def attach_clubhouse_shop_data(
     clubhouse_shop_path: str | Path,
 ) -> pd.DataFrame:
     shop = load_clubhouse_shop_csv(clubhouse_shop_path)
-    columns = ["player_id", "clubhouse_star_cost", "as_of_date"]
-    enriched = cards.merge(shop[columns], on="player_id", how="left", validate="one_to_one")
+    by_id = shop.loc[
+        shop["player_id"].notna(),
+        [
+            "player_id",
+            "clubhouse_star_cost",
+            "as_of_date",
+        ],
+    ].copy()
+    by_id["player_id"] = by_id["player_id"].astype(int)
+    enriched = cards.merge(by_id, on="player_id", how="left", validate="one_to_one")
     enriched = enriched.rename(columns={"as_of_date": "clubhouse_shop_as_of"})
+
+    title_key = enriched["card_title"].fillna("").astype(str).str.strip().str.casefold()
+    title_shop = shop.loc[shop["card_title"].fillna("").str.strip().ne("")].copy()
+    title_shop["_card_title_key"] = title_shop["card_title"].str.strip().str.casefold()
+    cost_by_title = title_shop.set_index("_card_title_key")["clubhouse_star_cost"]
+    date_by_title = title_shop.set_index("_card_title_key")["as_of_date"]
+    enriched["clubhouse_star_cost"] = enriched["clubhouse_star_cost"].fillna(
+        title_key.map(cost_by_title)
+    )
+    enriched["clubhouse_shop_as_of"] = enriched["clubhouse_shop_as_of"].fillna(
+        title_key.map(date_by_title)
+    )
     enriched["clubhouse_star_cost"] = enriched["clubhouse_star_cost"].astype("Int64")
     return enriched
 

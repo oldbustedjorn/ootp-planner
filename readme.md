@@ -300,7 +300,9 @@ Upgrade reports include the store card title and a `Clubhouse Card` Yes/No
 column. Clubhouse status is detected from `Card Title`. Cards listed in
 `ootp_opt/data/clubhouse_shop.csv` also show their current Clubhouse Star cost
 and market PP per Clubhouse Star. The report summary shows the shop-data date;
-replace the CSV rows and date when Clubhouse Shop prices change.
+replace the CSV rows and date when Clubhouse Shop prices change. Stable card ID
+is the primary join key; a full-title fallback supports newly released cards that
+are visible in shop screenshots before they appear in the local store export.
 
 ## Tournament Presets
 
