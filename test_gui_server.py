@@ -53,7 +53,7 @@ def test_automation_status_endpoint_reports_current_contract():
         server.server_close()
         thread.join(timeout=3)
 
-    assert status["automation_contract_version"] == 13
+    assert status["automation_contract_version"] == 15
     assert status["ui_plan_schema_version"] == 15
     assert status["features"]["single_calibration_batching"] is True
     assert status["features"]["checkpoint_repair_gate"] is True
@@ -68,6 +68,8 @@ def test_automation_status_endpoint_reports_current_contract():
     assert status["features"]["lower_pane_drag_sources"] is True
     assert status["features"]["upper_list_drag_disabled"] is False
     assert status["features"]["failed_preflight_manual_handoff"] is True
+    assert status["features"]["manifest_bound_fast_batches"] is True
+    assert status["features"]["manifest_compiled_assignment_drags"] is True
     assert status["features"]["windows_held_drag"] is True
     assert status["features"]["upper_pitcher_list_drag"] is True
     assert status["features"]["player_name_drag_source"] is True

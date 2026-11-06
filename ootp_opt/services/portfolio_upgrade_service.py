@@ -54,6 +54,7 @@ class PortfolioUpgradeRequest:
     details_directory: str = "outputs/upgrade_portfolio_details"
     min_gain: float = 0.01
     top_per_type: int = 20
+    plan_names: tuple[str, ...] = ()
     excluded_title_terms: tuple[str, ...] = DEFAULT_EXCLUDED_TITLE_TERMS
     plan_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
 
@@ -72,7 +73,9 @@ def find_portfolio_upgrades(
     *,
     progress: Callable[[str], None] | None = None,
 ) -> PortfolioUpgradeResult:
-    plans = list_application_roster_plans(request.config_path)
+    plans = _select_plans(
+        list_application_roster_plans(request.config_path), request.plan_names
+    )
     details_directory = Path(request.details_directory)
     details_directory.mkdir(parents=True, exist_ok=True)
 
@@ -151,6 +154,28 @@ def find_portfolio_upgrades(
         failed_rosters=failed,
         output_path=request.output_path,
     )
+
+
+def _select_plans(plans: list[Any], plan_names: tuple[str, ...]) -> list[Any]:
+    if not plan_names:
+        return plans
+
+    requested = {name.casefold() for name in plan_names}
+    selected = [
+        plan
+        for plan in plans
+        if plan.command_name.casefold() in requested
+        or (plan.display_title or "").casefold() in requested
+    ]
+    matched = {
+        value.casefold()
+        for plan in selected
+        for value in (plan.command_name, plan.display_title or "")
+    }
+    missing = [name for name in plan_names if name.casefold() not in matched]
+    if missing:
+        raise ValueError(f"Roster plans not found: {', '.join(missing)}")
+    return selected
 
 
 def _tag_upgrade_rows(

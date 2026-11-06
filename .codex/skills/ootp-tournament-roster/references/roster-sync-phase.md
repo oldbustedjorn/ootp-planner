@@ -12,7 +12,14 @@ or replace it with one computer-control call per card:
 ```powershell
 .\.venv\Scripts\python.exe -m ootp_opt.automation.windows_drag type-text --at X,Y --text "CID"
 .\.venv\Scripts\python.exe -m ootp_opt.automation.windows_drag filter-batch --field X,Y --activate X,Y --value CID1 --value CID2 --capture-after <path.bmp>
+.\.venv\Scripts\python.exe -m ootp_opt.automation.windows_drag filter-batch --field X,Y --activate X,Y --confirm X,Y --value CID1 --value CID2 --capture-after <path.bmp>
 ```
+
+For rebuilds with multiple unambiguous removals or additions, read
+`fast-executor.md` and combine removal and addition transactions into one
+manifest-bound section batch. Keep removals and additions as separate
+`filter_batch` actions inside that file, and take only the final aggregate capture.
+Duplicate-card inspection remains outside the fast executor.
 
 1. Validate the manifest and load or initialize its checkpoint. Run
    `manage_roster_automation.py ui-plan <manifest> sync` instead of loading or
@@ -25,8 +32,13 @@ or replace it with one computer-control call per card:
 4. In `rebuild` mode, process the flat `remove` list first from this same Manage
    Cards screen, then process only `add_passes`. Do not clear the active roster,
    inspect retained cards, or replay unchanged membership. Removal and addition
-   both require exact CID plus variant status. In `full` mode, process `passes` as
-   before.
+   both require exact CID plus variant status. Every removal opens a confirmation
+   modal. Calibrate its **Proceed** button once, then use one native
+   `filter-batch --confirm <proceed-point>` command for the remaining confirmed
+   removal CIDs. The helper completes filter, deactivate, and confirmation as one
+   transaction per CID before advancing. Never use ordinary `filter-batch` for
+   multiple removals because the first modal blocks all later coordinates. In
+   `full` mode, process `passes` as before.
 5. Process the plan's variant pass first. Every card in it requires PT Variant
    `Y`; the optimizer has already enforced whether variants are allowed and how
    many fit, so do not make a second variant-cap decision in OOTP. Verify the
@@ -58,6 +70,12 @@ are the only routine sync images. If an aggregate count is wrong, inspect only t
 affected pass and use targeted screenshots for unresolved rows; do not replay a
 successful earlier pass. Record no match as missing and multiple unresolved
 matches as ambiguous; do not guess.
+
+If a removal batch is interrupted, do not replay the entire `remove` list. Record
+the exact confirmed CIDs in the checkpoint note, inspect only the unresolved
+removal CIDs, and resume with those remaining values. A successful helper call
+using `--confirm` proves each listed confirmation was clicked; an approval or
+controller failure does not.
 
 Do not reopen a successful CID merely to confirm which physical copy was used.
 For an inspected CID, make one priority scan and one activation attempt. If the

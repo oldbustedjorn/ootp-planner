@@ -3,12 +3,12 @@
 Use this phase to turn an OOTP tournament into a planner roster plan. A new build
 also creates a blank local OOTP roster; a rebuild keeps the existing local roster.
 
-Start `setup` metrics before service/window orientation. Complete `setup` and
-start `plan` when the OOTP window and planner service are ready. Complete `plan`
+Start `setup` metrics before planner/window orientation. Complete `setup` and
+start `plan` when the OOTP window and required planner path are ready. Complete `plan`
 only after the manifest is valid, the named blank roster exists, and the
 checkpoint is initialized. Start `sync` in that same transition command.
 
-1. Before opening or editing the planner form, run
+1. Before creating or editing a planner definition, run
    `manage_roster_automation.py service-check` in the host network context,
    outside the command sandbox. The scheduled service listens on the host
    loopback interface; a sandboxed connection failure is not evidence that the
@@ -53,8 +53,17 @@ checkpoint is initialized. Start `sync` in that same transition command.
    - Only when no matching definition exists, create a new planner roster plan
      with **Full optimizer** selected.
    Preserve user-entered park factors and other explicit planner settings.
-5. Build the roster. A successful optimizer build writes
-   `outputs/<report-name>.automation.json` beside the HTML report.
+5. Build the roster.
+   - For an existing saved plan, do not open or submit the planner browser form.
+     Run `manage_roster_automation.py build-plan "<plan title or command_name>"`
+     directly. This
+     runs the Full Optimizer, records the build in SQLite, and prints the exact
+     manifest path without a browser-response timeout.
+   - Use the planner browser only when a new definition must be created or an
+     existing definition's rules must be edited. After saving that definition,
+     use the CLI command above for the build itself.
+   A successful optimizer build writes `outputs/<report-name>.automation.json`
+   beside the HTML report.
 6. Validate that manifest with `manage_roster_automation.py validate`, then run
    `manage_roster_automation.py ui-plan <manifest> sync
    --require-cid-copy-counts`. Do this before creating the blank OOTP roster. If

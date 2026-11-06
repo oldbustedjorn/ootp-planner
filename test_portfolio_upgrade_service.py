@@ -1,11 +1,14 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
+import pytest
 
 from ootp_opt.roster.portfolio_upgrade_html_export import (
     export_portfolio_upgrade_html,
 )
 from ootp_opt.services.portfolio_upgrade_service import (
+    _select_plans,
     aggregate_portfolio_upgrades,
     exclude_card_titles,
 )
@@ -56,6 +59,25 @@ def upgrade_rows() -> pd.DataFrame:
             },
         ]
     )
+
+
+def test_select_plans_accepts_command_name_and_display_title():
+    plans = [
+        SimpleNamespace(command_name="plan_one", display_title="Plan One"),
+        SimpleNamespace(command_name="plan_two", display_title="Plan Two"),
+        SimpleNamespace(command_name="plan_three", display_title="Plan Three"),
+    ]
+
+    selected = _select_plans(plans, ("plan_one", "Plan Three"))
+
+    assert [plan.command_name for plan in selected] == ["plan_one", "plan_three"]
+
+
+def test_select_plans_rejects_unknown_name():
+    plans = [SimpleNamespace(command_name="plan_one", display_title="Plan One")]
+
+    with pytest.raises(ValueError, match="Roster plans not found: Missing"):
+        _select_plans(plans, ("Missing",))
 
 
 def test_exclude_card_titles_is_case_insensitive() -> None:

@@ -499,7 +499,7 @@ def test_assignment_ui_plans_are_compact_and_directly_executable():
 def test_automation_status_describes_current_planner_contract():
     status = automation_status()
 
-    assert status["automation_contract_version"] == 13
+    assert status["automation_contract_version"] == 15
     assert status["ui_plan_schema_version"] == 15
     assert status["features"]["cid_copy_counts"] is True
     assert status["features"]["single_calibration_batching"] is True
@@ -521,6 +521,8 @@ def test_automation_status_describes_current_planner_contract():
     assert status["features"]["player_name_drag_source"] is True
     assert status["features"]["local_assignment_captures"] is True
     assert status["features"]["native_drag_batches"] is True
+    assert status["features"]["manifest_bound_fast_batches"] is True
+    assert status["features"]["manifest_compiled_assignment_drags"] is True
     assert status["features"]["card_subtype_constraints"] is True
     assert status["features"]["delta_rebuilds"] is True
     assert status["features"]["targeted_assignment_updates"] is True
@@ -597,6 +599,86 @@ def test_cli_complete_all_records_manifest_membership_compactly(
     assert len(checkpoint["phases"]["sync"]["completed"]) == 26
     assert "completed=26" in output
     assert "ootp-pt:card" not in output
+
+
+def test_cli_init_prints_exact_checkpoint_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    manifest_path = tmp_path / "roster.automation.json"
+    checkpoint_path = tmp_path / "explicit.checkpoint.json"
+    write_manifest(manifest_path, build_manifest())
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "manage_roster_automation.py",
+            "init",
+            str(manifest_path),
+            "--checkpoint",
+            str(checkpoint_path),
+        ],
+    )
+
+    automation_main()
+
+    output = capsys.readouterr().out
+    assert checkpoint_path.exists()
+    assert f"Checkpoint: {checkpoint_path}" in output
+    assert "Next phase: sync" in output
+
+
+def test_cli_fast_batch_defaults_verification_capture(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    manifest_path = tmp_path / "roster.automation.json"
+    batch_path = tmp_path / "sync.json"
+    write_manifest(manifest_path, build_manifest())
+    manifest = load_manifest(manifest_path)
+    batch_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "manifest_id": manifest["manifest_id"],
+                "section": "sync",
+                "client_geometry": [0, 0, 1200, 900],
+                "actions": [{"op": "wait", "ms": 1}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    observed: dict[str, object] = {}
+    monkeypatch.setattr(
+        "manage_roster_automation.find_unique_window",
+        lambda _title: (321, "OOTP"),
+    )
+
+    def execute(_hwnd: int, _batch: dict, *, capture_after: str) -> dict:
+        observed["capture_after"] = capture_after
+        return {"capture": capture_after}
+
+    monkeypatch.setattr("manage_roster_automation.execute_fast_batch", execute)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "manage_roster_automation.py",
+            "fast-batch",
+            str(manifest_path),
+            "sync",
+            str(batch_path),
+            "--execute",
+        ],
+    )
+
+    automation_main()
+
+    expected = str(batch_path.with_suffix(".verification.bmp"))
+    assert observed["capture_after"] == expected
+    assert json.loads(capsys.readouterr().out)["capture"] == expected
 
 
 def test_cli_repair_attempt_records_exact_targets(

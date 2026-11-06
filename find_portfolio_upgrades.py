@@ -22,6 +22,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-gain", type=float, default=0.01)
     parser.add_argument("--top", type=int, default=20)
     parser.add_argument(
+        "--plan",
+        action="append",
+        default=[],
+        help="Limit the report to a roster plan command name or display title.",
+    )
+    parser.add_argument(
         "--plan-park-year",
         action="append",
         default=[],
@@ -46,6 +52,7 @@ def main() -> None:
             details_directory=args.details_directory,
             min_gain=args.min_gain,
             top_per_type=args.top,
+            plan_names=tuple(args.plan),
             plan_overrides=plan_overrides,
         ),
         progress=lambda message: print(message, flush=True),

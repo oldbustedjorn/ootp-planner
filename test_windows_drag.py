@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -131,3 +133,83 @@ def test_filter_activate_batch_focuses_window_once(
         ("text", "85088"),
         ("click", (310, 420)),
     ]
+
+
+def test_filter_activate_batch_confirms_each_activation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    actions: list[object] = []
+    monkeypatch.setattr(windows_drag, "client_geometry", lambda _hwnd: (10, 20, 800, 600))
+    monkeypatch.setattr(
+        windows_drag, "raise_window_for_input", lambda _hwnd, _wait: None
+    )
+    monkeypatch.setattr(windows_drag.user32, "GetForegroundWindow", lambda: 123)
+    monkeypatch.setattr(
+        windows_drag,
+        "_click_screen_point",
+        lambda point, _click_ms: actions.append(("click", point)),
+    )
+    monkeypatch.setattr(windows_drag, "_select_all", lambda: actions.append("select"))
+    monkeypatch.setattr(
+        windows_drag,
+        "_send_unicode_text",
+        lambda text, _delay: actions.append(("text", text)),
+    )
+    monkeypatch.setattr(windows_drag.time, "sleep", lambda _seconds: None)
+
+    windows_drag.filter_activate_batch(
+        123,
+        (100, 200),
+        (300, 400),
+        ["87160", "84808"],
+        confirm_point=(500, 500),
+    )
+
+    assert actions == [
+        ("click", (110, 220)),
+        "select",
+        ("text", "87160"),
+        ("click", (310, 420)),
+        ("click", (510, 520)),
+        ("click", (110, 220)),
+        "select",
+        ("text", "84808"),
+        ("click", (310, 420)),
+        ("click", (510, 520)),
+    ]
+
+
+def test_drag_cli_supports_capture_after(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    capture_path = tmp_path / "drag.bmp"
+    actions: list[object] = []
+    monkeypatch.setattr(sys, "argv", [
+        "windows_drag.py",
+        "drag",
+        "--from", "10,20",
+        "--to", "30,40",
+        "--capture-after", str(capture_path),
+    ])
+    monkeypatch.setattr(windows_drag, "find_unique_window", lambda _title: (123, "OOTP"))
+    monkeypatch.setattr(windows_drag, "client_geometry", lambda _hwnd: (0, 0, 800, 600))
+    monkeypatch.setattr(
+        windows_drag,
+        "held_drag",
+        lambda hwnd, source, target, **kwargs: actions.append(
+            ("drag", hwnd, source, target, kwargs)
+        ),
+    )
+    monkeypatch.setattr(
+        windows_drag,
+        "capture_client",
+        lambda hwnd, path: actions.append(("capture", hwnd, path)) or (800, 600),
+    )
+
+    windows_drag.main()
+
+    assert actions[0][0:4] == ("drag", 123, (10, 20), (30, 40))
+    assert actions[1] == ("capture", 123, capture_path)
+    assert f"captured={capture_path.resolve()}" in capsys.readouterr().out

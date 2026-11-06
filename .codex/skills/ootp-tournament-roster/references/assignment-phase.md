@@ -19,13 +19,34 @@ are relative to the current captured OOTP client area:
 
 ```powershell
 .\.venv\Scripts\python.exe -m ootp_opt.automation.windows_drag capture <path.bmp>
-.\.venv\Scripts\python.exe -m ootp_opt.automation.windows_drag drag --from X,Y --to X,Y --hold-ms 400 --move-ms 1000 --settle-ms 300 --steps 30
+.\.venv\Scripts\python.exe -m ootp_opt.automation.windows_drag drag --from X,Y --to X,Y --hold-ms 400 --move-ms 1000 --settle-ms 300 --steps 30 --capture-after <path.bmp>
 .\.venv\Scripts\python.exe -m ootp_opt.automation.windows_drag batch --move X1,Y1:X2,Y2 --move X3,Y3:X4,Y4 --hold-ms 400 --move-ms 1000 --settle-ms 300 --steps 30 --post-drop-ms 450 --capture-after <path.bmp>
 .\.venv\Scripts\python.exe -m ootp_opt.automation.windows_drag click-batch --at X1,Y1 --at X2,Y2 --post-click-ms 300 --capture-after <path.bmp>
 .\.venv\Scripts\python.exe -m ootp_opt.automation.windows_drag type-text --at X,Y --text "roster name"
 ```
 
-Use `drag` for the first capability preflight or one isolated repair, `batch` for
+For a rebuild section with two or more stable native actions, read
+`fast-executor.md` and use the manifest-aware `assignment-drag` command. Supply
+the calibrated source and target maps once on the command line; the manifest
+selects and orders the exact changed cards. Do not author preflight or remaining
+assignment JSON files. Use the individual helper commands below only for initial
+calibration, a one-item section, or a confirmed targeted repair.
+
+```powershell
+.\.venv\Scripts\python.exe manage_roster_automation.py assignment-drag <manifest> pitching rotation --client-geometry LEFT,TOP,WIDTH,HEIGHT --source CID=X,Y --target ORDER=X,Y --first-only --execute --capture-after <preflight.bmp>
+.\.venv\Scripts\python.exe manage_roster_automation.py assignment-drag <manifest> pitching rotation --client-geometry LEFT,TOP,WIDTH,HEIGHT --source CID=X,Y --target ORDER=X,Y --skip-first 1 --execute --capture-after <rotation.bmp>
+.\.venv\Scripts\python.exe manage_roster_automation.py assignment-drag <manifest> vs_rhp starters --client-geometry LEFT,TOP,WIDTH,HEIGHT --source CID=X,Y --target POSITION=X,Y --first-only --execute --capture-after <preflight.bmp>
+```
+
+Repeat `--source` and `--target` for every listed family entry. Target keys are
+rotation order for `rotation`, fielding position for `starters`,
+`POSITION:ORDER` for `depth`, and rank for `pinch_hitters` or `pinch_runners`.
+After a successful preflight, reuse the same maps with `--skip-first 1`. Omit the
+second command when the family has only one move. The command validates missing
+coordinates before any GUI input.
+
+Use `drag` with `--capture-after` for the first capability preflight or one
+isolated repair, `batch` for
 two or more stable assignments, and `click-batch` after one menu calibration. The
 helper owns all fixed waits. Do not add caller-side sleeps, wrap individual drags
 in a subprocess loop, or inspect helper source during a routine run.

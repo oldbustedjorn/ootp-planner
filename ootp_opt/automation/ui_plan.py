@@ -6,7 +6,7 @@ from typing import Any
 from ootp_opt.automation.manifest import SCHEMA_VERSION as MANIFEST_SCHEMA_VERSION
 
 
-AUTOMATION_CONTRACT_VERSION = 13
+AUTOMATION_CONTRACT_VERSION = 15
 UI_PLAN_SCHEMA_VERSION = 15
 UI_PLAN_SECTIONS = ("sync", "pitching", "vs_rhp", "vs_lhp")
 FAST_SYNC_BATCH_SIZE = 7
@@ -39,6 +39,8 @@ def automation_status() -> dict[str, Any]:
             "player_name_drag_source": True,
             "local_assignment_captures": True,
             "native_drag_batches": True,
+            "manifest_bound_fast_batches": True,
+            "manifest_compiled_assignment_drags": True,
             "card_subtype_constraints": True,
             "delta_rebuilds": True,
             "targeted_assignment_updates": True,

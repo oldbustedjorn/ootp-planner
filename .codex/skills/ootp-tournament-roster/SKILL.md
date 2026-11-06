@@ -8,6 +8,33 @@ description: Create, rebuild, resume, or audit an OOTP Perfect Team tournament r
 Use this skill for a local Perfect Team tournament roster. Operate only one OOTP
 window controller at a time.
 
+## Controller Lock
+
+Use `mcp__cua_repl` as the only computer-control session for navigation and
+semantic UI interaction. Initialize it once and retain that binding for the
+entire run. Never invoke `node_repl`, `@oai/sky`, another computer-use skill, or a
+second controller after `mcp__cua_repl` has been initialized. Assignment drags
+and fixed-coordinate batches still use the repository's native
+`ootp_opt.automation.windows_drag` helper as specified by the assignment
+reference; that helper is input execution, not a second observation/controller
+session.
+
+On Windows, initialize with `cua.getState()`, locate the unique open window whose
+title is `Out of the Park Baseball 27`, and bind it with
+`cua.getApp({ windowId: <inventory-window-id> })`. Never select OOTP by display
+name, executable path, or Start-menu alias. The inventory can expose multiple
+aliases for the same process, while the window ID is unambiguous. If a name-based
+app selection is rejected before any UI input, retry once in the same controller
+with the unique inventory window ID; this read-only binding correction is not a
+mutation failure and does not require stopping the run. Stop only when there is
+no unique OOTP window to bind.
+
+Do not load the general computer-use `SKILL.md`, API manual, guidance,
+confirmation documentation, or bootstrap documentation during a routine run or
+resume. The initial `mcp__cua_repl` response is the complete controller contract
+for this workflow. If one required controller operation is genuinely unknown,
+request only that operation's documentation; do not reload the full manuals.
+
 ## Short Invocations
 
 The user may invoke the workflow without preserving an old task prompt:
@@ -15,7 +42,9 @@ The user may invoke the workflow without preserving an old task prompt:
 - `OOTP create: <current tournament name>` creates a roster only when no matching
   active planner definition exists.
 - `OOTP rebuild: <planner plan or local roster name>` preserves the existing plan
-  and roster and applies only the Full Optimizer delta.
+  and roster and applies only the Full Optimizer delta. Run the saved plan with
+  `manage_roster_automation.py build-plan` directly; do not open the planner in a
+  browser or require its HTTP service for a routine rebuild.
 - `OOTP resume: <tournament name or checkpoint>` resumes the first incomplete
   checkpoint phase without replaying completed work.
 - `OOTP audit tournaments` performs a read-only comparison of currently visible
@@ -44,6 +73,21 @@ instance ID only as observed metadata for locating that listing.
 
 ## Route The Request
 
+For `OOTP resume:` with an explicit checkpoint, the first tool call must be only:
+
+```powershell
+.\.venv\Scripts\python.exe manage_roster_automation.py status <checkpoint>
+```
+
+Treat that checkpoint and its referenced manifest as authoritative. When `plan`
+and `sync` are already complete and `assign` is incomplete, skip planner service
+checks, planner/browser navigation, plan generation, membership inspection, and
+the plan/sync references. Read only `assignment-phase.md`, emit only the relevant
+`ui-plan` section, initialize `mcp__cua_repl` once, and continue from the OOTP
+screen already left open. Do not repeat setup merely because the request is in a
+new model turn. A missing or invalid checkpoint is the only reason to fall back
+to normal request routing.
+
 Run `plan -> sync -> assign` sequentially. Read only the reference for the phase
 being executed:
 
@@ -52,6 +96,9 @@ being executed:
 - Card membership: [references/roster-sync-phase.md](references/roster-sync-phase.md)
 - Pitching, lineups, depth, and pinch lists:
   [references/assignment-phase.md](references/assignment-phase.md)
+- Deterministic rebuild batches:
+  [references/fast-executor.md](references/fast-executor.md), read only when a
+  rebuild section has two or more stable native actions.
 - Resume: use `status`, then read only the first incomplete phase reference.
 
 Do not preload all references. A routine run must not read repository source,
@@ -61,6 +108,12 @@ historical logs only after a concrete failure that the compact status, plan, or
 phase reference cannot explain. Do not load the full computer-control API manual
 for a routine run; consult only the required bootstrap or a specific unknown API.
 Do not reread this entrypoint on resume within the same chat.
+
+If a model/tool/approval failure interrupts a run, stop that turn without
+switching controllers. On the next turn, run checkpoint `status` once and resume
+the first incomplete phase. Do not reconstruct the run from conversation
+history, reopen planner pages, or repeat successful calibration and completed
+sections.
 
 ## Efficient Execution
 
@@ -73,6 +126,11 @@ Prefer compact structured output over source inspection and screenshots:
 .\.venv\Scripts\python.exe manage_roster_automation.py status <checkpoint>
 .\.venv\Scripts\python.exe manage_roster_automation.py ui-plan <manifest> <section>
 ```
+
+The non-JSON `init` output prints the exact checkpoint path. Use that path
+directly for every subsequent command. Do not scan the filesystem, glob for a
+checkpoint, or reconstruct its name after initialization. A successful `init`
+means the checkpoint exists; continue with `status` on the printed path.
 
 Run `service-check` in the host network context, outside the command sandbox.
 The Windows scheduled service listens on the host loopback interface, so a
@@ -96,6 +154,16 @@ batch or completed section, not per click, card, or drag. Successful native help
 calls do not require an observation. Capture the smallest useful region for
 calibration, aggregate verification, or one exact discrepancy. Never observe
 inside an assignment loop.
+
+For rebuild drag families, use `manage_roster_automation.py assignment-drag` so
+the manifest compiles the exact ordered moves directly from one source and target
+coordinate map. Execute one verified `--first-only` preflight, then the remaining
+moves with `--skip-first 1`; do not create intermediary assignment JSON files.
+Use the manifest-bound JSON `fast-batch` executor only when one section genuinely
+combines different operation types such as filters, confirmations, and clicks.
+Read `references/fast-executor.md` for both contracts and stop rules. Do not use a
+fast path for an ambiguous duplicate-card choice, unknown menu mapping, or a
+targeted repair.
 
 Before OOTP mutation, mark the phase `in_progress`. Checkpoint once per successful
 batch and update completion with `--complete-all` after aggregate verification.

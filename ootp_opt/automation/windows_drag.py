@@ -428,13 +428,18 @@ def filter_activate_batch(
     wait_foreground_seconds: float = 0,
     open_points: list[tuple[int, int]] | None = None,
     apply_point: tuple[int, int] | None = None,
+    confirm_point: tuple[int, int] | None = None,
+    confirm_wait_ms: int = 300,
+    post_confirm_ms: int = 500,
 ) -> None:
     if not values:
         raise ValueError("At least one filter value is required")
     left, top, width, height = client_geometry(hwnd)
     for label, (x, y) in [("field", field), ("activate", activate)] + [
         ("open", point) for point in (open_points or [])
-    ] + ([("apply", apply_point)] if apply_point is not None else []):
+    ] + ([("apply", apply_point)] if apply_point is not None else []) + (
+        [("confirm", confirm_point)] if confirm_point is not None else []
+    ):
         if not (0 <= x < width and 0 <= y < height):
             raise ValueError(
                 f"{label} coordinate {(x, y)} is outside client area {width}x{height}"
@@ -458,6 +463,12 @@ def filter_activate_batch(
         time.sleep(filter_wait_ms / 1000)
         _click_screen_point(activate_screen, 80)
         time.sleep(post_activate_ms / 1000)
+        if confirm_point is not None:
+            time.sleep(confirm_wait_ms / 1000)
+            _click_screen_point(
+                (left + confirm_point[0], top + confirm_point[1]), 80
+            )
+            time.sleep(post_confirm_ms / 1000)
 
 
 def parse_point(value: str) -> tuple[int, int]:
@@ -494,6 +505,7 @@ def main() -> None:
     drag_parser.add_argument("--steps", type=int, default=24)
     drag_parser.add_argument("--post-drop-ms", type=int, default=450)
     drag_parser.add_argument("--wait-foreground-seconds", type=float, default=0)
+    drag_parser.add_argument("--capture-after", type=Path)
     batch_parser = subparsers.add_parser("batch")
     batch_parser.add_argument(
         "--move",
@@ -537,9 +549,20 @@ def main() -> None:
     filter_parser.add_argument("--activate", type=parse_point, required=True)
     filter_parser.add_argument("--open", dest="open_points", type=parse_point, action="append")
     filter_parser.add_argument("--apply", dest="apply_point", type=parse_point)
+    filter_parser.add_argument(
+        "--confirm",
+        dest="confirm_point",
+        type=parse_point,
+        help=(
+            "Click this client-relative point after each activation. Use for "
+            "membership removals that open a confirmation modal."
+        ),
+    )
     filter_parser.add_argument("--value", action="append", required=True)
     filter_parser.add_argument("--filter-wait-ms", type=int, default=500)
     filter_parser.add_argument("--post-activate-ms", type=int, default=300)
+    filter_parser.add_argument("--confirm-wait-ms", type=int, default=300)
+    filter_parser.add_argument("--post-confirm-ms", type=int, default=500)
     filter_parser.add_argument("--char-delay-ms", type=int, default=10)
     filter_parser.add_argument("--wait-foreground-seconds", type=float, default=0)
     filter_parser.add_argument("--capture-after", type=Path)
@@ -564,10 +587,17 @@ def main() -> None:
             post_drop_ms=args.post_drop_ms,
             wait_foreground_seconds=args.wait_foreground_seconds,
         )
+        if args.capture_after:
+            capture_client(hwnd, args.capture_after)
         print(
             f"dragged source={args.source} target={args.target} "
             f"hold_ms={args.hold_ms} move_ms={args.move_ms} "
             f"settle_ms={args.settle_ms} steps={args.steps}"
+            + (
+                f" captured={args.capture_after.resolve()}"
+                if args.capture_after
+                else ""
+            )
         )
     elif args.command == "batch":
         held_drag_batch(
@@ -635,8 +665,11 @@ def main() -> None:
             args.value,
             open_points=args.open_points,
             apply_point=args.apply_point,
+            confirm_point=args.confirm_point,
             filter_wait_ms=args.filter_wait_ms,
             post_activate_ms=args.post_activate_ms,
+            confirm_wait_ms=args.confirm_wait_ms,
+            post_confirm_ms=args.post_confirm_ms,
             char_delay_ms=args.char_delay_ms,
             wait_foreground_seconds=args.wait_foreground_seconds,
         )
@@ -647,7 +680,14 @@ def main() -> None:
                 f" capture={args.capture_after.resolve()} "
                 f"size={size[0]}x{size[1]}"
             )
-        print(f"filtered_batch count={len(args.value)}{capture_note}")
+        if args.confirm_point is not None:
+            confirmed_values = ",".join(args.value)
+            print(
+                f"filtered_confirm_batch count={len(args.value)} "
+                f"confirmed_values={confirmed_values}{capture_note}"
+            )
+        else:
+            print(f"filtered_batch count={len(args.value)}{capture_note}")
 
 
 if __name__ == "__main__":

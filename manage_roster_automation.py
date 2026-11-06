@@ -8,11 +8,24 @@ from urllib.request import urlopen
 
 from ootp_opt.automation.checkpoint import (
     ASSIGNMENT_SECTIONS,
+    checkpoint_path_for_manifest,
     format_checkpoint_summary,
     initialize_checkpoint,
     load_checkpoint,
     record_assignment_repair,
     update_phase,
+)
+from ootp_opt.automation.fast_executor import (
+    FAST_BATCH_SCHEMA_VERSION,
+    execute_fast_batch,
+    load_fast_batch,
+    validate_fast_batch,
+)
+from ootp_opt.automation.fast_compile import (
+    ASSIGNMENT_DRAG_FAMILIES,
+    ASSIGNMENT_DRAG_SECTIONS,
+    compile_assignment_moves,
+    select_assignment_moves,
 )
 from ootp_opt.automation.manifest import load_manifest
 from ootp_opt.automation.run_metrics import (
@@ -31,6 +44,8 @@ from ootp_opt.automation.ui_plan import (
     compact_ui_plan,
     require_cid_copy_counts,
 )
+from ootp_opt.automation.windows_drag import find_unique_window
+from ootp_opt.services.saved_plan_build_service import build_saved_plan
 
 
 def parse_args() -> argparse.Namespace:
@@ -39,6 +54,13 @@ def parse_args() -> argparse.Namespace:
 
     validate = subparsers.add_parser("validate", help="Validate a manifest.")
     validate.add_argument("manifest")
+
+    build_plan = subparsers.add_parser(
+        "build-plan",
+        help="Run an existing saved roster plan with the Full Optimizer.",
+    )
+    build_plan.add_argument("preset")
+    build_plan.add_argument("--config", default="config.toml")
 
     service_check = subparsers.add_parser(
         "service-check", help="Verify the running planner automation contract."
@@ -93,6 +115,58 @@ def parse_args() -> argparse.Namespace:
         help="Reject a new sync manifest that cannot use duplicate-safe batching.",
     )
 
+    fast_batch = subparsers.add_parser(
+        "fast-batch",
+        help="Validate or execute a manifest-bound native UI action batch.",
+    )
+    fast_batch.add_argument("manifest")
+    fast_batch.add_argument("section", choices=UI_PLAN_SECTIONS)
+    fast_batch.add_argument("batch")
+    fast_batch.add_argument("--execute", action="store_true")
+    fast_batch.add_argument(
+        "--capture-after",
+        default=None,
+        help=(
+            "Verification image path. Defaults to "
+            "<batch-stem>.verification.bmp when executing."
+        ),
+    )
+    fast_batch.add_argument("--title", default="Out of the Park Baseball 27")
+
+    assignment_drag = subparsers.add_parser(
+        "assignment-drag",
+        help="Compile and optionally execute one assignment drag family.",
+    )
+    assignment_drag.add_argument("manifest")
+    assignment_drag.add_argument("section", choices=ASSIGNMENT_DRAG_SECTIONS)
+    assignment_drag.add_argument("family", choices=ASSIGNMENT_DRAG_FAMILIES)
+    assignment_drag.add_argument(
+        "--client-geometry",
+        type=parse_client_geometry,
+        required=True,
+        metavar="LEFT,TOP,WIDTH,HEIGHT",
+    )
+    assignment_drag.add_argument(
+        "--source",
+        action="append",
+        type=parse_named_point,
+        required=True,
+        metavar="CID=X,Y",
+    )
+    assignment_drag.add_argument(
+        "--target",
+        action="append",
+        type=parse_named_point,
+        required=True,
+        metavar="KEY=X,Y",
+    )
+    selection = assignment_drag.add_mutually_exclusive_group()
+    selection.add_argument("--first-only", action="store_true")
+    selection.add_argument("--skip-first", type=int, default=0)
+    assignment_drag.add_argument("--execute", action="store_true")
+    assignment_drag.add_argument("--capture-after", default=None)
+    assignment_drag.add_argument("--title", default="Out of the Park Baseball 27")
+
     phase = subparsers.add_parser("phase", help="Update one checkpoint phase.")
     phase.add_argument("checkpoint")
     phase.add_argument("phase", choices=["plan", "sync", "assign"])
@@ -130,6 +204,18 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    if args.command == "build-plan":
+        built = build_saved_plan(args.preset, config_path=args.config)
+        result = built.result
+        print(
+            f"Built saved plan {built.preset_name} as roster "
+            f"{built.roster_name!r} in {result.build_timing.total_seconds:.2f}s"
+        )
+        print(f"Build record: {built.build_record_id}")
+        print(f"HTML: {result.html_output}")
+        print(f"Manifest: {result.automation_manifest_path}")
+        return
+
     if args.command == "service-check":
         try:
             check_service(args.url)
@@ -164,6 +250,9 @@ def main() -> None:
 
     if args.command == "init":
         checkpoint = initialize_checkpoint(args.manifest, args.checkpoint)
+        if not args.json:
+            checkpoint_path = args.checkpoint or checkpoint_path_for_manifest(args.manifest)
+            print(f"Checkpoint: {checkpoint_path}")
         print_output(checkpoint, args.json)
         return
 
@@ -195,6 +284,83 @@ def main() -> None:
                 )
             require_cid_copy_counts(manifest)
         print(compact_ui_plan(manifest, args.section))
+        return
+
+    if args.command == "fast-batch":
+        manifest = load_manifest(args.manifest)
+        batch = load_fast_batch(args.batch)
+        validate_fast_batch(
+            batch,
+            manifest_id=manifest["manifest_id"],
+            section=args.section,
+        )
+        if not args.execute:
+            print(
+                f"Valid fast batch {batch['section']}: "
+                f"{len(batch['actions'])} actions"
+            )
+            return
+        capture_after = args.capture_after or str(
+            Path(args.batch).with_suffix(".verification.bmp")
+        )
+        hwnd, _title = find_unique_window(args.title)
+        result = execute_fast_batch(
+            hwnd,
+            batch,
+            capture_after=capture_after,
+        )
+        print(json.dumps(result, separators=(",", ":")))
+        return
+
+    if args.command == "assignment-drag":
+        manifest = load_manifest(args.manifest)
+        moves = compile_assignment_moves(
+            manifest,
+            args.section,
+            args.family,
+            sources=dict(args.source),
+            targets=dict(args.target),
+        )
+        selected = select_assignment_moves(
+            moves,
+            first_only=args.first_only,
+            skip_first=args.skip_first,
+        )
+        batch = {
+            "schema_version": FAST_BATCH_SCHEMA_VERSION,
+            "manifest_id": manifest["manifest_id"],
+            "section": args.section,
+            "client_geometry": list(args.client_geometry),
+            "actions": [
+                {
+                    "op": "drag_batch",
+                    "moves": [[move["from"], move["to"]] for move in selected],
+                }
+            ],
+        }
+        validate_fast_batch(batch)
+        if not args.execute:
+            print(
+                json.dumps(
+                    {
+                        "manifest_id": manifest["manifest_id"],
+                        "section": args.section,
+                        "family": args.family,
+                        "moves": selected,
+                    },
+                    separators=(",", ":"),
+                )
+            )
+            return
+        if not args.capture_after:
+            raise ValueError("--execute requires --capture-after for verification.")
+        hwnd, _title = find_unique_window(args.title)
+        result = execute_fast_batch(
+            hwnd,
+            batch,
+            capture_after=args.capture_after,
+        )
+        print(json.dumps(result, separators=(",", ":")))
         return
 
     completed = list(args.completed)
@@ -237,6 +403,29 @@ def check_service(url: str) -> None:
         f"contract={expected['automation_contract_version']} "
         f"ui_plan={expected['ui_plan_schema_version']}"
     )
+
+
+def parse_named_point(value: str) -> tuple[str, tuple[int, int]]:
+    key, separator, point = value.partition("=")
+    if not separator or not key:
+        raise argparse.ArgumentTypeError("expected KEY=X,Y")
+    try:
+        x_text, y_text = point.split(",", 1)
+        return key, (int(x_text), int(y_text))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("expected KEY=X,Y") from exc
+
+
+def parse_client_geometry(value: str) -> tuple[int, int, int, int]:
+    try:
+        parts = tuple(int(part) for part in value.split(","))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "expected LEFT,TOP,WIDTH,HEIGHT"
+        ) from exc
+    if len(parts) != 4 or parts[2] <= 0 or parts[3] <= 0:
+        raise argparse.ArgumentTypeError("expected LEFT,TOP,WIDTH,HEIGHT")
+    return parts
 
 
 def print_output(checkpoint: dict, as_json: bool) -> None:
