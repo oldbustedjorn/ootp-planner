@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
+import tempfile
 from typing import Any, Literal
 
 from ootp_opt.automation.manifest import load_manifest
@@ -28,6 +30,15 @@ def initialize_checkpoint(
 ) -> dict[str, Any]:
     manifest = load_manifest(manifest_path)
     destination = Path(checkpoint_path or checkpoint_path_for_manifest(manifest_path))
+    if destination.exists():
+        existing = load_checkpoint(destination)
+        if existing["manifest_fingerprint"] != manifest["fingerprint"]:
+            raise ValueError("Checkpoint already exists for another manifest")
+        if manifest.get("rebuild", {}).get("baseline") and "execution" not in existing:
+            from ootp_opt.automation.execution import initialize_execution
+            initialize_execution(destination)
+            return load_checkpoint(destination)
+        return existing
     checkpoint = {
         "schema_version": 1,
         "manifest_path": str(manifest_path),
@@ -45,6 +56,11 @@ def initialize_checkpoint(
         },
     }
     write_checkpoint(destination, checkpoint)
+    if manifest.get("rebuild", {}).get("baseline"):
+        # Import locally: execution uses the legacy checkpoint adapter too.
+        from ootp_opt.automation.execution import initialize_execution
+        initialize_execution(destination)
+        return load_checkpoint(destination)
     return checkpoint
 
 
@@ -80,6 +96,13 @@ def update_phase(
         raise ValueError(f"Unknown automation phase: {phase}")
     if status not in STATUSES:
         raise ValueError(f"Unknown automation phase status: {status}")
+    if "execution" in checkpoint and phase in ("sync", "assign"):
+        if status == "complete":
+            sections = {"sync"} if phase == "sync" else {"pitching", "vs_rhp", "vs_lhp", "save"}
+            execution = checkpoint["execution"]
+            if any(action["id"] not in execution["completed"]
+                   for action in execution["actions"] if action["section"] in sections):
+                raise ValueError("Phase completion requires verified rebuild actions and local save")
     previous = checkpoint["phases"][phase]
     merged_completed = merge_unique(previous.get("completed", []), completed or [])
     merged_missing = [
@@ -113,6 +136,8 @@ def validate_checkpoint(checkpoint: dict[str, Any]) -> None:
         errors.append("manifest_path is required")
     if not checkpoint.get("manifest_fingerprint"):
         errors.append("manifest_fingerprint is required")
+    if "execution" in checkpoint and not valid_execution_record(checkpoint["execution"]):
+        errors.append("invalid rebuild execution ledger")
     phases = checkpoint.get("phases", {})
     for phase in PHASES:
         record = phases.get(phase)
@@ -180,14 +205,54 @@ def validate_checkpoint(checkpoint: dict[str, Any]) -> None:
         raise ValueError("Invalid automation checkpoint: " + "; ".join(errors))
 
 
+def valid_execution_record(execution: Any) -> bool:
+    try:
+        ids = [action["id"] for action in execution["actions"]]
+        completed = execution["completed"]
+        unverified = execution.get("unverified", [])
+        next_index = len(completed) + len(unverified)
+        return (
+            execution["schema_version"] == 1
+            and isinstance(execution["baseline"]["membership"], list)
+            and isinstance(execution["baseline"]["targets"], dict)
+            and isinstance(execution["baseline_reconciled"], bool)
+            and isinstance(execution["actions"], list) and bool(ids)
+            and all(isinstance(action_id, str) and action_id for action_id in ids)
+            and len(set(ids)) == len(ids)
+            and isinstance(completed, list) and len(completed) <= len(ids)
+            and completed == ids[:len(completed)]
+            and isinstance(unverified, list) and len(unverified) <= 30 and next_index <= len(ids)
+            and unverified == ids[len(completed):next_index]
+            and (execution["in_flight"] is None or (
+                next_index < len(ids) and execution["in_flight"] == ids[next_index]
+            ))
+            and isinstance(execution["journal"], list)
+            and all(isinstance(event, dict) and event["sequence"] == index
+                    and isinstance(event["event"], str)
+                    for index, event in enumerate(execution["journal"], start=1))
+        )
+    except (KeyError, TypeError):
+        return False
+
+
 def write_checkpoint(path: str | Path, checkpoint: dict[str, Any]) -> str:
     validate_checkpoint(checkpoint)
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(
-        json.dumps(checkpoint, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=destination.parent,
+            prefix=destination.name + ".", suffix=".tmp", delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+            handle.write(json.dumps(checkpoint, indent=2, sort_keys=True) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, destination)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
     return str(destination)
 
 
@@ -285,6 +350,14 @@ def format_checkpoint_summary(checkpoint: dict[str, Any]) -> str:
         if next_phase is None and record["status"] != "complete":
             next_phase = phase
     lines.append(f"Next phase: {next_phase or 'none'}")
+    if "execution" in checkpoint:
+        execution = checkpoint["execution"]
+        index = len(execution["completed"])
+        actions = execution["actions"]
+        next_action = actions[index]["id"] if index < len(actions) else "none"
+        lines.append(f"Rebuild actions: {index}/{len(actions)} | next={next_action} | "
+                     f"in_flight={execution['in_flight'] or 'none'} | "
+                     f"awaiting_verification={len(execution.get('unverified', []))}")
     repairs = checkpoint.get("assignment_repairs", {})
     lines.append(
         "Assignment repairs: "

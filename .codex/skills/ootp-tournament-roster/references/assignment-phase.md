@@ -13,6 +13,19 @@ verification, complete `vs_lhp` and start `save`. Complete `save` only after OOT
 confirms the local save and the checkpoint shows every phase complete. Generate
 the metrics report in the following tool call, not in the save-marker call.
 
+A wrong-player drag invalidates the saved source map for that family. Keep the
+exact action unverified and remap all sources from a fresh client-area capture,
+matching CID-backed names to the current visible rows. Geometry/bounds validation
+does not prove which player is under a point. Do not reuse other saved rows or
+blindly nudge the failed point. Use only the existing bounded alternate preflight
+or targeted-repair allowance, then reconcile the pending action after observation.
+Do not replay verified membership work or restart the optimizer.
+
+The native held-drag helper sends one button-down, movement-only events while
+the button stays held, then one button-up. Button-down flags are transitions;
+they must not be repeated on every movement step. Keep the existing hold/move/
+settle timing and first-item verification.
+
 Use the repository's deterministic native helper for all assignment input. Run it
 outside the command sandbox because Windows blocks sandboxed GUI input. Coordinates
 are relative to the current captured OOTP client area:
@@ -50,6 +63,18 @@ isolated repair, `batch` for
 two or more stable assignments, and `click-batch` after one menu calibration. The
 helper owns all fixed waits. Do not add caller-side sleeps, wrap individual drags
 in a subprocess loop, or inspect helper source during a routine run.
+
+If a planned pitcher is active as the exact CID/variant but absent from the
+pitching list, check this uncommon two-way-player case before a drag or declaring
+him unavailable. Inspect **Player Profile -> Strategy -> Use as a Two-Way Player**.
+When the verified card has pitching ratings and the option is available, enable
+it if unchecked, record the setting change in checkpoint notes, return to pitching,
+and verify that the same card is now available. Leave other strategy settings
+unchanged; do not substitute a player or change the planned role. If already
+blocked, clear only that card's missing marker after availability is verified;
+reconcile any prior in-flight action from the observed state before new input.
+If the option is absent or the card remains unavailable, checkpoint and stop.
+This is a conditional fallback, not a check for every player.
 
 1. Run `manage_roster_automation.py ui-plan <manifest> pitching` and follow its
    `execution.required_sequence`. In `rebuild` mode, assign only the listed
@@ -131,7 +156,15 @@ in a subprocess loop, or inspect helper source during a routine run.
    targets with `repair-attempt <checkpoint> vs_lhp --item <target> --strategy
    <strategy>`, repair those entries with a distinct source or inward target, and
    verify once. Never copy or mutate the RHP lineup into the LHP lineup.
-6. Save the local roster once. Perform one targeted confirmation check. Do not
+6. Preserve the bound existing local save name, not the planner's display name.
+   For older rebuild checkpoints without a binding, verify the intended roster
+   identity and record it with `rebuild-execution bind-save-name <checkpoint>
+   --name "<existing OOTP name>" --capture <inspected-roster.bmp>
+   --note "<identity verification>"` before saving. If a save already succeeded
+   under that name, bind it and reconcile the actual save observation without
+   clicking save again. Binding alone never proves a save. Use the exact bound
+   name for confirmation; no fuzzy or number-only match, rename, or duplicate.
+   Save the local roster once. Perform one targeted confirmation check. Do not
    click save a second time unless that check clearly shows the roster remains
    unsaved. Do not submit or enter the tournament.
 

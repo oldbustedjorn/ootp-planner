@@ -6,6 +6,23 @@ automation manifest.
 The `sync` metric starts at the plan-to-sync transition. Complete it only after
 aggregate membership verification and start `rotation` in the same command.
 
+Native input commands must run in the host context (`require_escalated`),
+outside the command sandbox. For full-window screenshot coordinates, pass
+`--coordinate-space window` to the native helper; its default coordinates are
+client-relative and exclude the title bar. The same coordinate space applies to
+every filter-batch point. Calibrate and verify one text-only entry before applying
+the filter. If a helper reports sent input but the field stays unchanged, check
+execution context and coordinate space before one corrected text-only preflight.
+Do not apply the old CID or activate an unrelated result.
+
+If a native helper rejects AppContainer execution before sending input, retry
+only that rejected command once with the execution tool argument
+`sandbox_permissions: "require_escalated"`. Keep the existing controller and
+checkpoint and continue on success. This preflight routing correction does not
+require stopping the turn. An actual approval rejection or possible partial input
+still uses the normal stop and reconciliation rules. Never replay already
+completed removals or additions to correct the execution context.
+
 Use the native helper for text entry and fast batches; do not inspect its source
 or replace it with one computer-control call per card:
 
@@ -14,6 +31,16 @@ or replace it with one computer-control call per card:
 .\.venv\Scripts\python.exe -m ootp_opt.automation.windows_drag filter-batch --field X,Y --activate X,Y --value CID1 --value CID2 --capture-after <path.bmp>
 .\.venv\Scripts\python.exe -m ootp_opt.automation.windows_drag filter-batch --field X,Y --activate X,Y --confirm X,Y --value CID1 --value CID2 --capture-after <path.bmp>
 ```
+
+For checkpoints with an execution ledger, group unambiguous removals or
+additions from `next_batch` into `run-batch` transactions and reconcile one
+aggregate observation. The native command journals per-card intents and returned
+inputs locally; do not make one model/tool/observation cycle per card. Exact
+duplicate-row choices still use the inspected single-card path. Returned inputs
+are unverified until reconciliation, and an interrupted transaction blocks later
+transactions. Use the ledger's returned prefix and interrupted action instead of
+reconstructing progress from checkpoint notes. Do not rescan unchanged members
+after each action. The older raw batch guidance below is for phase-only runs.
 
 For rebuilds with multiple unambiguous removals or additions, read
 `fast-executor.md` and combine removal and addition transactions into one
@@ -27,7 +54,15 @@ Duplicate-card inspection remains outside the fast executor.
    standard cards and includes aggregate verification counts. Read `mode` before
    mutating OOTP. In `rebuild` mode, `remove` and `add` are the complete
    membership changes and `retained` cards must remain untouched.
-2. Open the intended local roster and OOTP's Manage Cards screen.
+2. Open the intended existing local roster. Verify its identity using the roster
+   name and tournament rules/context; a trailing tournament number is only a
+   matching hint and may change between instances. Preserve its actual local
+   name, including abbreviations. For a rebuild ledger, record the exact visible
+   name before membership changes (even when it matches the planner name):
+   `rebuild-execution bind-save-name <checkpoint> --name "<existing OOTP name>"
+   --capture <inspected-roster.bmp> --note "<identity verification>"`.
+   This records a separate checkpoint binding, not a rename or save. Keep the
+   planner/manifest name intact. Then open OOTP's Manage Cards screen.
 3. Select the `RosterLoad` view and use the `RosterFilterCID` filter.
 4. In `rebuild` mode, process the flat `remove` list first from this same Manage
    Cards screen, then process only `add_passes`. Do not clear the active roster,

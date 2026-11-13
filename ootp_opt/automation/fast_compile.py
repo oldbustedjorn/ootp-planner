@@ -74,6 +74,31 @@ def select_assignment_moves(
     return selected
 
 
+def compile_journal_assignment_moves(
+    actions: list[dict[str, Any]], section: str, family: str, *,
+    sources: dict[str, tuple[int, int]], targets: dict[str, tuple[int, int]],
+) -> list[dict[str, Any]]:
+    if section not in ASSIGNMENT_DRAG_SECTIONS or family not in ASSIGNMENT_DRAG_FAMILIES:
+        raise ValueError("Unknown journal assignment section or family")
+    if (section == "pitching") != (family == "rotation"):
+        raise ValueError("Pitching drag compilation supports only rotation")
+    if not actions:
+        raise ValueError("No assignment actions remain; inspect checkpoint status")
+    moves = []
+    prefix = f"{section}/{family}/"
+    for action in actions:
+        if action["operation"] != "set" or not action["target"].startswith(prefix):
+            raise ValueError("Requested drag family is not the next journal action family")
+        card = action["value"]["card"] if family == "depth" else action["value"]
+        cid = card["cid"]
+        target = action["target"][len(prefix):].replace("/", ":")
+        if cid not in sources or target not in targets:
+            raise ValueError(f"Missing source or target coordinate for CID {cid}, target {target}")
+        moves.append({"action_id": action["id"], "cid": cid, "target": target,
+                      "from": list(sources[cid]), "to": list(targets[target])})
+    return moves
+
+
 def _family_entries(plan: dict[str, Any], family: str) -> list[list[Any]]:
     key = "starter_sequence" if family == "starters" else family
     return plan[key]

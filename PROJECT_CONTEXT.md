@@ -430,6 +430,21 @@ the optimizer objective shared by roster builds and upgrade analysis.
 
 ## Notes for Future Chats
 
+Rebuilds record the verified existing OOTP save name separately from the planner
+name with `rebuild-execution bind-save-name` (inspected capture and identity note
+required). Save reconciliation compares that exact local name; legacy checkpoints
+retain the manifest-name fallback. Binding does not advance actions or rename a
+roster. The assignment skill also covers the conditional Strategy -> Use as a
+Two-Way Player fallback for a verified pitcher missing from the pitching list.
+
+Rebuild automation now uses `ootp_opt.automation.execution`: deterministic target
+actions, durable intent/observation journaling, exact CID/variant membership
+reconciliation, and explicit local-save verification. New rebuild manifests embed
+the baseline and new checkpoints initialize the ledger automatically. Older phase
+checkpoints remain supported, with an explicit migration path using their archived
+prior manifest. See [AUTOMATION_EXECUTION.md](AUTOMATION_EXECUTION.md) for the CLI,
+observation contract, interruption rules, and legacy compatibility boundaries.
+
 When resuming in a new Codex or ChatGPT session:
 
 - use this file as current context

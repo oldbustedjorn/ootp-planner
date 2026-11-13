@@ -19,6 +19,7 @@ def build_rebuild_delta(
     return {
         "schema_version": 1,
         "previous_manifest_id": previous.get("manifest_id"),
+        "baseline": rebuild_snapshot(previous),
         "membership": {
             "remove": removed,
             "add": added,
@@ -200,3 +201,44 @@ def depth_signature(entry: dict[str, Any] | None) -> tuple[Any, ...] | None:
 
 def batting_order(entry: dict[str, Any]) -> int:
     return int(entry["batting_order"])
+
+
+def rebuild_snapshot(manifest: dict[str, Any]) -> dict[str, Any]:
+    """Stable UI facts, independent of physical inventory IDs and report metadata."""
+    def identity(card: dict[str, Any]) -> dict[str, Any]:
+        cid, variant = card_key(card)
+        if not cid or not isinstance(card.get("variant"), bool):
+            raise ValueError("Rebuild cards require CID and explicit boolean variant")
+        return {"cid": cid, "variant": variant}
+
+    targets: dict[str, Any] = {}
+    pitching = manifest.get("pitching", {})
+    targets["pitching/rotation_size"] = len(pitching.get("rotation", []))
+    for entry in pitching.get("rotation", []):
+        targets[f"pitching/rotation/{entry['order']}"] = identity(entry["card"])
+    for entry in pitching.get("bullpen", []):
+        cid, variant = card_key(entry["card"])
+        targets[f"pitching/bullpen/{cid}/{str(variant).lower()}"] = {
+            "card": identity(entry["card"]),
+            **{key: entry.get(key) for key in ("primary_role", "usage", "secondary_role")},
+        }
+    for split in ("vs_rhp", "vs_lhp"):
+        starters = manifest.get("lineups", {}).get(split, {}).get("starters", [])
+        # Order is positional: replacing a starter preserves the existing slot order.
+        targets[f"{split}/batting_order"] = [
+            entry["position"] for entry in sorted(starters, key=batting_order)
+        ]
+        for entry in starters:
+            position = entry["position"]
+            targets[f"{split}/starters/{position}"] = identity(entry["card"])
+            for backup in entry.get("depth", []):
+                targets[f"{split}/depth/{position}/{backup['order']}"] = {
+                    "card": identity(backup["card"]), "condition": backup.get("condition"),
+                }
+        for family in ("pinch_hitters", "pinch_runners"):
+            for entry in manifest.get("bench_actions", {}).get(split, {}).get(family, []):
+                targets[f"{split}/{family}/{entry['order']}"] = identity(entry["card"])
+    membership = [identity(card) for card in manifest["roster"]["membership"]]
+    if len({card_key(card) for card in membership}) != len(membership):
+        raise ValueError("Duplicate CID/variant in rebuild membership")
+    return {"membership": sorted(membership, key=card_key), "targets": targets}

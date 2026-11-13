@@ -661,6 +661,7 @@ def test_cli_fast_batch_defaults_verification_capture(
         return {"capture": capture_after}
 
     monkeypatch.setattr("manage_roster_automation.execute_fast_batch", execute)
+    monkeypatch.setattr("manage_roster_automation.require_host_input", lambda: None)
     monkeypatch.setattr(
         sys,
         "argv",

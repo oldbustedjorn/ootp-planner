@@ -2,15 +2,33 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import json
 import struct
+import sys
 import time
 from ctypes import wintypes
 from pathlib import Path
+from typing import Callable
 
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 gdi32 = ctypes.WinDLL("gdi32", use_last_error=True)
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
+dwmapi = ctypes.WinDLL("dwmapi", use_last_error=True)
+
+advapi32.OpenProcessToken.argtypes = (wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE))
+advapi32.OpenProcessToken.restype = wintypes.BOOL
+advapi32.GetTokenInformation.argtypes = (
+    wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(wintypes.DWORD),
+)
+advapi32.GetTokenInformation.restype = wintypes.BOOL
+kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+kernel32.CloseHandle.restype = wintypes.BOOL
+dwmapi.DwmGetWindowAttribute.argtypes = (
+    wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD,
+)
+dwmapi.DwmGetWindowAttribute.restype = wintypes.LONG
 
 
 class POINT(ctypes.Structure):
@@ -73,6 +91,64 @@ KEYEVENTF_KEYUP = 0x0002
 KEYEVENTF_UNICODE = 0x0004
 VK_CONTROL = 0x11
 VK_A = 0x41
+TOKEN_QUERY = 0x0008
+TOKEN_IS_APP_CONTAINER = 29
+DWMWA_EXTENDED_FRAME_BOUNDS = 9
+
+
+class NativeInputContextError(RuntimeError):
+    """A routing rejection before native input, safe to retry on the host."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "Native OOTP input requires the host context, outside the AppContainer sandbox. "
+            "No native input was sent. Retry only this rejected command once with "
+            "tools.exec_command sandbox_permissions='require_escalated', retaining the "
+            "same controller and checkpoint. Do not replay completed actions."
+        )
+
+    def receipt(self) -> dict:
+        return {
+            "error": "native_input_requires_host",
+            "input_sent": False,
+            "retryable_in_host": True,
+            "sandbox_permissions": "require_escalated",
+            "message": str(self),
+        }
+
+
+def run_cli(command: Callable[[], None]) -> None:
+    try:
+        command()
+    except NativeInputContextError as exc:
+        print(json.dumps(exc.receipt()), file=sys.stderr)
+        raise SystemExit(75) from None
+
+
+def is_app_container() -> bool:
+    """Read the current process token; native input must run on the host desktop.
+
+    https://learn.microsoft.com/windows/win32/api/securitybaseapi/nf-securitybaseapi-gettokeninformation
+    """
+    token = wintypes.HANDLE()
+    if not advapi32.OpenProcessToken(wintypes.HANDLE(-1), TOKEN_QUERY, ctypes.byref(token)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        value = wintypes.DWORD()
+        returned = wintypes.DWORD()
+        if not advapi32.GetTokenInformation(
+            token, TOKEN_IS_APP_CONTAINER, ctypes.byref(value), ctypes.sizeof(value),
+            ctypes.byref(returned),
+        ):
+            raise ctypes.WinError(ctypes.get_last_error())
+        return bool(value.value)
+    finally:
+        kernel32.CloseHandle(token)
+
+
+def require_host_input() -> None:
+    if is_app_container():
+        raise NativeInputContextError()
 
 
 def _windows_matching(title_fragment: str) -> list[tuple[int, str]]:
@@ -245,6 +321,7 @@ def _press_alt_tab() -> None:
 
 
 def raise_window_for_input(hwnd: int, wait_foreground_seconds: float = 0) -> None:
+    require_host_input()
     user32.ShowWindow(hwnd, SW_RESTORE)
     user32.keybd_event(VK_MENU, 0, 0, 0)
     user32.keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0)
@@ -350,7 +427,9 @@ def held_drag_batch(
                     source_screen[1]
                     + (target_screen[1] - source_screen[1]) * fraction
                 )
-                _send_mouse(x, y, MOUSEEVENTF_MOVE | MOUSEEVENTF_LEFTDOWN)
+                # Button flags describe transitions, not a held-state mask.
+                # Repeating LEFTDOWN can restart an app's drag on an intervening row.
+                _send_mouse(x, y, MOUSEEVENTF_MOVE)
                 time.sleep(move_ms / steps / 1000)
             time.sleep(settle_ms / 1000)
             _send_mouse(*target_screen, MOUSEEVENTF_MOVE | MOUSEEVENTF_LEFTUP)
@@ -489,6 +568,61 @@ def parse_move(value: str) -> tuple[tuple[int, int], tuple[int, int]]:
     return parse_point(source_text), parse_point(target_text)
 
 
+def client_point(
+    point: tuple[int, int],
+    geometry: tuple[int, int, int, int],
+    coordinate_space: str,
+    *,
+    window_origin: tuple[int, int] | None = None,
+) -> tuple[int, int]:
+    """Normalize explicit coordinates before input; never guess their space."""
+    left, top, width, height = geometry
+    x, y = point
+    if coordinate_space == "window":
+        if window_origin is None:
+            raise ValueError("Window coordinates require the observed window origin")
+        x += window_origin[0] - left
+        y += window_origin[1] - top
+    elif coordinate_space == "screen":
+        x -= left
+        y -= top
+    elif coordinate_space != "client":
+        raise ValueError(f"Unknown coordinate space: {coordinate_space}")
+    if not (0 <= x < width and 0 <= y < height):
+        raise ValueError(
+            f"{coordinate_space} point {point} maps outside client area {width}x{height}: {(x, y)}"
+        )
+    return x, y
+
+
+def normalize_input_coordinates(args: argparse.Namespace, hwnd: int, geometry: tuple) -> None:
+    space = args.coordinate_space
+    window_origin = None
+    if space == "window":
+        rect = RECT()
+        # GetWindowRect includes invisible resize borders; screenshots do not.
+        result = dwmapi.DwmGetWindowAttribute(
+            hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, ctypes.byref(rect), ctypes.sizeof(rect),
+        )
+        if result < 0:
+            raise OSError(f"Could not read visible OOTP window bounds: HRESULT {result:#x}")
+        window_origin = (rect.left, rect.top)
+
+    def convert(point):
+        return client_point(point, geometry, space, window_origin=window_origin)
+
+    for key in ("at", "source", "target", "field", "activate", "apply_point", "confirm_point"):
+        point = getattr(args, key, None)
+        if point is not None:
+            setattr(args, key, convert(point))
+    for key in ("points", "open_points"):
+        points = getattr(args, key, None)
+        if points is not None:
+            setattr(args, key, [convert(point) for point in points])
+    if hasattr(args, "moves"):
+        args.moves = [(convert(source), convert(target)) for source, target in args.moves]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="OOTP held-drag diagnostic")
     parser.add_argument("--title", default="Out of the Park Baseball 27")
@@ -536,7 +670,8 @@ def main() -> None:
     click_batch_parser.add_argument("--wait-foreground-seconds", type=float, default=0)
     click_batch_parser.add_argument("--capture-after", type=Path)
     type_parser = subparsers.add_parser("type-text")
-    type_parser.add_argument("--at", type=parse_point, required=True)
+    type_parser.add_argument("--at", type=parse_point, required=True,
+                             help="Text field X,Y in --coordinate-space (default: client).")
     type_parser.add_argument("--text", required=True)
     type_parser.add_argument("--no-select-all", action="store_true")
     type_parser.add_argument("--click-ms", type=int, default=80)
@@ -566,10 +701,18 @@ def main() -> None:
     filter_parser.add_argument("--char-delay-ms", type=int, default=10)
     filter_parser.add_argument("--wait-foreground-seconds", type=float, default=0)
     filter_parser.add_argument("--capture-after", type=Path)
+    for input_parser in (drag_parser, batch_parser, click_batch_parser, type_parser, filter_parser):
+        input_parser.add_argument(
+            "--coordinate-space", choices=("client", "window", "screen"), default="client",
+            help=("Space for every input point: client excludes title bar (default); "
+                  "window includes title bar; screen uses absolute desktop coordinates."),
+        )
     args = parser.parse_args()
 
     hwnd, title = find_unique_window(args.title)
     geometry = client_geometry(hwnd)
+    if hasattr(args, "coordinate_space"):
+        normalize_input_coordinates(args, hwnd, geometry)
     if args.command == "inspect":
         print(f"hwnd={hwnd} title={title!r} client={geometry}")
     elif args.command == "capture":
@@ -656,7 +799,8 @@ def main() -> None:
                 f" capture={args.capture_after.resolve()} "
                 f"size={size[0]}x{size[1]}"
             )
-        print(f"typed_text length={len(args.text)}{capture_note}")
+        print(f"text_input_sent length={len(args.text)} coordinate_space={args.coordinate_space} "
+              f"client_at={args.at} field_verification=required{capture_note}")
     else:
         filter_activate_batch(
             hwnd,
@@ -691,4 +835,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    run_cli(main)

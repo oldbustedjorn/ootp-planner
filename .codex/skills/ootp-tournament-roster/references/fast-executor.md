@@ -4,20 +4,47 @@ Use this path for deterministic rebuild deltas after the relevant OOTP screen is
 open and its geometry has been calibrated. The executor removes model round trips;
 it does not make decisions, inspect results, retry, or mark checkpoints complete.
 
+## Journaled batches
+
+For execution-ledger checkpoints, use the repository's
+[execution protocol](../../../../AUTOMATION_EXECUTION.md):
+`assignment-drag --checkpoint` for drag families and `rebuild-execution run-batch`
+for ordered action-ID-bound native transactions. Each command writes durable
+per-action intent/returned receipts and one final capture; aggregate-reconcile
+once per family. A returned input is not verified success. Do not interpret an
+action-level journal as a requirement for a model turn or screenshot per action.
+
+The raw `fast-batch` contract below remains for legacy phase-only runs and exact
+targeted repairs; it does not advance the journal by itself.
+
+Compact receipts are now the default. Use `--json-output <file>` to keep
+native plans/results locally without printing their full arrays, and `--json`
+when a downstream script parses stdout. After the existing visual verification,
+use the `observation` helper to serialize confirmed target data, then reconcile;
+do not rebuild long roster arrays in inline shell scripts. This changes neither
+the number of observations nor native execution timing.
+
 ## Assignment Drags
 
 Do not create JSON batch files for rotation, starter, depth, pinch-hitter, or
 pinch-runner drags. Compile those families directly from the manifest:
 
 ```powershell
-.\.venv\Scripts\python.exe manage_roster_automation.py assignment-drag <manifest> <section> <family> --client-geometry LEFT,TOP,WIDTH,HEIGHT --source CID=X,Y --target KEY=X,Y --first-only --execute --capture-after <preflight.bmp>
-.\.venv\Scripts\python.exe manage_roster_automation.py assignment-drag <manifest> <section> <family> --client-geometry LEFT,TOP,WIDTH,HEIGHT --source CID=X,Y --target KEY=X,Y --skip-first 1 --execute --capture-after <final.bmp>
+.\.venv\Scripts\python.exe manage_roster_automation.py assignment-drag <manifest> <section> <family> --checkpoint <checkpoint> --client-geometry LEFT,TOP,WIDTH,HEIGHT --source CID=X,Y --target KEY=X,Y --save-coordinate-map <coords.json> --first-only --execute --capture-after <preflight.bmp>
+.\.venv\Scripts\python.exe manage_roster_automation.py assignment-drag <manifest> <section> <family> --checkpoint <checkpoint> --coordinate-map <coords.json> --execute --capture-after <final.bmp>
 ```
 
 Repeat coordinate flags as needed. The compiler reads `ui-plan`, rejects missing
 coordinates before input, preserves manifest order, and invokes the native batch
 runner directly. Use `--first-only` for the verified preflight and
-`--skip-first 1` for the remainder. This removes batch-file authoring and a
+the same checkpointed command without `--first-only` for the remainder.
+If preflight selects a different card, discard that family's saved coordinate
+map and remap its source identities from a fresh client capture before any
+allowed alternate preflight or targeted repair. Preserve the unverified action;
+do not replay the batch or assume the other source rows were correct.
+
+Completed actions are skipped automatically after reconciliation. For legacy
+commands without a checkpoint, `--skip-first 1` remains supported. This removes batch-file authoring and a
 separate validation turn.
 
 ## Batch Contract
@@ -95,7 +122,7 @@ planned native inputs ran; inspect the final capture before completing the secti
 1. Emit `ui-plan` for the section and skip it when every mutation list is empty.
 2. Capture once and record the current full client geometry and coordinates.
 3. For a drag-based family, use `assignment-drag --first-only` for preflight and
-   `assignment-drag --skip-first 1` for the remainder. Do not create JSON.
+   the checkpointed command without `--first-only` for the remainder. Do not create JSON.
 4. Put remaining mixed non-drag operations in one JSON batch only when the native
    homogeneous helper cannot express the section directly.
 5. Aggregate-verify the section once. Checkpoint it only after verification.

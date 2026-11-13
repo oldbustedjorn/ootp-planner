@@ -25,9 +25,24 @@ from ootp_opt.automation.fast_compile import (
     ASSIGNMENT_DRAG_FAMILIES,
     ASSIGNMENT_DRAG_SECTIONS,
     compile_assignment_moves,
+    compile_journal_assignment_moves,
     select_assignment_moves,
 )
 from ootp_opt.automation.manifest import load_manifest
+from ootp_opt.automation.execution import (
+    begin_action,
+    bind_local_save_name,
+    execute_action,
+    execution_status,
+    initialize_execution,
+    reconcile_execution,
+)
+from ootp_opt.automation.execution_batch import run_execution_batch, validate_execution_batch
+from ootp_opt.automation.execution_io import (
+    assignment_coordinates, compact_execution_receipt, require_output_path,
+    save_assignment_coordinates, write_json_output,
+)
+from ootp_opt.automation.observation_io import OBSERVATION_SCOPES, prepare_observation, read_observation
 from ootp_opt.automation.run_metrics import (
     METRIC_EVENTS,
     METRIC_STAGES,
@@ -44,7 +59,7 @@ from ootp_opt.automation.ui_plan import (
     compact_ui_plan,
     require_cid_copy_counts,
 )
-from ootp_opt.automation.windows_drag import find_unique_window
+from ootp_opt.automation.windows_drag import find_unique_window, require_host_input, run_cli
 from ootp_opt.services.saved_plan_build_service import build_saved_plan
 
 
@@ -77,6 +92,42 @@ def parse_args() -> argparse.Namespace:
     status = subparsers.add_parser("status", help="Show checkpoint status.")
     status.add_argument("checkpoint")
     status.add_argument("--json", action="store_true")
+
+    execution = subparsers.add_parser(
+        "rebuild-execution", help="Manage the resumable rebuild action journal."
+    )
+    execution.add_argument("operation", choices=[
+        "init", "status", "reconcile", "begin", "run", "validate-batch", "run-batch", "bind-save-name",
+    ])
+    execution.add_argument("checkpoint")
+    execution.add_argument("--baseline-manifest", help="Verified prior manifest for legacy rebuilds")
+    execution.add_argument("--observation", help="JSON with exact active membership and observed targets")
+    execution.add_argument("--retry-unapplied", action="store_true")
+    execution.add_argument("--action-id")
+    execution.add_argument("--batch", help="Native plan for one action or a journaled action family")
+    execution.add_argument("--capture-after")
+    execution.add_argument("--name", help="Verified existing OOTP roster name for bind-save-name")
+    execution.add_argument("--capture", help="Inspected capture establishing the existing roster identity")
+    execution.add_argument("--note", help="How the existing roster identity was verified")
+    execution.add_argument("--title", default="Out of the Park Baseball 27")
+    execution.add_argument("--json", action="store_true", help="Print the full machine-readable result")
+    execution.add_argument("--json-output", help="Write full result JSON locally; keep console output compact")
+
+    observation = subparsers.add_parser(
+        "observation", help="Prepare a draft or explicitly confirmed observation without roster-array scripts"
+    )
+    observation.add_argument("checkpoint")
+    observation.add_argument("--scope", choices=OBSERVATION_SCOPES, required=True)
+    observation.add_argument("--output", required=True)
+    observation.add_argument("--base", help="Prior observation with reconciled membership to reuse")
+    observation.add_argument("--capture", help="Capture the caller has inspected for every scoped field")
+    observation.add_argument("--confirm-matches", action="store_true",
+                             help="Attest scoped UI fields match, except explicit actual overrides")
+    observation.add_argument("--actual-target", action="append", default=[], type=parse_actual_target,
+                             metavar="TARGET=JSON")
+    observation.add_argument("--actual-membership", help="JSON file containing the actual membership array")
+    observation.add_argument("--actual-save", help="Actual name shown in OOTP's save confirmation")
+    observation.add_argument("--json", action="store_true")
 
     repair = subparsers.add_parser(
         "repair-attempt",
@@ -138,26 +189,31 @@ def parse_args() -> argparse.Namespace:
         help="Compile and optionally execute one assignment drag family.",
     )
     assignment_drag.add_argument("manifest")
+    assignment_drag.add_argument("--checkpoint", help="Journal and verify one family as a batch")
+    assignment_drag.add_argument("--coordinate-map", help="Reuse this manifest/section/family's saved coordinates")
+    assignment_drag.add_argument("--save-coordinate-map", help="Save supplied calibration locally for the remainder")
+    assignment_drag.add_argument("--json", action="store_true", help="Print full result or dry-run plan")
+    assignment_drag.add_argument("--json-output", help="Write full result or dry-run plan JSON locally")
     assignment_drag.add_argument("section", choices=ASSIGNMENT_DRAG_SECTIONS)
     assignment_drag.add_argument("family", choices=ASSIGNMENT_DRAG_FAMILIES)
     assignment_drag.add_argument(
         "--client-geometry",
         type=parse_client_geometry,
-        required=True,
+        default=None,
         metavar="LEFT,TOP,WIDTH,HEIGHT",
     )
     assignment_drag.add_argument(
         "--source",
         action="append",
         type=parse_named_point,
-        required=True,
+        default=[],
         metavar="CID=X,Y",
     )
     assignment_drag.add_argument(
         "--target",
         action="append",
         type=parse_named_point,
-        required=True,
+        default=[],
         metavar="KEY=X,Y",
     )
     selection = assignment_drag.add_mutually_exclusive_group()
@@ -204,6 +260,14 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    if args.command in ("fast-batch", "assignment-drag") and args.execute:
+        require_host_input()
+    if args.command == "rebuild-execution":
+        manage_execution(args)
+        return
+    if args.command == "observation":
+        manage_observation(args)
+        return
     if args.command == "build-plan":
         built = build_saved_plan(args.preset, config_path=args.config)
         result = built.result
@@ -314,6 +378,16 @@ def main() -> None:
 
     if args.command == "assignment-drag":
         manifest = load_manifest(args.manifest)
+        protected = [args.manifest, args.checkpoint, args.coordinate_map, args.capture_after]
+        if args.checkpoint:
+            protected.append(load_checkpoint(args.checkpoint)["manifest_path"])
+        require_output_path(args.json_output, protected)
+        require_output_path(args.save_coordinate_map, [*protected, args.json_output])
+        geometry, sources, targets = assignment_coordinates(args, manifest)
+        args.client_geometry, args.source, args.target = geometry, list(sources.items()), list(targets.items())
+        if args.checkpoint:
+            journal_assignment_drag(args, manifest)
+            return
         moves = compile_assignment_moves(
             manifest,
             args.section,
@@ -339,18 +413,12 @@ def main() -> None:
             ],
         }
         validate_fast_batch(batch)
+        save_assignment_coordinates(args, manifest, geometry, sources, targets)
         if not args.execute:
-            print(
-                json.dumps(
-                    {
-                        "manifest_id": manifest["manifest_id"],
-                        "section": args.section,
-                        "family": args.family,
-                        "moves": selected,
-                    },
-                    separators=(",", ":"),
-                )
-            )
+            print_execution_result({
+                "manifest_id": manifest["manifest_id"], "section": args.section,
+                "family": args.family, "moves": selected,
+            }, args)
             return
         if not args.capture_after:
             raise ValueError("--execute requires --capture-after for verification.")
@@ -360,7 +428,7 @@ def main() -> None:
             batch,
             capture_after=args.capture_after,
         )
-        print(json.dumps(result, separators=(",", ":")))
+        print_execution_result(result, args)
         return
 
     completed = list(args.completed)
@@ -403,6 +471,148 @@ def check_service(url: str) -> None:
         f"contract={expected['automation_contract_version']} "
         f"ui_plan={expected['ui_plan_schema_version']}"
     )
+
+
+def manage_execution(args: argparse.Namespace) -> None:
+    checkpoint = load_checkpoint(args.checkpoint)
+    require_output_path(args.json_output, [args.checkpoint, checkpoint["manifest_path"],
+                                         args.observation, args.batch, args.capture_after, args.capture])
+    if args.operation == "init":
+        result = initialize_execution(args.checkpoint, args.baseline_manifest)
+    elif args.operation == "status":
+        result = execution_status(args.checkpoint)
+    elif args.operation == "bind-save-name":
+        if not args.name or not args.capture or not args.note:
+            raise ValueError("bind-save-name requires --name, --capture and --note")
+        result = bind_local_save_name(args.checkpoint, args.name, capture=args.capture, note=args.note)
+    elif args.operation == "reconcile":
+        if not args.observation:
+            raise ValueError("reconcile requires --observation")
+        observation = read_observation(args.observation, checkpoint["manifest_fingerprint"])
+        result = reconcile_execution(
+            args.checkpoint, observation, retry_unapplied=args.retry_unapplied,
+        )
+    elif args.operation == "begin":
+        result = begin_action(args.checkpoint, args.action_id)
+    elif args.operation in ("validate-batch", "run-batch"):
+        if not args.batch:
+            raise ValueError("Execution batch requires --batch")
+        checkpoint = load_checkpoint(args.checkpoint)
+        manifest = load_manifest(checkpoint["manifest_path"])
+        batch = json.loads(Path(args.batch).read_text(encoding="utf-8"))
+        if args.operation == "validate-batch":
+            native = validate_execution_batch(
+                batch, manifest["manifest_id"], execution_status(args.checkpoint)["next_batch"],
+            )
+            result = {"valid": True, "transactions": len(native)}
+        else:
+            if not args.capture_after:
+                raise ValueError("run-batch requires --capture-after")
+            result = run_execution_batch(
+                args.checkpoint, manifest["manifest_id"], batch,
+                title=args.title, capture_after=args.capture_after,
+            )
+    else:
+        if not args.batch or not args.capture_after:
+            raise ValueError("run requires --batch and --capture-after")
+        # Fail before any journal intent, retry count, window activation, or input.
+        require_host_input()
+        checkpoint = load_checkpoint(args.checkpoint)
+        manifest = load_manifest(checkpoint["manifest_path"])
+        action = execution_status(args.checkpoint)["next_action"]
+        if action is None or action["id"] != args.action_id:
+            raise ValueError("Only the next action may execute")
+        if action["operation"] == "verify":
+            raise ValueError("Verification uses begin and reconcile without native input")
+        batch = load_fast_batch(args.batch)
+        validate_fast_batch(batch, manifest_id=manifest["manifest_id"], section=action["section"])
+        hwnd, _ = find_unique_window(args.title)
+        result = execute_action(
+            args.checkpoint, args.action_id,
+            lambda _: execute_fast_batch(hwnd, batch, capture_after=args.capture_after),
+        )
+    print_execution_result(result, args)
+
+
+def journal_assignment_drag(args: argparse.Namespace, manifest: dict) -> None:
+    checkpoint = load_checkpoint(args.checkpoint)
+    if checkpoint["manifest_fingerprint"] != manifest["fingerprint"]:
+        raise ValueError("Assignment manifest does not match the checkpoint")
+    if args.skip_first:
+        raise ValueError("Journaled drags skip completed actions automatically; omit --skip-first")
+    status = execution_status(args.checkpoint)
+    if status["state"] != "ready":
+        raise ValueError("Reconcile the checkpoint before compiling the next drag family")
+    actions = status["next_batch"][:1] if args.first_only else status["next_batch"]
+    moves = compile_journal_assignment_moves(
+        actions, args.section, args.family, sources=dict(args.source), targets=dict(args.target),
+    )
+    plan = {
+        "schema_version": 1, "manifest_id": manifest["manifest_id"], "section": args.section,
+        "client_geometry": list(args.client_geometry),
+        "transactions": [{"action_id": move["action_id"], "actions": [{
+            "op": "drag_batch", "moves": [[move["from"], move["to"]]],
+        }]} for move in moves],
+    }
+    validate_execution_batch(plan, manifest["manifest_id"], actions)
+    save_assignment_coordinates(args, manifest, args.client_geometry, dict(args.source), dict(args.target))
+    if not args.execute:
+        print_execution_result(plan, args)
+        return
+    if not args.capture_after:
+        raise ValueError("--execute requires --capture-after for aggregate verification")
+    result = run_execution_batch(
+        args.checkpoint, manifest["manifest_id"], plan,
+        title=args.title, capture_after=args.capture_after,
+    )
+    print_execution_result(result, args)
+
+
+def print_execution_result(result: dict, args: argparse.Namespace) -> None:
+    output = write_json_output(args.json_output, result) if args.json_output else None
+    if args.json:
+        print(json.dumps(result, indent=2, sort_keys=True))
+    else:
+        print(compact_execution_receipt(result, checkpoint_path=args.checkpoint))
+        if output:
+            print(f"JSON: {output}")
+        if getattr(args, "save_coordinate_map", None):
+            print(f"Coordinate map: {args.save_coordinate_map}")
+
+
+def manage_observation(args: argparse.Namespace) -> None:
+    checkpoint = load_checkpoint(args.checkpoint)
+    require_output_path(args.output, [args.checkpoint, checkpoint["manifest_path"], args.base,
+                                     args.capture, args.actual_membership])
+    actual = None
+    if args.actual_membership:
+        actual = json.loads(Path(args.actual_membership).read_text(encoding="utf-8-sig"))
+        if isinstance(actual, dict):
+            actual = actual.get("membership")
+        if not isinstance(actual, list):
+            raise ValueError("--actual-membership must contain an actual membership array")
+    overrides = dict(args.actual_target)
+    if len(overrides) != len(args.actual_target):
+        raise ValueError("Each actual target must be supplied once")
+    observation = prepare_observation(
+        args.checkpoint, args.scope, base=args.base, capture=args.capture,
+        confirm_matches=args.confirm_matches, actual_targets=overrides,
+        actual_membership=actual, actual_save=args.actual_save,
+    )
+    write_json_output(args.output, observation)
+    print(json.dumps(observation, indent=2, sort_keys=True) if args.json else compact_execution_receipt(observation))
+    if not args.json:
+        print(f"Observation: {args.output}")
+
+
+def parse_actual_target(value: str) -> tuple[str, object]:
+    key, separator, raw = value.partition("=")
+    if not separator or not key:
+        raise argparse.ArgumentTypeError("expected TARGET=JSON")
+    try:
+        return key, json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise argparse.ArgumentTypeError("expected TARGET=JSON") from exc
 
 
 def parse_named_point(value: str) -> tuple[str, tuple[int, int]]:
@@ -504,4 +714,4 @@ def format_actions(manifest: dict, section: str) -> str:
 
 
 if __name__ == "__main__":
-    main()
+    run_cli(main)

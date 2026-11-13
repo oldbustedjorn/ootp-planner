@@ -109,13 +109,137 @@ phase reference cannot explain. Do not load the full computer-control API manual
 for a routine run; consult only the required bootstrap or a specific unknown API.
 Do not reread this entrypoint on resume within the same chat.
 
-If a model/tool/approval failure interrupts a run, stop that turn without
-switching controllers. On the next turn, run checkpoint `status` once and resume
-the first incomplete phase. Do not reconstruct the run from conversation
-history, reopen planner pages, or repeat successful calibration and completed
-sections.
+A native helper rejection with `error=native_input_requires_host` and
+`input_sent=false` is a preflight routing error before OOTP input, not a mutation
+failure. Retry only that rejected command once in the host context using
+`tools.exec_command` with `sandbox_permissions: "require_escalated"`. Keep the
+same controller, checkpoint, manifest, and next action. Do not end the run solely
+because this preflight rejection occurred, replay completed actions, or rerun the
+optimizer. `require_escalated` is an execution-tool argument, not a Python option.
+This exception also applies to older AppContainer preflight errors explicitly
+raised by `require_host_input` before activation. It does not apply to actual
+approval rejections, input failures, geometry failures, or errors with uncertain
+side effects.
+
+If a model/tool/approval failure could have interrupted input, or approval was
+rejected, stop that turn without switching controllers. On the next turn, run
+checkpoint `status` once and resume the first incomplete phase. Do not reconstruct
+the run from conversation history, reopen planner pages, or repeat successful
+calibration and completed sections.
+
+## Journaled Rebuild Checkpoints
+
+When `status` includes `Rebuild actions`, use the journaled batch path by default.
+Read the repository's [execution protocol](../../../AUTOMATION_EXECUTION.md) for
+the exact contracts. Continue the existing manifest/checkpoint without regenerating
+the optimizer plan. `needs_baseline` means collect exact active CID/variant
+membership, not that a mismatch exists. Assignment targets are verified later.
+
+`rebuild-execution status` prints compact state/counts and the next family.
+Use `--json-output <next-state.json>` for local machine access to `next_batch`, or
+`--json` only when stdout must be JSON. Do not print full status/checkpoint data
+or reconstruct long shell arrays for routine execution.
+Use `assignment-drag --checkpoint <checkpoint>` for drag families; this compiles
+only remaining actions, journals each locally, and takes one final capture.
+Use `--first-only` once for a calibrated preflight, reconcile it, then run the
+same checkpointed command without that flag for the remainder. Do not use
+`--skip-first` with a checkpoint; completed work is excluded automatically.
+
+For membership and menu families, use `rebuild-execution validate-batch` followed
+by host-context `run-batch` with ordered action-ID-bound `transactions`. Each
+transaction expresses one exact semantic action; the native command journals all
+actions without model/tool or observation calls inside the loop. Keep removals,
+additions, pitching groups, starters, depth, batting order, and pinch families at
+their respective boundaries. Ambiguous duplicate-card choices remain inspected
+single-card work; do not guess a row to batch them.
+
+Observe once after the family and run `rebuild-execution reconcile`. Returned
+inputs remain `unverified`; only observed results become `completed`. On failure,
+the journal retains the returned prefix plus the one interrupted `in_flight`
+action. Stop the batch, observe, and repair only exact discrepancies; never replay
+the group. `needs_verification` means reconcile returned inputs before more input.
+Reuse known membership while only assignments change and no roster reload or
+external membership change occurred; do not rescan all cards after every drag.
+
+Verify the complete section at its read-only verification boundary. If the final
+aggregate observation covers the complete section, reuse that observation for
+`begin`/`reconcile` of the verification action in the same transition call, without
+another capture. Keep local save separate. Per-action `begin`/`run` remains for
+inspected cards, isolated repairs, verification, and local save; do not use a model
+loop of begin-click-observe-reconcile for a stable calibrated family.
+
+## Compact execution data
+
+Keep the existing UI actions, waits, preflights, screenshots, and verification.
+Only the data plumbing changes: `rebuild-execution` and `assignment-drag` print
+compact receipts by default, including exact discrepancies. Full results remain
+available with `--json` or local `--json-output <file>`; add `--json` to existing
+scripts that parse stdout. Do not print full JSON merely to obtain routine counts.
+
+Save inline assignment calibration once with `--save-coordinate-map <coords.json>`
+on the first preflight, then use `--coordinate-map <coords.json>` instead of
+repeating geometry/source/target flags for the remainder. The file must match the
+manifest fingerprint, section, and family; geometry checks and preflight remain
+unchanged. Recalibrate explicitly if the source layout changes.
+
+Use `manage_roster_automation.py observation` to serialize observation data locally
+instead of generating long PowerShell/Python roster arrays. It creates a draft by
+default: a draft is expected data, never evidence, and cannot be reconciled. Only
+after visually comparing every selected field, pass `--confirm-matches` and
+`--capture <viewed.bmp>` to attest the observed matches. A native success receipt,
+an existing screenshot file, or the desired manifest is not verification.
+
+Use `--scope baseline` for the initial membership check, `--scope membership` for
+current membership, `--scope pending` for issued family targets, the section name
+for final section verification, and `--scope save` for save confirmation.
+Assignment/save scopes require `--base <already-reconciled-membership.json>`;
+membership identity is checked against current journal progress. Save with
+`--output <observed.json>`, then invoke the existing `rebuild-execution reconcile`
+in the same shell/tool call when appropriate. Observation generation never
+advances the checkpoint itself.
+
+Use `--actual-target TARGET=JSON`, `--actual-membership <actual-cards.json>`, and
+`--actual-save "actual confirmed name"` for discrepancies; the helper preserves
+them and reconciliation still blocks. Unspecified fields are attested matches,
+so inspect them before confirming. See the repository execution protocol for
+examples. Do not change observation frequency, batching, or gesture timing as part
+of this token-focused data change.
 
 ## Efficient Execution
+
+Run every native input command (`windows_drag` mutations, executing `fast-batch`,
+`assignment-drag`, and journaled `run`) outside the command sandbox in the host
+context (`require_escalated`). The helper rejects AppContainer input before
+activation. Read-only inspection and capture may run inside the sandbox.
+
+
+Use the execution tool's host permission argument on every native input call:
+
+```javascript
+const result = await tools.exec_command({
+  cmd: "./.venv/Scripts/python.exe -m ootp_opt.automation.windows_drag type-text --coordinate-space window --at X,Y --text CID",
+  sandbox_permissions: "require_escalated",
+  justification: "Perform the next authorized OOTP native input in the host context."
+});
+text(result.output);
+```
+
+Do not omit `sandbox_permissions` after a resume. The default command context is
+the sandbox even when OOTP was already opened successfully by the UI controller.
+
+Coordinate spaces must be explicit when transferring screenshot points to native
+input. Full-window screenshot points include the title bar: use native helper
+`--coordinate-space window`. Absolute desktop points use `--coordinate-space screen`.
+The default helper space, native library calls, fast-batch JSON, and assignment-drag
+maps remain client-relative, excluding the title bar. Convert coordinates using
+the observed geometry; do not copy window screenshot points into client maps.
+For screenshot regions, include their offset before using full-window coordinates.
+
+A `text_input_sent` receipt means events were sent, not that the CID field changed.
+Verify the field once during text-entry preflight before applying the filter or
+activating a card. If unchanged, check host execution and coordinate space, then
+perform one corrected text-only preflight. Never apply a stale CID or replay
+membership mutations as a text-entry repair.
 
 Prefer compact structured output over source inspection and screenshots:
 
@@ -151,22 +275,26 @@ the user changes it.
 
 Perform related fixed-geometry actions in a batch. Use one model decision per
 batch or completed section, not per click, card, or drag. Successful native helper
-calls do not require an observation. Capture the smallest useful region for
+calls do not require an intermediate observation. Capture the smallest useful region for
 calibration, aggregate verification, or one exact discrepancy. Never observe
 inside an assignment loop.
 
-For rebuild drag families, use `manage_roster_automation.py assignment-drag` so
-the manifest compiles the exact ordered moves directly from one source and target
-coordinate map. Execute one verified `--first-only` preflight, then the remaining
-moves with `--skip-first 1`; do not create intermediary assignment JSON files.
+For rebuild drag families, use `manage_roster_automation.py assignment-drag`
+with `--checkpoint` for journaled runs, so the manifest and journal compile only
+remaining ordered moves from one source and target coordinate map. Execute one
+verified `--first-only` preflight, then omit that flag for the remainder; do not
+create intermediary assignment JSON files. Legacy commands without a checkpoint
+retain `--skip-first 1` for the remainder.
 Use the manifest-bound JSON `fast-batch` executor only when one section genuinely
 combines different operation types such as filters, confirmations, and clicks.
 Read `references/fast-executor.md` for both contracts and stop rules. Do not use a
 fast path for an ambiguous duplicate-card choice, unknown menu mapping, or a
 targeted repair.
 
-Before OOTP mutation, mark the phase `in_progress`. Checkpoint once per successful
-batch and update completion with `--complete-all` after aggregate verification.
+Journaled execution marks the phase and action intents automatically, then
+requires aggregate reconciliation; do not bypass the ledger with `--complete-all`.
+For legacy checkpoints, mark the phase `in_progress` before mutation and update
+completion with `--complete-all` after aggregate batch verification.
 Use the repair gate only for exact confirmed mismatches:
 
 ```powershell
