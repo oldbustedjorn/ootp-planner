@@ -43,6 +43,11 @@ from ootp_opt.automation.execution_io import (
     save_assignment_coordinates, write_json_output,
 )
 from ootp_opt.automation.observation_io import OBSERVATION_SCOPES, prepare_observation, read_observation
+from ootp_opt.automation.recovery import resume_prompt, status_selection
+from ootp_opt.automation.membership_profile import (
+    create_membership_profile, compile_membership_batch, reuse_membership_calibration,
+    compile_filter_preflight,
+)
 from ootp_opt.automation.run_metrics import (
     METRIC_EVENTS,
     METRIC_STAGES,
@@ -59,7 +64,7 @@ from ootp_opt.automation.ui_plan import (
     compact_ui_plan,
     require_cid_copy_counts,
 )
-from ootp_opt.automation.windows_drag import find_unique_window, require_host_input, run_cli
+from ootp_opt.automation.windows_drag import find_unique_window, require_host_input, run_cli, parse_point
 from ootp_opt.services.saved_plan_build_service import build_saved_plan
 
 
@@ -92,6 +97,14 @@ def parse_args() -> argparse.Namespace:
     status = subparsers.add_parser("status", help="Show checkpoint status.")
     status.add_argument("checkpoint")
     status.add_argument("--json", action="store_true")
+
+    resume = subparsers.add_parser("resume-prompt", help="Generate read-only resume instructions from current checkpoint state")
+    resume.add_argument("checkpoint")
+    resume.add_argument("--output", help="Optional local text file; default prints the prompt")
+    selection = subparsers.add_parser("status-selection", help="Plan corrections from inspected status checkmarks; sends no UI input")
+    selection.add_argument("--observed", required=True,
+                           help="All checked categories: active,reserve,inactive; use none for no checkmarks")
+    selection.add_argument("--desired", choices=("active", "inactive", "all"), required=True)
 
     execution = subparsers.add_parser(
         "rebuild-execution", help="Manage the resumable rebuild action journal."
@@ -223,6 +236,34 @@ def parse_args() -> argparse.Namespace:
     assignment_drag.add_argument("--capture-after", default=None)
     assignment_drag.add_argument("--title", default="Out of the Park Baseball 27")
 
+    membership = subparsers.add_parser(
+        "membership-filter", help="Reuse verified run-local CID/status calibration for journaled sync."
+    )
+    membership.add_argument("checkpoint")
+    profiles = membership.add_mutually_exclusive_group(required=True)
+    profiles.add_argument("--profile", help="Reuse this rebuild's calibrated profile")
+    profiles.add_argument("--save-profile", help="Save a new explicitly verified calibration")
+    membership.add_argument("--reuse-calibration", help="Derive an addition profile from this run's removal controls")
+    membership.add_argument("--screen-status", choices=("active", "inactive", "all"), required=True,
+                            help="Attest current collection-status selection; not auto-detected")
+    membership.add_argument("--client-geometry", type=parse_client_geometry)
+    for control in ("field", "activate", "apply", "confirm"):
+        membership.add_argument(f"--{control}", type=parse_point)
+    membership.add_argument("--open", type=parse_point, action="append", default=[])
+    membership.add_argument("--capture", help="Inspected calibration capture")
+    membership.add_argument("--note", help="Verified view, status categories and CID dialog state")
+    membership.add_argument("--confirm-calibration", action="store_true")
+    membership.add_argument("--confirm-filter-result", action="store_true",
+                            help="Attest the fresh capture shows the intended exact CID/variant after a status change")
+    membership.add_argument("--prepare-only", action="store_true",
+                            help="Open/type/apply the pending CID and capture results without activating a card")
+    membership.add_argument("--first-only", action="store_true")
+    membership.add_argument("--execute", action="store_true")
+    membership.add_argument("--capture-after")
+    membership.add_argument("--title", default="Out of the Park Baseball 27")
+    membership.add_argument("--json", action="store_true")
+    membership.add_argument("--json-output")
+
     phase = subparsers.add_parser("phase", help="Update one checkpoint phase.")
     phase.add_argument("checkpoint")
     phase.add_argument("phase", choices=["plan", "sync", "assign"])
@@ -260,8 +301,28 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    if args.command in ("fast-batch", "assignment-drag") and args.execute:
+    if args.command == "resume-prompt":
+        checkpoint = load_checkpoint(args.checkpoint)
+        require_output_path(args.output, [args.checkpoint, checkpoint["manifest_path"]])
+        prompt = resume_prompt(args.checkpoint)
+        if args.output:
+            destination = Path(args.output)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(prompt, encoding="utf-8")
+            print(f"Resume instructions: {destination}")
+        else:
+            print(prompt, end="")
+        return
+    if args.command == "status-selection":
+        print(json.dumps(status_selection(args.observed, args.desired), separators=(",", ":")))
+        return
+    if args.command in ("fast-batch", "assignment-drag", "membership-filter") and (
+        args.execute or getattr(args, "prepare_only", False)
+    ):
         require_host_input()
+    if args.command == "membership-filter":
+        manage_membership_filter(args)
+        return
     if args.command == "rebuild-execution":
         manage_execution(args)
         return
@@ -471,6 +532,71 @@ def check_service(url: str) -> None:
         f"contract={expected['automation_contract_version']} "
         f"ui_plan={expected['ui_plan_schema_version']}"
     )
+
+
+def manage_membership_filter(args: argparse.Namespace) -> None:
+    checkpoint = load_checkpoint(args.checkpoint)
+    protected = [args.checkpoint, checkpoint["manifest_path"], args.profile, args.reuse_calibration,
+                 args.capture, args.capture_after]
+    require_output_path(args.json_output, [*protected, args.save_profile])
+    require_output_path(args.save_profile, protected)
+    require_output_path(args.capture_after, [args.checkpoint, checkpoint["manifest_path"],
+                                           args.profile, args.save_profile, args.capture, args.json_output])
+    if args.prepare_only:
+        if (not args.profile or args.execute or args.reuse_calibration or args.confirm_filter_result
+                or args.client_geometry or args.open or args.capture or args.note or args.confirm_calibration
+                or any(getattr(args, key) for key in ("field", "activate", "apply", "confirm"))):
+            raise ValueError("--prepare-only requires --profile without mutation or new calibration flags")
+        if not args.capture_after:
+            raise ValueError("--prepare-only requires --capture-after for inspection before activation")
+        profile = json.loads(Path(args.profile).read_text(encoding="utf-8"))
+        for destination in (args.capture_after, args.json_output):
+            require_output_path(destination, [profile.get("evidence", {}).get("capture")])
+        plan, action = compile_filter_preflight(args.checkpoint, profile, screen_status=args.screen_status)
+        hwnd, _ = find_unique_window(args.title)
+        result = execute_fast_batch(hwnd, plan, capture_after=args.capture_after)
+        result.update(kind="membership_filter_preflight", action_id=action["id"], card=action["value"])
+        print_execution_result(result, args)
+        return
+    if args.profile:
+        if (args.confirm_filter_result or args.reuse_calibration or args.client_geometry or args.open or args.capture or args.note or args.confirm_calibration
+                or any(getattr(args, key) for key in ("field", "activate", "apply", "confirm"))):
+            raise ValueError("Use --profile or new calibration flags, not both")
+        profile = json.loads(Path(args.profile).read_text(encoding="utf-8"))
+    elif args.reuse_calibration:
+        if not args.confirm_calibration or not args.note:
+            raise ValueError("Reuse requires --confirm-calibration and --note for unchanged screen and known status")
+        if (args.client_geometry or args.open
+                or any(getattr(args, key) for key in ("field", "activate", "apply", "confirm"))):
+            raise ValueError("Reuse inherits controls; omit new calibration coordinates")
+        source = json.loads(Path(args.reuse_calibration).read_text(encoding="utf-8"))
+        profile = reuse_membership_calibration(
+            args.checkpoint, source, screen_status=args.screen_status, note=args.note,
+            capture=args.capture, confirm_filter_result=args.confirm_filter_result,
+        )
+    else:
+        if not (args.confirm_calibration and args.capture and args.note and args.client_geometry):
+            raise ValueError("New profile requires geometry, --capture, --note and --confirm-calibration")
+        controls = {key: getattr(args, key) for key in ("field", "activate", "apply", "confirm", "open")
+                    if getattr(args, key) is not None}
+        profile = create_membership_profile(
+            args.checkpoint, geometry=args.client_geometry, controls=controls,
+            screen_status=args.screen_status, capture=args.capture, note=args.note,
+        )
+    evidence_capture = profile.get("evidence", {}).get("capture")
+    original_capture = profile.get("evidence", {}).get("original_calibration", {}).get("capture")
+    for destination in (args.save_profile, args.json_output, args.capture_after):
+        require_output_path(destination, [evidence_capture, original_capture])
+    plan = compile_membership_batch(args.checkpoint, profile, screen_status=args.screen_status,
+                                    first_only=args.first_only)
+    if args.execute and not args.capture_after:
+        raise ValueError("--execute requires --capture-after for aggregate verification")
+    if args.save_profile:
+        write_json_output(args.save_profile, profile, protected=protected)
+    result = run_execution_batch(
+        args.checkpoint, plan["manifest_id"], plan, title=args.title, capture_after=args.capture_after,
+    ) if args.execute else plan
+    print_execution_result(result, args)
 
 
 def manage_execution(args: argparse.Namespace) -> None:

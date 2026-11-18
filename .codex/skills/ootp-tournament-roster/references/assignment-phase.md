@@ -1,6 +1,12 @@
 # Assignment Phase
 
-Use this phase after roster membership matches the manifest. Mark `assign`
+Use this phase after roster membership matches the manifest. On resume, trust
+the current checkpoint: completed sync requires no repeated additions or filter
+setup. For a pre-input controller disconnect use the bounded recovery in the skill
+entrypoint once; uncertain input requires observation/reconciliation before any
+new assignment. A usage-limit interruption does not erase completed actions.
+
+ Mark `assign`
 `in_progress` before the first pitching action. Complete the sections strictly in
 this order: `pitching`, `vs_rhp`, `vs_lhp`. Do not leave an incomplete section to
 work on a later one.

@@ -24,7 +24,11 @@ def require_output_path(path: str | Path | None, protected: list[str | Path]) ->
 
 
 def compact_execution_receipt(result: dict, *, checkpoint_path: str | Path | None = None) -> str:
-    if "state" in result:
+    if result.get("kind") == "membership_filter_preflight":
+        card = result["card"]
+        lines = [f"Filter only | CID={card['cid']} variant={card['variant']} | no activation; "
+                 "inspect exact filtered rows before input; checkpoint unchanged"]
+    elif "state" in result:
         lines = [f"{result['state']} | completed={result['completed']}/{result['total']} "
                  f"unverified={len(result.get('unverified', []))} "
                  f"in_flight={result.get('in_flight') or 'none'}"]

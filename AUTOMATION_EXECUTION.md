@@ -13,6 +13,97 @@ verification, no unresolved phase items, and an observed local save confirmation
 
 ## Compact receipts and local data
 
+### Reliability and resume handoffs
+
+`resume-prompt <checkpoint> [--output <file>]` is read-only. It generates a
+current-state handoff instead of copying old remaining-card instructions. The
+resuming controller still reads current status first. Pending/unverified input
+requires reconciliation; completed sync skips membership work; a completed
+checkpoint reports that no resume work remains. It never starts another rebuild.
+
+```powershell
+.\.venv\Scripts\python.exe manage_roster_automation.py resume-prompt <checkpoint>
+.\.venv\Scripts\python.exe manage_roster_automation.py status-selection --observed active,inactive --desired inactive
+```
+
+`status-selection` returns only the necessary checkbox changes from explicitly
+inspected checkmarks. It sends no UI input. Apply one correction pass and inspect;
+if the selection did not stick, freshly remap the affected option for one more
+pass. A readable mixed status is correctable within the turn, not roster drift
+or a reason to request permission. Follow with the existing filter-only preflight.
+Unknown checkmarks, failed bounded correction and actual identity/membership
+discrepancies still require a pause. Keep individually inspected additions after
+filter failures rather than reattempting an unverified multi-card repair.
+
+The roster skill allows one same-session controller rebind for a confirmed
+pre-input/read-only connection failure. A click/drag followed by a failed capture
+has uncertain input: preserve pending journal actions, observe and reconcile,
+and never replay automatically. A failed rebind or actual approval rejection
+still pauses; no second controller or REPL reset is permitted as recovery.
+
+### Membership filter profiles
+
+`membership-filter <checkpoint>` compiles the next unambiguous remove/add prefix
+from the journal using a verified run-local Manage Cards calibration. It reuses
+the existing native filter transactions, timings, per-action journaling and final
+capture. It does not set or detect collection-status checkboxes.
+
+```powershell
+# After inspecting the status/view, CID field/Apply, activation and Proceed:
+.\.venv\Scripts\python.exe manage_roster_automation.py membership-filter <checkpoint> --save-profile <remove.profile.json> --client-geometry LEFT,TOP,WIDTH,HEIGHT --screen-status active --field X,Y --apply X,Y --activate X,Y --confirm X,Y --open X,Y --open X,Y --capture <viewed.bmp> --note "Verified active status, RosterLoad, CID dialog, Proceed; cached status-menu transition points ..." --confirm-calibration --json-output <plan.json>
+.\.venv\Scripts\python.exe manage_roster_automation.py membership-filter <checkpoint> --profile <remove.profile.json> --screen-status active --execute --capture-after <removals.bmp>
+```
+
+Create a separate addition profile with `--screen-status inactive` or `all` and
+no `--confirm`; `all` attests that applicable status categories are selected,
+not that none are selected. Use `--first-only` for an unverified first-item
+preflight, then reconcile and reuse the same profile without it. The compiler
+stops before ambiguous cards and never skips them; handle them individually.
+Removal profiles require active-only results and a Proceed point; additions
+require exactly one owned CID-wide copy, including variants. This preserves
+existing duplicate-card inspection rather than inferring identity from row order.
+
+Profiles record checkpoint/manifest, operation, geometry, controls and the
+inspected calibration capture hash/note. `--screen-status` is a controller
+attestation of current state, not automatic recognition. Cache known status-menu
+transition points in the note and use them once per required transition. CID
+dialog `--open` points must not toggle collection status. Restore/recalibrate
+after any view/status discrepancy, external input, geometry change or controller
+session/resume; files cannot prove unchanged UI state. Baseline/final exact
+membership, required aggregate observations and ambiguity checks remain mandatory.
+Reuse existing suitable captures for serialization, avoid screenshots merely for
+command returns, and keep one aggregate capture for each executed family/prefix.
+
+After a status transition, verify the selected filter and its Customize route.
+Selecting a saved filter does not open its CID editor, and `Filter: None` must
+never be followed by an assumed field entry/activation. Run a filter-only preflight:
+
+```powershell
+.\.venv\Scripts\python.exe manage_roster_automation.py membership-filter <checkpoint> --profile <remove.profile.json> --screen-status all --prepare-only --capture-after <filter-result.bmp>
+```
+
+This opens/types/applies the next pending CID and captures the result without an
+activation/Proceed step or journal mutation. Inspect the exact CID/variant. Wrong
+CID, unfiltered rows, or a failed dialog route require recalibration before input.
+Only after that check may unchanged CID controls be inherited:
+
+```powershell
+.\.venv\Scripts\python.exe manage_roster_automation.py membership-filter <checkpoint> --save-profile <add.profile.json> --reuse-calibration <remove.profile.json> --screen-status all --capture <filter-result.bmp> --confirm-filter-result --note "Exact CID/variant and required status verified; CID route unchanged" --confirm-calibration --first-only --execute --capture-after <first-addition.bmp>
+```
+
+This preserves original control provenance plus the fresh inspected filter result.
+The original capture, including a copy of it, cannot serve as the new result.
+`--confirm-filter-result` is a controller attestation, not automated image recognition.
+It removes the removal confirmation point,
+rejects a different checkpoint or changed/missing source capture, and cannot mark
+membership or actions complete. Reconcile the first-addition result before using
+the profile for the remainder. Creation and execution may share one command.
+Recalibrate on an unexpected layout/state or another controller session; do not
+infer unchanged UI from the inherited file. Keep one suitable representation at
+each required observation boundary rather than returning both full accessibility
+text and a screenshot for each known navigation click. Unknown/ambiguous controls
+still require inspection; baseline/final membership and native waits are unchanged.
+
 When opening the intended existing roster, verify its identity from the visible
 name and tournament rules/context, then bind its actual local name before input:
 

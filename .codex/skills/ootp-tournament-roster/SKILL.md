@@ -11,8 +11,8 @@ window controller at a time.
 ## Controller Lock
 
 Use `mcp__cua_repl` as the only computer-control session for navigation and
-semantic UI interaction. Initialize it once and retain that binding for the
-entire run. Never invoke `node_repl`, `@oai/sky`, another computer-use skill, or a
+semantic UI interaction. Initialize it once and retain that controller session for the
+entire run; replace a stale window binding only through bounded recovery below. Never invoke `node_repl`, `@oai/sky`, another computer-use skill, or a
 second controller after `mcp__cua_repl` has been initialized. Assignment drags
 and fixed-coordinate batches still use the repository's native
 `ootp_opt.automation.windows_drag` helper as specified by the assignment
@@ -88,6 +88,18 @@ screen already left open. Do not repeat setup merely because the request is in a
 new model turn. A missing or invalid checkpoint is the only reason to fall back
 to normal request routing.
 
+For a handoff after interruption or a usage limit, generate instructions from
+the current checkpoint instead of copying an earlier additions/resume prompt:
+
+```powershell
+.\.venv\Scripts\python.exe manage_roster_automation.py resume-prompt <checkpoint>
+```
+
+This is read-only and recognizes completed runs. A generated prompt is a snapshot;
+the resuming controller still reads status first and follows any newer progress.
+Never restart sync when its checkpoint is complete, or treat an old filtered-card
+description as evidence of the current UI.
+
 Run `plan -> sync -> assign` sequentially. Read only the reference for the phase
 being executed:
 
@@ -121,11 +133,29 @@ raised by `require_host_input` before activation. It does not apply to actual
 approval rejections, input failures, geometry failures, or errors with uncertain
 side effects.
 
-If a model/tool/approval failure could have interrupted input, or approval was
-rejected, stop that turn without switching controllers. On the next turn, run
-checkpoint `status` once and resume the first incomplete phase. Do not reconstruct
-the run from conversation history, reopen planner pages, or repeat successful
-calibration and completed sections.
+## Bounded controller recovery
+
+For a controller disconnect, stale window binding, or read-only observation error
+confirmed to have sent no input, make one recovery attempt in this turn using the
+same `mcp__cua_repl` session: obtain the window inventory with `cua.getState()`,
+rebind the unique OOTP window ID with `cua.getApp({windowId: ...})`, and inspect
+the returned current state/capture. Request another screenshot only if needed to
+resolve the current state. Continue the checkpoint's first incomplete action;
+do not end the turn merely because the old binding failed. Rebinding a handle is
+not permission to start another controller, reset the REPL or replay input.
+
+A failed call combining a click/drag with a later screenshot is uncertain input,
+not a pre-input failure. Preserve all in-flight/unverified actions; after any
+read-only reconnection, observe and reconcile their effects before new input.
+Never retry the mutation automatically. If reconnection fails, there is no unique
+window, or the live state cannot be established, checkpoint and pause. Invalidate
+geometry/calibration affected by a window change without replaying completed
+membership or restarting the optimizer.
+
+An actual approval rejection still stops that turn without switching controllers;
+report the rejected action and stated reason. On the next turn, read checkpoint
+status once and continue from current evidence, addressing that reason. Do not
+reconstruct progress from old conversation instructions or restart completed work.
 
 ## Journaled Rebuild Checkpoints
 
@@ -145,7 +175,11 @@ Use `--first-only` once for a calibrated preflight, reconcile it, then run the
 same checkpointed command without that flag for the remainder. Do not use
 `--skip-first` with a checkpoint; completed work is excluded automatically.
 
-For membership and menu families, use `rebuild-execution validate-batch` followed
+For stable membership families, use `membership-filter` with the run-local
+verified status/CID profile in `references/roster-sync-phase.md`. This compiles
+remaining unambiguous journal transactions and reuses calibration. Retain exact
+baseline/final verification and inspected handling for ambiguous cards.
+For other membership and menu families, use `rebuild-execution validate-batch` followed
 by host-context `run-batch` with ordered action-ID-bound `transactions`. Each
 transaction expresses one exact semantic action; the native command journals all
 actions without model/tool or observation calls inside the loop. Keep removals,
@@ -170,7 +204,10 @@ loop of begin-click-observe-reconcile for a stable calibrated family.
 
 ## Compact execution data
 
-Keep the existing UI actions, waits, preflights, screenshots, and verification.
+Keep native waits, preflights and exact verification. For membership navigation,
+reuse suitable observations and known-control mappings as specified in
+`references/roster-sync-phase.md`; do not emit both accessibility text and an
+image for every known click. Other section observations remain unchanged.
 Only the data plumbing changes: `rebuild-execution` and `assignment-drag` print
 compact receipts by default, including exact discrepancies. Full results remain
 available with `--json` or local `--json-output <file>`; add `--json` to existing

@@ -430,6 +430,29 @@ the optimizer objective shared by roster builds and upgrade analysis.
 
 ## Notes for Future Chats
 
+Reliability handoffs use `resume-prompt <checkpoint>` to generate current-state
+instructions (completed runs produce no restart/resume request). Correct readable
+mixed status checkmarks in the same turn with `status-selection` and one bounded
+correction/reinspection; do not stop merely because Active and Inactive are both
+checked. The skill permits one same-session rebind for a confirmed pre-input
+controller error. Uncertain input requires observation/reconciliation before
+more input; failed recovery and actual approval rejections still pause.
+
+Membership sync can use `membership-filter` to compile the next unambiguous
+journal prefix with a run-local verified status/CID calibration profile. Cache
+known status transitions once per operation; keep baseline/final exact membership
+and individual duplicate-card checks. Profile reuse is an explicit controller
+attestation of unchanged UI state, not automatic status detection. Recalibrate
+on session/view/geometry/external changes; native timings are unchanged.
+For the known removal-to-addition status transition, `--reuse-calibration` derives
+an addition profile from verified CID controls without repeating coordinate arrays.
+Status changes require a filter-only `--prepare-only` check and a fresh inspected
+exact-CID/variant capture with `--confirm-filter-result`. Old calibration evidence
+alone is rejected. Filter selection and opening Customize are separate operations;
+never type while the dialog is closed or activate results under `Filter: None`.
+The profile preserves evidence provenance and does not verify actions. At known controls reuse one
+suitable observation instead of repeated full accessibility-plus-image responses.
+
 Rebuilds record the verified existing OOTP save name separately from the planner
 name with `rebuild-execution bind-save-name` (inspected capture and identity note
 required). Save reconciliation compares that exact local name; legacy checkpoints
